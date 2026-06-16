@@ -90,7 +90,7 @@
 
                     <div>
                         <label class="block text-xs font-bold text-gray-400 mb-1">⏰ 영업 시간 수정</label>
-                        <input type="text" id="inputHours" class="w-full p-3 border border-gray-200 rounded-xl text-base font-bold focus:outline-outline-orange-500">
+                        <input type="text" id="inputHours" class="w-full p-3 border border-gray-200 rounded-xl text-base font-bold focus:outline-orange-500">
                     </div>
                 </div>
 
@@ -217,7 +217,7 @@
     </div>
 
     <script>
-        // 🛰️ /api 경로 제거하고 렌더 진짜 통로 직접 매칭 완료
+        // 🛰️ 백엔드 규격 완벽 매칭 주소 세팅
         const API_URL = "https://haru-market-api.onrender.com"; 
         const PASS = "13157"; 
 
@@ -229,20 +229,23 @@
             loadStoreData();
         };
 
+        // 🛠️ 파이썬 1번 기능(/api/init-data) 전용 무결점 연동식 변환
         async function loadStoreData() {
             try {
-                const metaRes = await fetch(`${API_URL}/meta`);
-                if(metaRes.ok) storeMeta = await metaRes.json();
-
-                const fruitRes = await fetch(`${API_URL}/fruits`);
-                if(fruitRes.ok) fruitItems = await fruitRes.json();
-
-                refreshMainDisplay();
+                const res = await fetch(`${API_URL}/api/init-data`);
+                if(res.ok) {
+                    const data = await res.json();
+                    storeMeta = data.meta || {};
+                    fruitItems = data.fruits || [];
+                    refreshMainDisplay();
+                } else {
+                    console.error("초기 데이터 로드 실패 (백엔드 오류)");
+                }
                 if (currentView === 'admin') {
                     renderAdminOrders();
                 }
             } catch (e) {
-                console.error("데이터 로딩 실패:", e);
+                console.error("네트워크 통신 오류:", e);
             }
         }
 
@@ -365,6 +368,7 @@
             }
         }
 
+        // 🛠️ 파이썬 6번 기능 규격에 완벽 수렴 매칭 (쿼리스트링 패스워드 + JSON 상자)
         async function saveAdminSettings() {
             const notice = document.getElementById('inputDailyNotice').value;
             const notice_img = document.getElementById('inputNoticeImgUrl').value;
@@ -372,20 +376,20 @@
             const owner = document.getElementById('inputAccountOwner').value;
             const hours = document.getElementById('inputHours').value;
 
-            const requestData = {
-                password: PASS,
+            // SettingsUpdate 클래스 바디 규격
+            const requestBody = {
                 notice: notice,
-                notice_img: notice_img,
                 account: account,
                 owner: owner,
-                hours: hours
+                hours: hours,
+                notice_img: notice_img
             };
 
             try {
-                const res = await fetch(`${API_URL}/admin/settings`, {
+                const res = await fetch(`${API_URL}/api/admin/settings?password=${PASS}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(requestData)
+                    body: JSON.stringify(requestBody)
                 });
                 if(res.ok) {
                     alert('기본 공지 및 정보 저장 완료! 🍊');
@@ -403,6 +407,7 @@
             form.classList.toggle('hidden');
         }
 
+        // 🛠️ 파이썬 8번 기능 규격 매칭 (FruitCreate 구조 저격)
         async function addNewFruitItem() {
             const name = document.getElementById('newFruitName').value;
             const price = parseInt(document.getElementById('newFruitPrice').value);
@@ -415,7 +420,6 @@
             }
 
             const fruitData = {
-                password: PASS,
                 name: name,
                 price: parseInt(price),
                 stock: parseInt(stock),
@@ -423,7 +427,7 @@
             };
 
             try {
-                const res = await fetch(`${API_URL}/admin/fruits`, {
+                const res = await fetch(`${API_URL}/api/admin/fruits?password=${PASS}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(fruitData)
@@ -444,16 +448,22 @@
             }
         }
 
+        // 🛠️ 파이썬 7번 기능 규격 매칭
         async function updateStock(id) {
             const inputEl = document.getElementById(`stock-input-${id}`);
             const val = parseInt(inputEl.value);
             if(isNaN(val)) return;
 
+            const stockData = {
+                stock: parseInt(val),
+                max_stock: parseInt(val)
+            };
+
             try {
-                const res = await fetch(`${API_URL}/admin/fruits`, {
+                const res = await fetch(`${API_URL}/api/admin/fruits/${id}/stock?password=${PASS}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ password: PASS, fruit_id: parseInt(id), stock: parseInt(val) })
+                    body: JSON.stringify(stockData)
                 });
                 if(res.ok) {
                     alert('재고 수량이 성공적으로 변경되었습니다!');
@@ -464,13 +474,12 @@
             }
         }
 
+        // 🛠️ 파이썬 9번 기능 규격 매칭
         async function deleteFruitItem(id) {
             if(confirm('정말 이 과일 품목을 삭제하시겠습니까?')) {
                 try {
-                    const res = await fetch(`${API_URL}/admin/fruits`, {
-                        method: 'DELETE',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ password: PASS, fruit_id: parseInt(id) })
+                    const res = await fetch(`${API_URL}/api/admin/fruits/${id}?password=${PASS}`, {
+                        method: 'DELETE'
                     });
                     if(res.ok) {
                         alert('품목이 성공적으로 삭제되었습니다.');
@@ -485,7 +494,7 @@
         function openModal(index) {
             const item = fruitItems[index];
             document.getElementById('modalFruitTitle').innerText = item.name;
-            document.getElementById('modalFruitId').value = item.id;
+            document.getElementById('modalFruitId').value = index; // 백엔드가 index 기반으로 받으므로 변경
             document.getElementById('bookingQty').innerText = '1';
             calculateTotalPrice();
             document.getElementById('bookingModal').classList.remove('hidden');
@@ -502,8 +511,8 @@
         }
 
         function calculateTotalPrice() {
-            const id = document.getElementById('modalFruitId').value;
-            const item = fruitItems.find(f => f.id == id);
+            const idx = document.getElementById('modalFruitId').value;
+            const item = fruitItems[idx];
             const qty = parseInt(document.getElementById('bookingQty').innerText);
             document.getElementById('bookingTotalPrice').innerText = (item.price * qty).toLocaleString() + "원";
         }
@@ -513,10 +522,11 @@
             document.getElementById('modalCardBox').classList.toggle('hidden', method === '계좌이체');
         }
 
+        // 🛠️ 파이썬 3번 기능 규격 매칭 (OrderSubmit 구조 저격)
         async function submitOrder() {
             const name = document.getElementById('buyerName').value;
             const phone = document.getElementById('buyerPhone').value;
-            const fruit_id = parseInt(document.getElementById('modalFruitId').value);
+            const fruit_idx = parseInt(document.getElementById('modalFruitId').value);
             const qty = parseInt(document.getElementById('bookingQty').innerText);
             const method = document.querySelector('input[name="payMethod"]:checked').value;
 
@@ -526,10 +536,16 @@
             }
 
             try {
-                const res = await fetch(`${API_URL}/orders`, {
+                const res = await fetch(`${API_URL}/api/orders`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: name, phone: phone, fruit_id: parseInt(fruit_id), qty: parseInt(qty), method: method })
+                    body: JSON.stringify({ 
+                        name: name, 
+                        phone: phone, 
+                        fruit_index: parseInt(fruit_idx), 
+                        qty: parseInt(qty), 
+                        method: method 
+                    })
                 });
 
                 if(res.ok) {
@@ -546,9 +562,10 @@
             }
         }
 
+        // 🛠️ 파이썬 2번 기능 규격 매칭
         async function renderAdminOrders() {
             try {
-                const res = await fetch(`${API_URL}/admin/orders?password=${PASS}`);
+                const res = await fetch(`${API_URL}/api/admin/orders?password=${PASS}`);
                 if(!res.ok) return;
                 const data = await res.json();
 
@@ -558,27 +575,33 @@
 
                 let waitCount = 0, doneCount = 0;
 
-                if(Array.isArray(data)) {
-                    data.forEach(order => {
-                        const cardHtml = `
+                // pending 리스트 출력
+                if(Array.isArray(data.pending)) {
+                    data.pending.forEach(order => {
+                        waitList.innerHTML += `
                             <div class="bg-white p-5 rounded-3xl border border-gray-100 space-y-3 shadow-2xs">
                                 <h4 class="text-lg font-black">${order.name} (${order.phone})</h4>
-                                <p class="text-orange-600 font-bold">📦 수량: ${order.qty}개 | 결제: ${order.method}</p>
+                                <p class="text-orange-600 font-bold">📦 과일: ${order.fruit} | 수량: ${order.qty}개 | 결제: ${order.method}</p>
                                 <p class="text-gray-400 text-xs">주문 상태: <span class="font-bold text-gray-800">${order.status}</span></p>
-                                ${order.status !== '판매완료' ? `
-                                    <div class="flex gap-2 pt-2 border-t border-gray-100">
-                                        <button onclick="updateOrderStatus(${order.id}, '판매완료')" class="flex-1 bg-green-600 text-white py-2 rounded-xl text-xs font-bold hover:bg-green-700 transition">수령 완료</button>
-                                        <button onclick="cancelOrder(${order.id})" class="bg-gray-100 text-gray-500 px-3 py-2 rounded-xl text-xs hover:bg-gray-200 transition">취소</button>
-                                    </div>` : ''}
+                                <div class="flex gap-2 pt-2 border-t border-gray-100">
+                                    <button onclick="updateOrderStatus(${order.id}, '판매완료')" class="flex-1 bg-green-600 text-white py-2 rounded-xl text-xs font-bold hover:bg-green-700 transition">수령 완료</button>
+                                    <button onclick="cancelOrder(${order.id})" class="bg-gray-100 text-gray-500 px-3 py-2 rounded-xl text-xs hover:bg-gray-200 transition">취소</button>
+                                </div>
                             </div>`;
+                        waitCount++;
+                    });
+                }
 
-                        if(order.status === '판매완료') {
-                            doneList.innerHTML += cardHtml;
-                            doneCount++;
-                        } else {
-                            waitList.innerHTML += cardHtml;
-                            waitCount++;
-                        }
+                // completed 리스트 출력
+                if(Array.isArray(data.completed)) {
+                    data.completed.forEach(order => {
+                        doneList.innerHTML += `
+                            <div class="bg-white p-5 rounded-3xl border border-gray-100 space-y-3 shadow-2xs">
+                                <h4 class="text-lg font-black">${order.name} (${order.phone})</h4>
+                                <p class="text-orange-600 font-bold">📦 과일: ${order.fruit} | 수량: ${order.qty}개 | 결제: ${order.method}</p>
+                                <p class="text-gray-400 text-xs">주문 상태: <span class="font-bold text-green-600">${order.status}</span></p>
+                            </div>`;
+                        doneCount++;
                     });
                 }
 
@@ -589,12 +612,11 @@
             }
         }
 
+        // 🛠️ 파이썬 4번 기능 규격 매칭
         async function updateOrderStatus(id, status) {
             try {
-                const res = await fetch(`${API_URL}/admin/orders`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ password: PASS, order_id: parseInt(id), status: status })
+                const res = await fetch(`${API_URL}/api/admin/orders/${id}?status=${status}&password=${PASS}`, {
+                    method: 'PUT'
                 });
                 if(res.ok) {
                     alert('장부 수령 처리 완료! 매출로 누적됩니다 💸');
@@ -605,13 +627,12 @@
             }
         }
 
+        // 🛠️ 파이썬 5번 기능 규격 매칭
         async function cancelOrder(id) {
             if(confirm('이 주문을 취소하고 내역을 취소/삭제하시겠습니까?')) {
                 try {
-                    const res = await fetch(`${API_URL}/admin/orders`, {
-                        method: 'DELETE',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ password: PASS, order_id: parseInt(id) })
+                    const res = await fetch(`${API_URL}/api/admin/orders/${id}?password=${PASS}`, {
+                        method: 'DELETE'
                     });
                     if(res.ok) {
                         alert('주문 취소가 완료되어 재고가 원복되었습니다.');
