@@ -321,44 +321,20 @@
             return globalOrders.filter(o => o.name.trim() === name.trim() && o.phone.trim() === phone.trim()).length;
         }
 
-       function convertToKoreanTime(timeStr) {
-    if (!timeStr) return "시간 정보 없음";
-
-    // 이미 한국시간 문자열이면 그대로 사용
-    if (timeStr.includes("오전") || timeStr.includes("오후")) {
-        return timeStr;
-    }
-
-    try {
-        const parsedDate = new Date(timeStr);
-
-        if (!isNaN(parsedDate.getTime())) {
-            return parsedDate.toLocaleString('ko-KR', {
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: true,
-                timeZone: 'Asia/Seoul'
-            });
+        function convertToKoreanTime(timeStr) {
+            if (!timeStr) return "시간 정보 없음";
+            return timeStr; 
         }
-
-        return timeStr;
-    } catch (e) {
-        return timeStr;
-    }
-}
 
         function getNowKoreanTimeString() {
             const now = new Date();
             const options = {
-                year: 'numeric', month: '2-digit', day: '2-digit',
-                hour: '2-digit', minute: '2-digit', second: '2-digit',
+                year: 'numeric', month: 'numeric', day: 'numeric',
+                hour: 'numeric', minute: 'numeric',
                 hour12: true,
                 timeZone: 'Asia/Seoul'
             };
-            return new Intl.DateTimeFormat('ko-KR', options).format(now);
+            return new Intl.DateTimeFormat('ko-KR', options).format(now).replace(/\s+/g, ' ');
         }
 
         function refreshMainDisplay() {
@@ -401,11 +377,15 @@
                 let badge = isUrgent ? `<span class="bg-red-500 text-white text-[11px] font-black px-2 py-0.5 rounded-md animate-bounce">🔥 품절 임박!</span>` : '';
                 if(item.stock <= 0) badge = `<span class="bg-gray-500 text-white text-[11px] font-black px-2 py-0.5 rounded-md">완판(품절)</span>`;
 
-                let imgTag = item.img ? `<img src="${item.img}" class="w-full h-full object-cover">` : `<div class="text-gray-400 font-bold text-sm bg-gray-100 w-full h-full flex items-center justify-center">📷 과일 사진 준비중</div>`;
+                // 🛠️ [요구사항 1] 사진 주소가 비어있으면 사진 컨테이너 박스 자체를 강제 완전 삭제
+                let imgHtmlContainer = '';
+                if (item.img && item.img.trim() !== "") {
+                    imgHtmlContainer = `<div class="w-full h-48 bg-gray-100 rounded-2xl overflow-hidden flex items-center justify-center"><img src="${item.img}" class="w-full h-full object-cover"></div>`;
+                }
                 
                 userListEl.innerHTML += `
                     <div class="bg-white p-5 rounded-3xl shadow-xs border border-gray-100 space-y-4">
-                        <div class="w-full h-48 bg-gray-100 rounded-2xl overflow-hidden flex items-center justify-center">${imgTag}</div>
+                        ${imgHtmlContainer}
                         <div class="flex justify-between items-center gap-4">
                             <div class="space-y-1 min-w-0 flex-1">
                                 <div class="flex items-center gap-2 flex-wrap">
@@ -460,11 +440,17 @@
             }
         }
 
+        // 🛠️ [요구사항 2] 사장님 모드 진입해서 폼 새로 열 때도 이전 내용 완전히 초기화 청소 완료
         function switchView(view) {
             currentView = view;
             const container = document.getElementById('mainContainer');
             const toggleBtn = document.getElementById('toggleBtn');
             if (view === 'admin') {
+                document.getElementById('newFruitName').value = '';
+                document.getElementById('newFruitPrice').value = '';
+                document.getElementById('newFruitStock').value = '';
+                document.getElementById('newFruitImg').value = '';
+                document.getElementById('fileFruitImg').value = '';
                 document.getElementById('customerView').classList.add('hidden');
                 document.getElementById('adminView').classList.remove('hidden');
                 document.getElementById('adminView').classList.add('flex');
@@ -502,7 +488,18 @@
             } catch(e) { alert('네트워크 서버 연동 실패!'); }
         }
 
-        function toggleAddForm() { document.getElementById('itemAddForm').classList.toggle('hidden'); }
+        // 🛠️ [요구사항 2] 새 품목 추가하기 버튼 클릭해 토글 시킬 때도 이전 입력 찌꺼기 싹 클린 복구
+        function toggleAddForm() { 
+            const form = document.getElementById('itemAddForm');
+            if (form.classList.contains('hidden')) {
+                document.getElementById('newFruitName').value = '';
+                document.getElementById('newFruitPrice').value = '';
+                document.getElementById('newFruitStock').value = '';
+                document.getElementById('newFruitImg').value = '';
+                document.getElementById('fileFruitImg').value = '';
+            }
+            form.classList.toggle('hidden'); 
+        }
 
         async function addNewFruitItem() {
             const name = document.getElementById('newFruitName').value;
@@ -521,6 +518,12 @@
                 });
                 if(res.ok) {
                     alert('추가 완료! 🍓');
+                    // 🛠️ [요구사항 2] 성공 즉시 다음 품목을 위해 전역 인풋 박스 공백 세척
+                    document.getElementById('newFruitName').value = '';
+                    document.getElementById('newFruitPrice').value = '';
+                    document.getElementById('newFruitStock').value = '';
+                    document.getElementById('newFruitImg').value = '';
+                    document.getElementById('fileFruitImg').value = '';
                     toggleAddForm(); loadStoreData();
                 }
             } catch(e) { alert('서버 통신 에러!'); }
@@ -609,13 +612,13 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-    name,
-    phone,
-    fruit_index: fruit_idx,
-    qty,
-    method,
-    time_str: getNowKoreanTimeString()
-})
+                        name,
+                        phone,
+                        fruit_index: fruit_idx,
+                        qty,
+                        method,
+                        time_str: getNowKoreanTimeString()
+                    })
                 });
                 if(res.ok) { alert('🎉 예약 성공!'); closeModal(); loadStoreData(); }
             } catch(e) { alert('예약 서버 통신 실패!'); }
@@ -681,47 +684,33 @@
             } catch(e) { console.error("장부 데이터 수집 에러", e); }
         }
 
-        // 🛠️ [대대적 개편] 이름, 품목, 그리고 '전화번호' 검색 확장 및 엑셀 전변수 '분류 정렬' 탑재 로직
         function filterAndRenderCompletedOrders() {
             const keyword = document.getElementById('searchKeyword').value.trim().toLowerCase();
             const sortOrder = document.getElementById('searchSortOrder').value;
             const doneList = document.getElementById('completedOrderList');
             doneList.innerHTML = '';
 
-            // 1. 검색 필터링 (이름, 품목명에 더해 '전화번호' 변수 정밀 검색 탑재)
             let filtered = rawCompletedOrders.filter(order => {
                 const nameMatch = order.name && order.name.toLowerCase().includes(keyword);
                 const fruitMatch = order.fruit && order.fruit.toLowerCase().includes(keyword);
-                const phoneMatch = order.phone && order.phone.replace(/[^0-9]/g, "").includes(keyword); // 하이픈 유무 상관없이 숫자 매칭
+                const phoneMatch = order.phone && order.phone.replace(/[^0-9]/g, "").includes(keyword); 
                 return nameMatch || fruitMatch || phoneMatch;
             });
 
-            // 2. 엑셀 추출 변수 기반 다기능 분류 정렬 엔진 가동
             filtered.sort((a, b) => {
-                if (sortOrder === 'latest') {
-                    // 수령 완료 정렬 (기본값 최신 수령순)
-                    return b.id - a.id;
-                } else if (sortOrder === 'oldest') {
-                    // 수령 완료 정렬 (과거 수령순)
-                    return a.id - b.id;
-                } else if (sortOrder === 'nameAsc') {
-                    // 고객명 기준 가나다순 분류 정렬
-                    return (a.name || "").localeCompare(b.name || "", 'ko');
-                } else if (sortOrder === 'fruitGroup') {
-                    // 품목명 기준 모아보기 분류 정렬
-                    return (a.fruit || "").localeCompare(b.fruit || "", 'ko');
-                } else if (sortOrder === 'payBank') {
-                    // 결제 방식 분류 (계좌이체 우선 정렬)
+                if (sortOrder === 'latest') return b.id - a.id;
+                else if (sortOrder === 'oldest') return a.id - b.id;
+                else if (sortOrder === 'nameAsc') return (a.name || "").localeCompare(b.name || "", 'ko');
+                else if (sortOrder === 'fruitGroup') return (a.fruit || "").localeCompare(b.fruit || "", 'ko');
+                else if (sortOrder === 'payBank') {
                     if (a.method === '계좌이체' && b.method !== '계좌이체') return -1;
                     if (a.method !== '계좌이체' && b.method === '계좌이체') return 1;
                     return b.id - a.id;
                 } else if (sortOrder === 'payCard') {
-                    // 결제 방식 분류 (현장카드 우선 정렬)
                     if (a.method === '현장카드' && b.method !== '현장카드') return -1;
                     if (a.method !== '현장카드' && b.method === '현장카드') return 1;
                     return b.id - a.id;
                 } else if (sortOrder === 'bookLatest') {
-                    // 예약접수 시간 기준 정렬 (time_str 문자열 비교)
                     return (b.time_str || "").localeCompare(a.time_str || "");
                 }
                 return b.id - a.id;
