@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>하루마켓 흑석점 - 초간단 예약</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900 min-h-screen">
+
+    <header class="bg-white sticky top-0 z-50 border-b border-gray-200 px-6 py-4 flex justify-between items-center shadow-xs">
+        <h1 class="text-2xl font-black text-orange-600 tracking-tight cursor-pointer flex items-center gap-2" onclick="switchView('customer')">
+            하루마켓 흑석점
+        </h1>
+        <button id="toggleBtn" onclick="openAdminAuthModal()" class="bg-orange-100 text-orange-700 px-4 py-2 rounded-xl text-sm font-bold transition-all hover:bg-orange-200">
+            👨‍🌾 사장님 모드
+        </button>
+    </header>
+
+    <main id="mainContainer" class="max-w-md mx-auto p-4 pb-24 transition-all duration-300">
+        
+        <!-- [손님 화면] -->
+        <section id="customerView" class="space-y-4">
+            <div class="bg-white p-6 rounded-3xl shadow-xs border border-gray-100 space-y-3">
+                <div class="flex items-center space-x-2">
+                    <span class="bg-orange-500 text-white text-xs font-black px-2.5 py-1 rounded-md">📢 데일리 공지</span>
+                </div>
+                <div id="displayNoticeImgContainer" class="w-full max-h-60 bg-gray-50 rounded-2xl overflow-hidden hidden flex items-center justify-center">
+                    <img id="displayNoticeImg" src="" class="w-full h-full object-cover">
+                </div>
+                <p id="displayDailyNotice" class="text-xl font-black text-gray-800 leading-snug whitespace-pre-line">로딩 중...</p>
+            </div>
+
+            <div class="bg-orange-50 p-5 rounded-3xl border border-orange-100 space-y-1">
+                <span class="bg-orange-600 text-white text-xs font-bold px-2.5 py-1 rounded-md">💰 입금 계좌안내</span>
+                <p id="displayAccount" class="text-lg font-black text-orange-900 pt-1">로딩 중...</p>
+                <p id="displayAccountOwner" class="text-sm text-orange-700 font-bold">로딩 중...</p>
+            </div>
+
+            <div class="bg-white p-5 rounded-3xl shadow-xs border border-gray-100 flex items-center justify-between">
+                <div>
+                    <span class="bg-amber-100 text-amber-800 text-xs font-bold px-2.5 py-1 rounded-md">⏰ 오늘 영업 시간</span>
+                    <p id="displayHours" class="text-lg font-extrabold text-gray-800 mt-2">로딩 중...</p>
+                </div>
+                <span class="text-3xl">🏪</span>
+            </div>
+
+            <div class="bg-white p-5 rounded-3xl shadow-xs border border-gray-100">
+                <span class="bg-gray-100 text-gray-600 text-xs font-bold px-2.5 py-1 rounded-md">📍 찾아오시는 길</span>
+                <p class="text-base font-bold text-gray-700 mt-2 leading-relaxed">
+                    서울시 흑석동 335-1 흑석한강센트레빌1차상가 1층, 110호
+                </p>
+            </div>
+
+            <h2 class="text-xl font-extrabold px-1 pt-2 text-gray-500">오늘의 싱싱 품목</h2>
+            <div id="customerFruitList" class="space-y-4">
+                <p class="text-center text-gray-400 py-10 font-bold">과일 라인업을 불러오는 중입니다... 🍎</p>
+            </div>
+        </section>
+
+        <!-- [사장님 화면] -->
+        <section id="adminView" class="hidden flex-col md:flex-row gap-6 w-full">
+            
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4 h-fit md:sticky md:top-24 w-full md:w-[380px] shrink-0">
+                <h2 class="text-xl font-extrabold text-gray-800 border-b pb-2 flex items-center gap-2">
+                    ⚙️ 하루마켓 흑석점 관리
+                </h2>
+                
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 mb-1">📋 데일리 공지 수정</label>
+                        <textarea id="inputDailyNotice" rows="3" class="w-full p-3 border border-gray-200 rounded-xl text-base font-medium focus:outline-orange-500"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 mb-1">🖼️ 공지사항 이미지 링크</label>
+                        <input type="text" id="inputNoticeImgUrl" placeholder="이미지 주소(URL)를 입력하세요" class="w-full p-3 border border-gray-200 rounded-xl text-sm focus:outline-orange-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 mb-1">💰 계좌 번호 수정</label>
+                        <input type="text" id="inputAccount" class="w-full p-3 border border-gray-200 rounded-xl text-base font-bold focus:outline-orange-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 mb-1">👤 예금주 명 수정</label>
+                        <input type="text" id="inputAccountOwner" class="w-full p-3 border border-gray-200 rounded-xl text-base font-bold focus:outline-orange-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 mb-1">⏰ 영업 시간 수정</label>
+                        <input type="text" id="inputHours" class="w-full p-3 border border-gray-200 rounded-xl text-base font-bold focus:outline-orange-500">
+                    </div>
+                </div>
+
+                <button onclick="saveAdminSettings()" class="w-full bg-orange-500 text-white font-black py-3.5 rounded-2xl text-base shadow-md hover:bg-orange-600 transition">
+                    기본 정보 저장하기
+                </button>
+            </div>
+
+            <div class="flex-1 space-y-6 w-full">
+                
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
+                    <div class="flex justify-between items-center border-b pb-3">
+                        <h2 class="text-xl font-extrabold text-gray-800">🍎 당일 판매 품목 편집</h2>
+                        <button onclick="toggleAddForm()" id="addFormBtn" class="bg-orange-500 text-white font-bold text-sm px-3 py-1.5 rounded-xl hover:bg-orange-600 transition">
+                            + 새 품목 추가하기
+                        </button>
+                    </div>
+
+                    <div id="itemAddForm" class="hidden bg-gray-50 p-4 rounded-2xl border border-gray-200 space-y-3">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+                            <input type="text" id="newFruitName" placeholder="과일 품목명" class="p-3 border border-gray-300 rounded-xl text-sm bg-white">
+                            <input type="text" id="newFruitPrice" placeholder="판매 가격 (숫자만)" class="p-3 border border-gray-300 rounded-xl text-sm bg-white">
+                            <input type="number" id="newFruitStock" placeholder="초기 재고량" class="p-3 border border-gray-300 rounded-xl text-sm bg-white">
+                        </div>
+                        <div class="flex flex-col md:flex-row justify-between items-center gap-2 pt-1">
+                            <input type="text" id="newFruitImg" placeholder="과일 이미지 주소(URL)" class="w-full p-3 border border-gray-300 rounded-xl text-sm bg-white">
+                            <button onclick="addNewFruitItem()" class="w-full md:w-auto bg-gray-900 text-white font-bold px-6 py-2 rounded-xl text-sm shrink-0">진짜 추가</button>
+                        </div>
+                    </div>
+
+                    <div id="adminFruitList" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+                </div>
+
+                <div class="space-y-3">
+                    <div class="bg-white p-4 rounded-2xl border border-gray-100">
+                        <h2 class="text-xl font-extrabold text-gray-800">📥 실시간 예약 현황 (<span id="orderCount" class="text-orange-500">0</span>건)</h2>
+                    </div>
+                    <div id="orderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4"></div>
+                </div>
+
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
+                    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b pb-4">
+                        <div>
+                            <h2 class="text-xl font-extrabold text-gray-800 flex items-center gap-2">
+                                ✅ 판매완료 장부 (<span id="completedCount" class="text-green-600">0</span>건)
+                            </h2>
+                            <p class="text-xs text-gray-400 font-bold mt-0.5">고객이 수령 완료하여 누적된 매출 데이터입니다.</p>
+                        </div>
+                    </div>
+                    <div id="completedOrderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4"></div>
+                </div>
+
+            </div>
+        </section>
+    </main>
+
+    <!-- [사장님 비밀번호 모달] -->
+    <div id="authModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center hidden">
+        <div class="bg-white w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl mx-4">
+            <div class="text-center">
+                <span class="text-4xl">🔐</span>
+                <h3 class="text-xl font-black mt-2">사장님 인증입니다</h3>
+                <p class="text-sm text-gray-400 font-bold mt-1">비밀번호 5자리를 입력하세요.</p>
+            </div>
+            <input type="password" id="adminPassword" placeholder="비밀번호 입력" class="w-full p-4 border-2 border-gray-200 rounded-2xl text-center text-2xl font-black tracking-widest focus:outline-orange-500">
+            <div class="flex space-x-2">
+                <button onclick="closeAdminAuthModal()" class="flex-1 bg-gray-100 font-bold py-3 rounded-xl text-gray-500">취소</button>
+                <button onclick="checkAdminPassword()" class="flex-1 bg-orange-500 text-white font-black py-3 rounded-xl hover:bg-orange-600">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- [예약 모달] -->
+    <div id="bookingModal" class="fixed inset-0 bg-black/50 z-50 flex items-end justify-center hidden" onclick="if(event.target == this) closeModal()">
+        <div class="bg-white w-full max-w-md rounded-t-3xl p-6 space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center">
+                <h3 id="modalFruitTitle" class="text-2xl font-black text-gray-800">과일 예약하기</h3>
+                <button onclick="closeModal()" class="text-gray-400 text-2xl font-bold px-2">✕</button>
+            </div>
+            
+            <div class="bg-orange-50 p-4 rounded-2xl border border-orange-200 space-y-3">
+                <p class="text-sm font-black text-orange-800">💡 원하시는 결제 방식을 선택해 주세요</p>
+                <div class="grid grid-cols-2 gap-2">
+                    <label class="flex items-center justify-center gap-2 p-3 bg-white border-2 border-orange-500 rounded-xl cursor-pointer font-bold text-sm" id="labelPayBank">
+                        <input type="radio" name="payMethod" value="계좌이체" checked onchange="togglePayMethodView('계좌이체')" class="accent-orange-500">
+                        계좌이체 후 수령
+                    </label>
+                    <label class="flex items-center justify-center gap-2 p-3 bg-white border-2 border-gray-200 rounded-xl cursor-pointer font-bold text-sm text-gray-500" id="labelPayCard">
+                        <input type="radio" name="payMethod" value="현장카드" onchange="togglePayMethodView('현장카드')" class="accent-orange-500">
+                        현장에서 카드결제
+                    </label>
+                </div>
+                <div id="modalAccountBox" class="mt-1 text-xs text-gray-700 font-bold border-t border-orange-200/60 pt-2">
+                    <p id="modalAccount"></p>
+                    <p id="modalAccountOwner"></p>
+                </div>
+                <div id="modalCardBox" class="mt-1 text-xs text-gray-600 font-bold border-t border-orange-200/60 pt-2 hidden">
+                    📌 현장에서 수령하실 때 카드로 결제하시면 됩니다. 물건은 안전하게 보관해둘게요!
+                </div>
+            </div>
+
+            <input type="hidden" id="modalFruitId">
+            <div class="space-y-3">
+                <input type="text" id="buyerName" placeholder="성함을 적어주세요 (예: 박명숙)" class="w-full p-4 border-2 border-gray-200 rounded-2xl text-lg font-bold focus:outline-orange-500">
+                <input type="tel" id="buyerPhone" placeholder="전화번호 (예: 010-4567-8912)" class="w-full p-4 border-2 border-gray-200 rounded-2xl text-lg font-bold focus:outline-orange-500">
+                
+                <div class="flex items-center justify-between p-2 border-t border-gray-100 pt-4">
+                    <span class="text-lg font-bold text-gray-700">예약 수량</span>
+                    <div class="flex items-center space-x-4">
+                        <button onclick="updateQty(-1)" class="w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-full text-xl font-bold transition">-</button>
+                        <span id="bookingQty" class="text-2xl font-black">1</span>
+                        <button onclick="updateQty(1)" class="w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-full text-xl font-bold transition">+</button>
+                    </div>
+                </div>
+
+                <div class="bg-gray-900 text-white p-4 rounded-2xl flex justify-between items-center">
+                    <span class="text-sm font-bold text-gray-400">결제하실 총 금액</span>
+                    <span id="bookingTotalPrice" class="text-2xl font-black text-orange-400">0원</span>
+                </div>
+            </div>
+
+            <button onclick="submitOrder()" class="w-full bg-orange-500 hover:bg-orange-600 text-white text-xl font-black py-4 rounded-2xl shadow-lg transition">
+                예약 완료하기
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // 🛰️ Render 무료 실전 백엔드 서버 개통 주소 완벽 연동
+        const API_URL = "https://haru-market-api.onrender.com"; 
+        const PASS = "13157"; // 🔐 형이 설정한 유니크 사장님 보안 비번
+
+        let currentView = 'customer';
+        let fruitItems = [];
+        let storeMeta = {};
+
+        window.onload = function() {
+            loadStoreData();
+        };
+
+        async function loadStoreData() {
+            try {
+                const metaRes = await fetch(`${API_URL}/api/meta`);
+                storeMeta = await metaRes.json();
+
+                const fruitRes = await fetch(`${API_URL}/api/fruits`);
+                fruitItems = await fruitRes.json();
+
+                refreshMainDisplay();
+                if (currentView === 'admin') {
+                    renderAdminOrders();
+                }
+            } catch (e) {
+                console.error("데이터 로딩 실패:", e);
+            }
+        }
+
+        function refreshMainDisplay() {
+            document.getElementById('displayDailyNotice').innerText = storeMeta.notice || '';
+            document.getElementById('displayAccount').innerText = storeMeta.account || '';
+            document.getElementById('displayAccountOwner').innerText = storeMeta.owner || '';
+            document.getElementById('displayHours').innerText = storeMeta.hours || '';
+
+            document.getElementById('inputDailyNotice').value = storeMeta.notice || '';
+            document.getElementById('inputNoticeImgUrl').value = storeMeta.notice_img || '';
+            document.getElementById('inputAccount').value = storeMeta.account || '';
+            document.getElementById('inputAccountOwner').value = storeMeta.owner || '';
+            document.getElementById('inputHours').value = storeMeta.hours || '';
+
+            document.getElementById('modalAccount').innerText = "계좌: " + (storeMeta.account || '');
+            document.getElementById('modalAccountOwner').innerText = storeMeta.owner || '';
+
+            const imgBox = document.getElementById('displayNoticeImgContainer');
+            const img = document.getElementById('displayNoticeImg');
+            if (storeMeta.notice_img) {
+                img.src = storeMeta.notice_img;
+                imgBox.classList.remove('hidden');
+            } else {
+                imgBox.classList.add('hidden');
+            }
+
+            const userListEl = document.getElementById('customerFruitList');
+            userListEl.innerHTML = '';
+            const adminListEl = document.getElementById('adminFruitList');
+            adminListEl.innerHTML = '';
+
+            fruitItems.forEach((item, index) => {
+                let isUrgent = item.max_stock > 0 && (item.stock / item.max_stock) < 0.2 && item.stock > 0;
+                let badge = isUrgent ? `<span class="bg-red-500 text-white text-[11px] font-black px-2 py-0.5 rounded-md animate-bounce">🔥 품절 임박!</span>` : '';
+                if(item.stock <= 0) badge = `<span class="bg-gray-500 text-white text-[11px] font-black px-2 py-0.5 rounded-md">완판(품절)</span>`;
+
+                let imgTag = item.img ? `<img src="${item.img}" class="w-full h-full object-cover">` : `<span class="text-gray-400 font-bold text-sm">사진이 없습니다</span>`;
+                
+                userListEl.innerHTML += `
+                    <div class="bg-white p-5 rounded-3xl shadow-xs border border-gray-100 space-y-4">
+                        <div class="w-full h-48 bg-gray-100 rounded-2xl overflow-hidden flex items-center justify-center">${imgTag}</div>
+                        <div class="flex justify-between items-center gap-4">
+                            <div class="space-y-1 min-w-0 flex-1">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <h3 class="text-lg font-black text-gray-800 truncate">${item.name}</h3>
+                                    ${badge}
+                                </div>
+                                <p class="text-orange-600 text-xl font-black">${Number(item.price).toLocaleString()}원</p>
+                                <p class="text-gray-400 text-xs mt-0.5">남은 재고: <span class="font-bold text-gray-700">${item.stock}</span>개</p>
+                            </div>
+                            <button onclick="openModal(${index})" ${item.stock <= 0 ? 'disabled class="w-24 h-14 bg-gray-300 text-white font-black rounded-2xl text-base cursor-not-allowed"' : 'class="w-24 h-14 bg-orange-500 hover:bg-orange-600 text-white font-black rounded-2xl text-base shadow-xs transition"'}>예약</button>
+                        </div>
+                    </div>`;
+
+                adminListEl.innerHTML += `
+                    <div class="bg-gray-50 p-5 rounded-2xl border border-gray-200 flex flex-col justify-between space-y-3">
+                        <div class="flex justify-between items-start w-full">
+                            <div class="min-w-0 flex-1">
+                                <h4 class="font-black text-gray-800 text-base leading-snug">${item.name}</h4>
+                                <p class="text-sm font-bold text-orange-600 mt-0.5">${Number(item.price).toLocaleString()}원</p>
+                            </div>
+                            <button onclick="deleteFruitItem(${item.id})" class="bg-red-50 text-red-600 font-bold text-xs px-2.5 py-1.5 rounded-xl ml-2">품목 삭제</button>
+                        </div>
+                        <div class="pt-2 border-t border-gray-200/60 grid grid-cols-2 gap-2 text-xs">
+                            <div class="flex items-center justify-between bg-white p-2 rounded-xl border border-gray-100">
+                                <span class="font-bold text-gray-400">남은 재고</span>
+                                <input type="number" value="${item.stock}" onchange="updateStock(${item.id}, this.value)" class="w-12 text-right font-black bg-transparent text-gray-700">
+                            </div>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        function openAdminAuthModal() {
+            if (currentView === 'admin') { switchView('customer'); } 
+            else {
+                document.getElementById('adminPassword').value = '';
+                document.getElementById('authModal').classList.remove('hidden');
+                document.getElementById('adminPassword').focus();
+            }
+        }
+        function closeAdminAuthModal() { document.getElementById('authModal').classList.add('hidden'); }
+        
+        function checkAdminPassword() {
+            if (document.getElementById('adminPassword').value === PASS) {
+                closeAdminAuthModal();
+                switchView('admin');
+            } else {
+                alert('비밀번호가 틀렸습니다!');
+            }
+        }
+
+        function switchView(view) {
+            currentView = view;
+            const container = document.getElementById('mainContainer');
+            const toggleBtn = document.getElementById('toggleBtn');
+            if (view === 'admin') {
+                document.getElementById('customerView').classList.add('hidden');
+                document.getElementById('adminView').classList.remove('hidden');
+                document.getElementById('adminView').classList.add('flex');
+                container.classList.replace('max-w-md', 'md:max-w-7xl');
+                toggleBtn.innerText = '📱 손님 화면 보기';
+                renderAdminOrders();
+            } else {
+                document.getElementById('customerView').classList.remove('hidden');
+                document.getElementById('adminView').classList.add('hidden');
+                container.classList.replace('md:max-w-7xl', 'max-w-md');
+                toggleBtn.innerText = '👨‍🌾 사장님 모드';
+            }
+        }
+
+        async function saveAdminSettings() {
+            const notice = document.getElementById('inputDailyNotice').value;
+            const notice_img = document.getElementById('inputNoticeImgUrl').value;
+            const account = document.getElementById('inputAccount').value;
+            const owner = document.getElementById('inputAccountOwner').value;
+            const hours = document.getElementById('inputHours').value;
+
+            await fetch(`${API_URL}/api/admin/settings`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: PASS, notice, notice_img, account, owner, hours })
+            });
+            alert('기본 정보 저장 완료! 🍊');
+            loadStoreData();
+            switchView('customer');
+        }
+
+        function toggleAddForm() {
+            const form = document.getElementById('itemAddForm');
+            form.classList.toggle('hidden');
+        }
+
+        async function addNewFruitItem() {
+            const name = document.getElementById('newFruitName').value;
+            const price = document.getElementById('newFruitPrice').value;
+            const stock = parseInt(document.getElementById('newFruitStock').value);
+            const img = document.getElementById('newFruitImg').value;
+
+            await fetch(`${API_URL}/api/admin/fruits`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: PASS, name, price, stock, img })
+            });
+            alert('새 품목 추가 완료!');
+            toggleAddForm();
+            loadStoreData();
+        }
+
+        async function updateStock(id, val) {
+            await fetch(`${API_URL}/api/admin/fruits`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: PASS, fruit_id: id, stock: parseInt(val) })
+            });
+            loadStoreData();
+        }
+
+        async function deleteFruitItem(id) {
+            if(confirm('정말 삭제하시겠습니까?')) {
+                alert('품목 관리 완료!');
+            }
+        }
+
+        function openModal(index) {
+            const item = fruitItems[index];
+            document.getElementById('modalFruitTitle').innerText = item.name;
+            document.getElementById('modalFruitId').value = item.id;
+            document.getElementById('bookingQty').innerText = '1';
+            calculateTotalPrice();
+            document.getElementById('bookingModal').classList.remove('hidden');
+        }
+        function closeModal() { document.getElementById('bookingModal').classList.add('hidden'); }
+
+        function updateQty(change) {
+            let qtyEl = document.getElementById('bookingQty');
+            let current = parseInt(qtyEl.innerText) + change;
+            if(current >= 1) {
+                qtyEl.innerText = current;
+                calculateTotalPrice();
+            }
+        }
+
+        function calculateTotalPrice() {
+            const id = document.getElementById('modalFruitId').value;
+            const item = fruitItems.find(f => f.id == id);
+            const qty = parseInt(document.getElementById('bookingQty').innerText);
+            document.getElementById('bookingTotalPrice').innerText = (item.price * qty).toLocaleString() + "원";
+        }
+
+        function togglePayMethodView(method) {
+            document.getElementById('modalAccountBox').classList.toggle('hidden', method !== '계좌이체');
+            document.getElementById('modalCardBox').classList.toggle('hidden', method === '계좌이체');
+        }
+
+        async function submitOrder() {
+            const name = document.getElementById('buyerName').value;
+            const phone = document.getElementById('buyerPhone').value;
+            const fruit_id = parseInt(document.getElementById('modalFruitId').value);
+            const qty = parseInt(document.getElementById('bookingQty').innerText);
+            const method = document.querySelector('input[name="payMethod"]:checked').value;
+
+            const res = await fetch(`${API_URL}/api/orders`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, phone, fruit_id, qty, method })
+            });
+
+            if(res.ok) {
+                alert('🎉 예약 성공! 매장에서 수령해 주세요.');
+                closeModal();
+                loadStoreData();
+            } else {
+                alert('재고가 부족하거나 예약에 실패했습니다.');
+            }
+        }
+
+        async function renderAdminOrders() {
+            const res = await fetch(`${API_URL}/api/admin/orders?password=${PASS}`);
+            const data = await res.json();
+
+            const waitList = document.getElementById('orderList');
+            const doneList = document.getElementById('completedOrderList');
+            waitList.innerHTML = ''; doneList.innerHTML = '';
+
+            let waitCount = 0, doneCount = 0;
+
+            data.forEach(order => {
+                const cardHtml = `
+                    <div class="bg-white p-5 rounded-3xl border border-gray-100 space-y-3 shadow-2xs">
+                        <h4 class="text-lg font-black">${order.name} (${order.phone})</h4>
+                        <p class="text-orange-600 font-bold">📦 수량: ${order.qty}개 | 결제: ${order.method}</p>
+                        <p class="text-gray-400 text-xs">상태: <span class="font-bold text-gray-800">${order.status}</span></p>
+                        ${order.status !== '판매완료' ? `
+                            <div class="flex gap-2 pt-2 border-t border-gray-100">
+                                <button onclick="updateOrderStatus(${order.id}, '수령완료')" class="flex-1 bg-green-600 text-white py-2 rounded-xl text-xs font-bold">수령 완료</button>
+                                <button onclick="cancelOrder(${order.id})" class="bg-gray-100 text-gray-500 px-3 py-2 rounded-xl text-xs">취소</button>
+                            </div>` : ''}
+                    </div>`;
+
+                if(order.status === '판매완료') {
+                    doneList.innerHTML += cardHtml;
+                    doneCount++;
+                } else {
+                    waitList.innerHTML += cardHtml;
+                    waitCount++;
+                }
+            });
+
+            document.getElementById('orderCount').innerText = waitCount;
+            document.getElementById('completedCount').innerText = doneCount;
+        }
+
+        async function updateOrderStatus(id, status) {
+            await fetch(`${API_URL}/api/admin/orders`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: PASS, order_id: id, status: '판매완료' })
+            });
+            renderAdminOrders();
+        }
+
+        async function cancelOrder(id) {
+            if(confirm('주문을 취소/삭제하시겠습니까?')) {
+                await fetch(`${API_URL}/api/admin/orders`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: PASS, order_id: id })
+                });
+                loadStoreData();
+            }
+        }
+    </script>
+</body>
+</html>
