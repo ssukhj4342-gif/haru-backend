@@ -90,7 +90,7 @@
 
                     <div>
                         <label class="block text-xs font-bold text-gray-400 mb-1">⏰ 영업 시간 수정</label>
-                        <input type="text" id="inputHours" class="w-full p-3 border border-gray-200 rounded-xl text-base font-bold focus:outline-orange-500">
+                        <input type="text" id="inputHours" class="w-full p-3 border border-gray-200 rounded-xl text-base font-bold focus:outline-outline-orange-500">
                     </div>
                 </div>
 
@@ -112,7 +112,7 @@
                     <div id="itemAddForm" class="hidden bg-gray-50 p-4 rounded-2xl border border-gray-200 space-y-3">
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
                             <input type="text" id="newFruitName" placeholder="과일 품목명" class="p-3 border border-gray-300 rounded-xl text-sm bg-white">
-                            <input type="text" id="newFruitPrice" placeholder="판매 가격 (숫자만)" class="p-3 border border-gray-300 rounded-xl text-sm bg-white">
+                            <input type="number" id="newFruitPrice" placeholder="판매 가격 (숫자만)" class="p-3 border border-gray-300 rounded-xl text-sm bg-white">
                             <input type="number" id="newFruitStock" placeholder="초기 재고량" class="p-3 border border-gray-300 rounded-xl text-sm bg-white">
                         </div>
                         <div class="flex flex-col md:flex-row justify-between items-center gap-2 pt-1">
@@ -217,7 +217,7 @@
     </div>
 
     <script>
-        // 🛰️ 진짜 확인된 렌더 백엔드 주소 무결점 하드코딩 매칭
+        // 🛰️ /api 경로 제거하고 렌더 진짜 통로 직접 매칭 완료
         const API_URL = "https://haru-market-api.onrender.com"; 
         const PASS = "13157"; 
 
@@ -231,11 +231,11 @@
 
         async function loadStoreData() {
             try {
-                const metaRes = await fetch(`${API_URL}/api/meta`);
-                storeMeta = await metaRes.json();
+                const metaRes = await fetch(`${API_URL}/meta`);
+                if(metaRes.ok) storeMeta = await metaRes.json();
 
-                const fruitRes = await fetch(`${API_URL}/api/fruits`);
-                fruitItems = await fruitRes.json();
+                const fruitRes = await fetch(`${API_URL}/fruits`);
+                if(fruitRes.ok) fruitItems = await fruitRes.json();
 
                 refreshMainDisplay();
                 if (currentView === 'admin') {
@@ -275,7 +275,7 @@
             const adminListEl = document.getElementById('adminFruitList');
             adminListEl.innerHTML = '';
 
-            if (fruitItems.length === 0) {
+            if (!Array.isArray(fruitItems) || fruitItems.length === 0) {
                 userListEl.innerHTML = `<p class="text-center text-gray-400 py-10 font-bold">오늘 등록된 싱싱 품목이 없습니다. 🍎</p>`;
                 adminListEl.innerHTML = `<p class="text-center text-gray-400 py-4 font-bold">등록된 품목이 없습니다. 새 품목을 추가해 주세요.</p>`;
                 return;
@@ -372,11 +372,20 @@
             const owner = document.getElementById('inputAccountOwner').value;
             const hours = document.getElementById('inputHours').value;
 
+            const requestData = {
+                password: PASS,
+                notice: notice,
+                notice_img: notice_img,
+                account: account,
+                owner: owner,
+                hours: hours
+            };
+
             try {
-                const res = await fetch(`${API_URL}/api/admin/settings`, {
+                const res = await fetch(`${API_URL}/admin/settings`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ password: PASS, notice, notice_img, account, owner, hours })
+                    body: JSON.stringify(requestData)
                 });
                 if(res.ok) {
                     alert('기본 공지 및 정보 저장 완료! 🍊');
@@ -396,7 +405,7 @@
 
         async function addNewFruitItem() {
             const name = document.getElementById('newFruitName').value;
-            const price = parseFloat(document.getElementById('newFruitPrice').value);
+            const price = parseInt(document.getElementById('newFruitPrice').value);
             const stock = parseInt(document.getElementById('newFruitStock').value);
             const img = document.getElementById('newFruitImg').value;
 
@@ -405,11 +414,19 @@
                 return;
             }
 
+            const fruitData = {
+                password: PASS,
+                name: name,
+                price: parseInt(price),
+                stock: parseInt(stock),
+                img: img
+            };
+
             try {
-                const res = await fetch(`${API_URL}/api/admin/fruits`, {
+                const res = await fetch(`${API_URL}/admin/fruits`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ password: PASS, name, price, stock, img })
+                    body: JSON.stringify(fruitData)
                 });
                 if(res.ok) {
                     alert('신상 과일 품목 추가 완료! 🍓');
@@ -433,10 +450,10 @@
             if(isNaN(val)) return;
 
             try {
-                const res = await fetch(`${API_URL}/api/admin/fruits`, {
+                const res = await fetch(`${API_URL}/admin/fruits`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ password: PASS, fruit_id: id, stock: val })
+                    body: JSON.stringify({ password: PASS, fruit_id: parseInt(id), stock: parseInt(val) })
                 });
                 if(res.ok) {
                     alert('재고 수량이 성공적으로 변경되었습니다!');
@@ -450,10 +467,10 @@
         async function deleteFruitItem(id) {
             if(confirm('정말 이 과일 품목을 삭제하시겠습니까?')) {
                 try {
-                    const res = await fetch(`${API_URL}/api/admin/fruits`, {
+                    const res = await fetch(`${API_URL}/admin/fruits`, {
                         method: 'DELETE',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ password: PASS, fruit_id: id })
+                        body: JSON.stringify({ password: PASS, fruit_id: parseInt(id) })
                     });
                     if(res.ok) {
                         alert('품목이 성공적으로 삭제되었습니다.');
@@ -509,10 +526,10 @@
             }
 
             try {
-                const res = await fetch(`${API_URL}/api/orders`, {
+                const res = await fetch(`${API_URL}/orders`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, phone, fruit_id, qty, method })
+                    body: JSON.stringify({ name: name, phone: phone, fruit_id: parseInt(fruit_id), qty: parseInt(qty), method: method })
                 });
 
                 if(res.ok) {
@@ -531,7 +548,7 @@
 
         async function renderAdminOrders() {
             try {
-                const res = await fetch(`${API_URL}/api/admin/orders?password=${PASS}`);
+                const res = await fetch(`${API_URL}/admin/orders?password=${PASS}`);
                 if(!res.ok) return;
                 const data = await res.json();
 
@@ -541,27 +558,29 @@
 
                 let waitCount = 0, doneCount = 0;
 
-                data.forEach(order => {
-                    const cardHtml = `
-                        <div class="bg-white p-5 rounded-3xl border border-gray-100 space-y-3 shadow-2xs">
-                            <h4 class="text-lg font-black">${order.name} (${order.phone})</h4>
-                            <p class="text-orange-600 font-bold">📦 수량: ${order.qty}개 | 결제: ${order.method}</p>
-                            <p class="text-gray-400 text-xs">주문 상태: <span class="font-bold text-gray-800">${order.status}</span></p>
-                            ${order.status !== '판매완료' ? `
-                                <div class="flex gap-2 pt-2 border-t border-gray-100">
-                                    <button onclick="updateOrderStatus(${order.id}, '판매완료')" class="flex-1 bg-green-600 text-white py-2 rounded-xl text-xs font-bold hover:bg-green-700 transition">수령 완료</button>
-                                    <button onclick="cancelOrder(${order.id})" class="bg-gray-100 text-gray-500 px-3 py-2 rounded-xl text-xs hover:bg-gray-200 transition">취소</button>
-                                </div>` : ''}
-                        </div>`;
+                if(Array.isArray(data)) {
+                    data.forEach(order => {
+                        const cardHtml = `
+                            <div class="bg-white p-5 rounded-3xl border border-gray-100 space-y-3 shadow-2xs">
+                                <h4 class="text-lg font-black">${order.name} (${order.phone})</h4>
+                                <p class="text-orange-600 font-bold">📦 수량: ${order.qty}개 | 결제: ${order.method}</p>
+                                <p class="text-gray-400 text-xs">주문 상태: <span class="font-bold text-gray-800">${order.status}</span></p>
+                                ${order.status !== '판매완료' ? `
+                                    <div class="flex gap-2 pt-2 border-t border-gray-100">
+                                        <button onclick="updateOrderStatus(${order.id}, '판매완료')" class="flex-1 bg-green-600 text-white py-2 rounded-xl text-xs font-bold hover:bg-green-700 transition">수령 완료</button>
+                                        <button onclick="cancelOrder(${order.id})" class="bg-gray-100 text-gray-500 px-3 py-2 rounded-xl text-xs hover:bg-gray-200 transition">취소</button>
+                                    </div>` : ''}
+                            </div>`;
 
-                    if(order.status === '판매완료') {
-                        doneList.innerHTML += cardHtml;
-                        doneCount++;
-                    } else {
-                        waitList.innerHTML += cardHtml;
-                        waitCount++;
-                    }
-                });
+                        if(order.status === '판매완료') {
+                            doneList.innerHTML += cardHtml;
+                            doneCount++;
+                        } else {
+                            waitList.innerHTML += cardHtml;
+                            waitCount++;
+                        }
+                    });
+                }
 
                 document.getElementById('orderCount').innerText = waitCount;
                 document.getElementById('completedCount').innerText = doneCount;
@@ -572,10 +591,10 @@
 
         async function updateOrderStatus(id, status) {
             try {
-                const res = await fetch(`${API_URL}/api/admin/orders`, {
+                const res = await fetch(`${API_URL}/admin/orders`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ password: PASS, order_id: id, status: status })
+                    body: JSON.stringify({ password: PASS, order_id: parseInt(id), status: status })
                 });
                 if(res.ok) {
                     alert('장부 수령 처리 완료! 매출로 누적됩니다 💸');
@@ -589,10 +608,10 @@
         async function cancelOrder(id) {
             if(confirm('이 주문을 취소하고 내역을 취소/삭제하시겠습니까?')) {
                 try {
-                    const res = await fetch(`${API_URL}/api/admin/orders`, {
+                    const res = await fetch(`${API_URL}/admin/orders`, {
                         method: 'DELETE',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ password: PASS, order_id: id })
+                        body: JSON.stringify({ password: PASS, order_id: parseInt(id) })
                     });
                     if(res.ok) {
                         alert('주문 취소가 완료되어 재고가 원복되었습니다.');
