@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>하루마켓 흑석점 - 초간단 예약</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- 엑셀 다운로드를 위한 라이브러리 추가 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     </style>
@@ -22,6 +24,7 @@
 
     <main id="mainContainer" class="max-w-md mx-auto p-4 pb-24 transition-all duration-300">
         
+        <!-- [손님 화면] -->
         <section id="customerView" class="space-y-4">
             <div class="bg-white p-6 rounded-3xl shadow-xs border border-gray-100 space-y-3">
                 <div class="flex items-center space-x-2">
@@ -60,6 +63,7 @@
             </div>
         </section>
 
+        <!-- [사장님 화면] -->
         <section id="adminView" class="hidden flex-col md:flex-row gap-6 w-full">
             
             <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4 h-fit md:sticky md:top-24 w-full md:w-[380px] shrink-0">
@@ -74,8 +78,9 @@
                     </div>
 
                     <div>
-                        <label class="block text-xs font-bold text-gray-400 mb-1">🖼️ 공지사항 이미지 링크</label>
-                        <input type="text" id="inputNoticeImgUrl" placeholder="이미지 주소(URL)를 입력하세요" class="w-full p-3 border border-gray-200 rounded-xl text-sm focus:outline-orange-500">
+                        <label class="block text-xs font-bold text-gray-400 mb-1">🖼️ 공지사항 이미지 업로드 (선택)</label>
+                        <input type="file" id="fileNoticeImg" accept="image/*" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100">
+                        <input type="hidden" id="inputNoticeImgUrl">
                     </div>
 
                     <div>
@@ -115,9 +120,13 @@
                             <input type="number" id="newFruitPrice" placeholder="판매 가격 (숫자만)" class="p-3 border border-gray-300 rounded-xl text-sm bg-white">
                             <input type="number" id="newFruitStock" placeholder="초기 재고량" class="p-3 border border-gray-300 rounded-xl text-sm bg-white">
                         </div>
-                        <div class="flex flex-col md:flex-row justify-between items-center gap-2 pt-1">
-                            <input type="text" id="newFruitImg" placeholder="과일 이미지 주소(URL)" class="w-full p-3 border border-gray-300 rounded-xl text-sm bg-white">
-                            <button onclick="addNewFruitItem()" class="w-full md:w-auto bg-gray-900 text-white font-bold px-6 py-2 rounded-xl text-sm shrink-0">진짜 추가</button>
+                        <div class="flex flex-col md:flex-row justify-between items-center gap-4 pt-1">
+                            <div class="flex-1">
+                                <label class="block text-xs font-bold text-gray-400 mb-1">📷 과일 이미지 업로드 (선택)</label>
+                                <input type="file" id="fileFruitImg" accept="image/*" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200">
+                                <input type="hidden" id="newFruitImg">
+                            </div>
+                            <button onclick="addNewFruitItem()" class="w-full md:w-auto bg-gray-900 text-white font-black px-8 py-3.5 rounded-xl text-sm shrink-0 mt-4 md:mt-0">진짜 추가</button>
                         </div>
                     </div>
 
@@ -132,13 +141,17 @@
                 </div>
 
                 <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
-                    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b pb-4">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-4">
                         <div>
                             <h2 class="text-xl font-extrabold text-gray-800 flex items-center gap-2">
                                 ✅ 판매완료 장부 (<span id="completedCount" class="text-green-600">0</span>건)
                             </h2>
                             <p class="text-xs text-gray-400 font-bold mt-0.5">고객이 수령 완료하여 누적된 매출 데이터입니다.</p>
                         </div>
+                        <!-- 엑셀 복구 완료 버튼 -->
+                        <button onclick="downloadExcel()" class="bg-green-600 hover:bg-green-700 text-white font-bold text-xs px-3 py-2 rounded-xl flex items-center gap-1 shadow-xs transition">
+                            📊 매출 엑셀 다운로드
+                        </button>
                     </div>
                     <div id="completedOrderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4"></div>
                 </div>
@@ -147,6 +160,7 @@
         </section>
     </main>
 
+    <!-- [사장님 비밀번호 모달] -->
     <div id="authModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center hidden">
         <div class="bg-white w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl mx-4">
             <div class="text-center">
@@ -162,6 +176,7 @@
         </div>
     </div>
 
+    <!-- [예약 모달] -->
     <div id="bookingModal" class="fixed inset-0 bg-black/50 z-50 flex items-end justify-center hidden" onclick="if(event.target == this) closeModal()">
         <div class="bg-white w-full max-w-md rounded-t-3xl p-6 space-y-4 shadow-2xl">
             <div class="flex justify-between items-center">
@@ -192,8 +207,12 @@
 
             <input type="hidden" id="modalFruitId">
             <div class="space-y-3">
-                <input type="text" id="buyerName" placeholder="성함을 적어주세요 (예: 박명숙)" class="w-full p-4 border-2 border-gray-200 rounded-2xl text-lg font-bold focus:outline-orange-500">
-                <input type="tel" id="buyerPhone" placeholder="전화번호 (예: 010-4567-8912)" class="w-full p-4 border-2 border-gray-200 rounded-2xl text-lg font-bold focus:outline-orange-500">
+                <div class="relative">
+                    <input type="text" id="buyerName" oninput="checkCustomerHistory(this.value)" placeholder="성함을 적어주세요 (예: 박명숙)" class="w-full p-4 border-2 border-gray-200 rounded-2xl text-lg font-bold focus:outline-orange-500">
+                    <span id="buyerHistoryBadge" class="absolute right-4 top-4 bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-md hidden"></span>
+                </div>
+                <!-- 요구사항 1번: 대시(-) 없는 포맷으로 가이드라인 변경 -->
+                <input type="tel" id="buyerPhone" placeholder="전화번호 (예: 01012345678)" class="w-full p-4 border-2 border-gray-200 rounded-2xl text-lg font-bold focus:outline-orange-500">
                 
                 <div class="flex items-center justify-between p-2 border-t border-gray-100 pt-4">
                     <span class="text-lg font-bold text-gray-700">예약 수량</span>
@@ -217,19 +236,44 @@
     </div>
 
     <script>
-        // 🛰️ 백엔드 규격 완벽 매칭 주소 세팅
         const API_URL = "https://haru-market-api.onrender.com"; 
         const PASS = "13157"; 
 
         let currentView = 'customer';
         let fruitItems = [];
         let storeMeta = {};
+        let globalOrders = []; // 단골 조회 및 엑셀 출력을 위한 전역 데이터 저장소
 
         window.onload = function() {
             loadStoreData();
+            setupFileListeners();
         };
 
-        // 🛠️ 파이썬 1번 기능(/api/init-data) 전용 무결점 연동식 변환
+        // 요구사항 2번: 파일을 읽어서 Base64 문자열 데이터로 은닉 변환하는 스크립트 리스너
+        function setupFileListeners() {
+            document.getElementById('fileNoticeImg').addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        document.getElementById('inputNoticeImgUrl').value = event.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            document.getElementById('fileFruitImg').addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        document.getElementById('newFruitImg').value = event.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+
         async function loadStoreData() {
             try {
                 const res = await fetch(`${API_URL}/api/init-data`);
@@ -238,15 +282,38 @@
                     storeMeta = data.meta || {};
                     fruitItems = data.fruits || [];
                     refreshMainDisplay();
-                } else {
-                    console.error("초기 데이터 로드 실패 (백엔드 오류)");
                 }
-                if (currentView === 'admin') {
-                    renderAdminOrders();
+                // 실시간 단골 카운팅을 위해 백그라운드에서 주문 장부 미리 슬쩍 가져오기
+                const orderRes = await fetch(`${API_URL}/api/admin/orders?password=${PASS}`);
+                if(orderRes.ok) {
+                    const oData = await orderRes.json();
+                    globalOrders = [...(oData.pending || []), ...(oData.completed || [])];
                 }
             } catch (e) {
                 console.error("네트워크 통신 오류:", e);
             }
+        }
+
+        // 요구사항 4번: 주문자 이름 실시간 입력 시 단골 이력 뱃지 처리 리스너
+        function checkCustomerHistory(name) {
+            const badge = document.getElementById('buyerHistoryBadge');
+            if(!name.trim() || globalOrders.length === 0) {
+                badge.classList.add('hidden');
+                return;
+            }
+            const count = globalOrders.filter(o => o.name.trim() === name.trim()).length;
+            if(count > 0) {
+                badge.innerText = `👑 단골 ${count}회차`;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        // 요구사항 4번: 이름 기반으로 특정 주문자의 총 누적 주문 건수 계산 함수
+        function getCustomerOrderCount(name) {
+            if(!name || globalOrders.length === 0) return 0;
+            return globalOrders.filter(o => o.name.trim() === name.trim()).length;
         }
 
         function refreshMainDisplay() {
@@ -368,7 +435,6 @@
             }
         }
 
-        // 🛠️ 파이썬 6번 기능 규격에 완벽 수렴 매칭 (쿼리스트링 패스워드 + JSON 상자)
         async function saveAdminSettings() {
             const notice = document.getElementById('inputDailyNotice').value;
             const notice_img = document.getElementById('inputNoticeImgUrl').value;
@@ -376,23 +442,24 @@
             const owner = document.getElementById('inputAccountOwner').value;
             const hours = document.getElementById('inputHours').value;
 
-            // SettingsUpdate 클래스 바디 규격
-            const requestBody = {
+            const requestData = {
+                password: PASS,
                 notice: notice,
+                notice_img: notice_img, // 파일 안 올렸을 시 공백 혹은 기존 Base64 문자열 정상 투하
                 account: account,
                 owner: owner,
-                hours: hours,
-                notice_img: notice_img
+                hours: hours
             };
 
             try {
                 const res = await fetch(`${API_URL}/api/admin/settings?password=${PASS}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(requestBody)
+                    body: JSON.stringify(requestData)
                 });
                 if(res.ok) {
                     alert('기본 공지 및 정보 저장 완료! 🍊');
+                    document.getElementById('fileNoticeImg').value = ''; // 파일 선택 창 초기화
                     loadStoreData();
                 } else {
                     alert('서버 저장 실패. 비밀번호나 서버 상태를 확인하세요.');
@@ -407,7 +474,6 @@
             form.classList.toggle('hidden');
         }
 
-        // 🛠️ 파이썬 8번 기능 규격 매칭 (FruitCreate 구조 저격)
         async function addNewFruitItem() {
             const name = document.getElementById('newFruitName').value;
             const price = parseInt(document.getElementById('newFruitPrice').value);
@@ -423,7 +489,7 @@
                 name: name,
                 price: parseInt(price),
                 stock: parseInt(stock),
-                img: img
+                img: img // 선택사항 처리 완착
             };
 
             try {
@@ -438,6 +504,7 @@
                     document.getElementById('newFruitPrice').value = '';
                     document.getElementById('newFruitStock').value = '';
                     document.getElementById('newFruitImg').value = '';
+                    document.getElementById('fileFruitImg').value = '';
                     toggleAddForm();
                     loadStoreData();
                 } else {
@@ -448,7 +515,6 @@
             }
         }
 
-        // 🛠️ 파이썬 7번 기능 규격 매칭
         async function updateStock(id) {
             const inputEl = document.getElementById(`stock-input-${id}`);
             const val = parseInt(inputEl.value);
@@ -474,7 +540,6 @@
             }
         }
 
-        // 🛠️ 파이썬 9번 기능 규격 매칭
         async function deleteFruitItem(id) {
             if(confirm('정말 이 과일 품목을 삭제하시겠습니까?')) {
                 try {
@@ -494,8 +559,11 @@
         function openModal(index) {
             const item = fruitItems[index];
             document.getElementById('modalFruitTitle').innerText = item.name;
-            document.getElementById('modalFruitId').value = index; // 백엔드가 index 기반으로 받으므로 변경
+            document.getElementById('modalFruitId').value = index;
             document.getElementById('bookingQty').innerText = '1';
+            document.getElementById('buyerName').value = '';
+            document.getElementById('buyerPhone').value = '';
+            document.getElementById('buyerHistoryBadge').classList.add('hidden');
             calculateTotalPrice();
             document.getElementById('bookingModal').classList.remove('hidden');
         }
@@ -522,7 +590,6 @@
             document.getElementById('modalCardBox').classList.toggle('hidden', method === '계좌이체');
         }
 
-        // 🛠️ 파이썬 3번 기능 규격 매칭 (OrderSubmit 구조 저격)
         async function submitOrder() {
             const name = document.getElementById('buyerName').value;
             const phone = document.getElementById('buyerPhone').value;
@@ -550,8 +617,6 @@
 
                 if(res.ok) {
                     alert('🎉 예약 성공! 매장에서 맛있는 과일을 안전하게 보관해둘게요.');
-                    document.getElementById('buyerName').value = '';
-                    document.getElementById('buyerPhone').value = '';
                     closeModal();
                     loadStoreData();
                 } else {
@@ -562,12 +627,14 @@
             }
         }
 
-        // 🛠️ 파이썬 2번 기능 규격 매칭
         async function renderAdminOrders() {
             try {
                 const res = await fetch(`${API_URL}/api/admin/orders?password=${PASS}`);
                 if(!res.ok) return;
                 const data = await res.json();
+
+                // 단골 카운팅 동기화를 위해 전역 배열 최신화
+                globalOrders = [...(data.pending || []), ...(data.completed || [])];
 
                 const waitList = document.getElementById('orderList');
                 const doneList = document.getElementById('completedOrderList');
@@ -575,11 +642,13 @@
 
                 let waitCount = 0, doneCount = 0;
 
-                // pending 리스트 출력
+                // 요구사항 4번: 미완료 장부 렌더링 시 단골 건수 카운트 노출
                 if(Array.isArray(data.pending)) {
                     data.pending.forEach(order => {
+                        const historyCount = getCustomerOrderCount(order.name);
                         waitList.innerHTML += `
-                            <div class="bg-white p-5 rounded-3xl border border-gray-100 space-y-3 shadow-2xs">
+                            <div class="bg-white p-5 rounded-3xl border border-gray-100 space-y-3 shadow-2xs relative">
+                                <span class="absolute right-5 top-5 bg-orange-100 text-orange-700 text-xs font-bold px-2 py-0.5 rounded-md">👑 단골 ${historyCount}회차</span>
                                 <h4 class="text-lg font-black">${order.name} (${order.phone})</h4>
                                 <p class="text-orange-600 font-bold">📦 과일: ${order.fruit} | 수량: ${order.qty}개 | 결제: ${order.method}</p>
                                 <p class="text-gray-400 text-xs">주문 상태: <span class="font-bold text-gray-800">${order.status}</span></p>
@@ -592,11 +661,13 @@
                     });
                 }
 
-                // completed 리스트 출력
+                // 요구사항 4번: 판매완료 장부 렌더링 시 단골 건수 카운트 노출
                 if(Array.isArray(data.completed)) {
                     data.completed.forEach(order => {
+                        const historyCount = getCustomerOrderCount(order.name);
                         doneList.innerHTML += `
-                            <div class="bg-white p-5 rounded-3xl border border-gray-100 space-y-3 shadow-2xs">
+                            <div class="bg-white p-5 rounded-3xl border border-gray-100 space-y-3 shadow-2xs relative">
+                                <span class="absolute right-5 top-5 bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded-md">👑 단골 ${historyCount}회차</span>
                                 <h4 class="text-lg font-black">${order.name} (${order.phone})</h4>
                                 <p class="text-orange-600 font-bold">📦 과일: ${order.fruit} | 수량: ${order.qty}개 | 결제: ${order.method}</p>
                                 <p class="text-gray-400 text-xs">주문 상태: <span class="font-bold text-green-600">${order.status}</span></p>
@@ -612,7 +683,6 @@
             }
         }
 
-        // 🛠️ 파이썬 4번 기능 규격 매칭
         async function updateOrderStatus(id, status) {
             try {
                 const res = await fetch(`${API_URL}/api/admin/orders/${id}?status=${status}&password=${PASS}`, {
@@ -627,7 +697,6 @@
             }
         }
 
-        // 🛠️ 파이썬 5번 기능 규격 매칭
         async function cancelOrder(id) {
             if(confirm('이 주문을 취소하고 내역을 취소/삭제하시겠습니까?')) {
                 try {
@@ -642,6 +711,46 @@
                     alert('주문 취소 실패!');
                 }
             }
+        }
+
+        // 요구사항 3번: 매출 장부를 완벽하게 엑셀(.xlsx) 파일로 파싱 및 출력해 주는 복구 함수
+        function downloadExcel() {
+            if (globalOrders.length === 0) {
+                alert("출력할 장부 데이터가 없습니다!");
+                return;
+            }
+
+            // 완료된 판매 데이터만 필터링하여 정렬
+            const completedData = globalOrders.filter(o => o.status === '판매완료');
+            
+            if (completedData.length === 0) {
+                alert("판매완료된 매출 내역이 아직 없습니다!");
+                return;
+            }
+
+            // 엑셀에 들어갈 이쁜 데이터 배열 빌드
+            const excelRows = completedData.map((order, idx) => ({
+                "연번": idx + 1,
+                "주문 시간": order.time_str || "기록없음",
+                "고객명": order.name,
+                "연락처": order.phone,
+                "판매 품목 내역": order.fruit,
+                "주문 수량": order.qty + "개",
+                "결제 방식": order.method,
+                "상태": order.status
+            }));
+
+            // SheetJS 라이브러리를 이용해 바이너리 엑셀 문서 생성 및 트리거
+            const worksheet = XLSX.utils.json_to_sheet(excelRows);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "매출 장부");
+
+            // 셀 너비 자동 맞춤 세팅
+            const max_len = excelRows.reduce((w, r) => Math.max(w, r["판매 품목 내역"].length), 15);
+            worksheet["!cols"] = [ {wch: 6}, {wch: 22}, {wch: 12}, {wch: 15}, {wch: max_len + 5}, {wch: 10}, {wch: 12}, {wch: 10} ];
+
+            // 파일 내보내기 슛
+            XLSX.writeFile(workbook, `하루마켓_흑석점_매출장부_${new Date().toISOString().slice(0,10)}.xlsx`);
         }
     </script>
 </body>
