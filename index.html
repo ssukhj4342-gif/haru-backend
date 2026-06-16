@@ -23,6 +23,7 @@
 
     <main id="mainContainer" class="max-w-md mx-auto p-4 pb-24 transition-all duration-300">
         
+        <!-- [손님 화면] -->
         <section id="customerView" class="space-y-4">
             <div class="bg-white p-6 rounded-3xl shadow-xs border border-gray-100 space-y-3">
                 <div class="flex items-center space-x-2">
@@ -61,6 +62,7 @@
             </div>
         </section>
 
+        <!-- [사장님 화면] -->
         <section id="adminView" class="hidden flex-col md:flex-row gap-6 w-full">
             
             <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4 h-fit md:sticky md:top-24 w-full md:w-[380px] shrink-0">
@@ -156,6 +158,7 @@
         </section>
     </main>
 
+    <!-- [사장님 비밀번호 모달] -->
     <div id="authModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center hidden">
         <div class="bg-white w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl mx-4">
             <div class="text-center">
@@ -171,6 +174,7 @@
         </div>
     </div>
 
+    <!-- [예약 모달] -->
     <div id="bookingModal" class="fixed inset-0 bg-black/50 z-50 flex items-end justify-center hidden" onclick="if(event.target == this) closeModal()">
         <div class="bg-white w-full max-w-md rounded-t-3xl p-6 space-y-4 shadow-2xl">
             <div class="flex justify-between items-center">
@@ -203,7 +207,7 @@
             <div class="space-y-3">
                 <div class="relative">
                     <input type="text" id="buyerName" oninput="checkCustomerHistory(this.value)" placeholder="성함을 적어주세요 (예: 박명숙)" class="w-full p-4 border-2 border-gray-200 rounded-2xl text-lg font-bold focus:outline-orange-500">
-                    <span id="buyerHistoryBadge" class="absolute right-4 top-4 bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-md hidden"></span>
+                    <span id="buyerHistoryBadge" class="absolute right-4 top-4 text-xs font-black px-2.5 py-1.5 rounded-xl hidden"></span>
                 </div>
                 <input type="tel" id="buyerPhone" placeholder="전화번호 (예: 01012345678)" class="w-full p-4 border-2 border-gray-200 rounded-2xl text-lg font-bold focus:outline-orange-500">
                 
@@ -285,6 +289,32 @@
             }
         }
 
+        // 🎨 대망의 임의 지정 등급별 뱃지 스타일 가공 처리 마법 함수 (형이 말한 횟수별 느낌 완벽 매칭)
+        function getBadgeStyleByCount(count) {
+            if (count === 0 || count === 1) {
+                return {
+                    text: `🌱 최초 주문`,
+                    classes: "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                };
+            } else if (count >= 2 && count <= 5) {
+                return {
+                    text: `✨ ${count}회차`,
+                    classes: "bg-blue-100 text-blue-800 border border-blue-200"
+                };
+            } else if (count >= 6 && count <= 10) {
+                return {
+                    text: `🔥 ${count}회차`,
+                    classes: "bg-purple-100 text-purple-800 border border-purple-200 animate-pulse"
+                };
+            } else {
+                // 11회 이상: 왕 이모티콘 등판 👑
+                return {
+                    text: `👑 ${count}회차`,
+                    classes: "bg-amber-100 text-amber-700 border border-amber-300 font-black ring-2 ring-amber-400"
+                };
+            }
+        }
+
         function checkCustomerHistory(name) {
             const badge = document.getElementById('buyerHistoryBadge');
             if(!name.trim() || globalOrders.length === 0) {
@@ -292,17 +322,47 @@
                 return;
             }
             const count = globalOrders.filter(o => o.name.trim() === name.trim()).length;
-            if(count > 0) {
-                badge.innerText = `👑 단골 ${count}회차`;
-                badge.classList.remove('hidden');
-            } else {
-                badge.classList.add('hidden');
-            }
+            
+            // 실시간 등급 뱃지 스타일 대조 주입
+            const style = getBadgeStyleByCount(count);
+            badge.innerText = style.text;
+            badge.className = `absolute right-4 top-4 text-xs font-black px-2.5 py-1.5 rounded-xl ${style.classes}`;
+            badge.classList.remove('hidden');
         }
 
         function getCustomerOrderCount(name) {
             if(!name || globalOrders.length === 0) return 0;
             return globalOrders.filter(o => o.name.trim() === name.trim()).length;
+        }
+
+        function convertToKoreanTime(timeStr) {
+            if (!timeStr) return "시간 기록 없음";
+            try {
+                if(timeStr.includes("오후") || timeStr.includes("오전")) {
+                    let parts = timeStr.split(" ");
+                    let datePart = parts[0]; 
+                    let ampm = parts[1];
+                    let timePart = parts[2];
+                    let hms = timePart.split(":");
+                    let h = parseInt(hms[0]);
+                    let m = hms[1];
+
+                    if(ampm === "오후" && h < 12) h += 12;
+                    if(ampm === "오전" && h === 12) h = 0;
+
+                    let serverDate = new Date(`${datePart}T${String(h).padStart(2,'0')}:${m}:00Z`);
+                    let krOffset = 9 * 60 * 60 * 1000;
+                    let krDate = new Date(serverDate.getTime() + krOffset);
+
+                    let resAmPm = krDate.getHours() >= 12 ? "오후" : "오전";
+                    let resHour = krDate.getHours() % 12;
+                    resHour = resHour ? resHour : 12;
+                    return `${krDate.getFullYear()}-${String(krDate.getMonth()+1).padStart(2,'0')}-${String(krDate.getDate()).padStart(2,'0')} ${resAmPm} ${String(resHour).padStart(2,'0')}:${String(krDate.getMinutes()).padStart(2,'0')}`;
+                }
+                return timeStr;
+            } catch(e) {
+                return timeStr; 
+            }
         }
 
         function refreshMainDisplay() {
@@ -629,25 +689,26 @@
 
                 let waitCount = 0, doneCount = 0;
 
-                // 📥 실시간 예약 현황 파싱
+                // 📥 실시간 예약 현황 렌더링 (등급 뱃지 동기화 완료)
                 if(Array.isArray(data.pending)) {
                     data.pending.forEach(order => {
                         const historyCount = getCustomerOrderCount(order.name);
+                        const krOrderTime = convertToKoreanTime(order.time_str);
                         
-                        // 기능보완 요구사항: 계좌이체 프로세스 분기 필터링 ([입금확인] 버튼 삽입)
+                        // 🎨 요구사항 반영: 횟수별 뱃지 스타일 가공 바인딩
+                        const badgeStyle = getBadgeStyleByCount(historyCount);
+                        
                         let statusBadgeColor = "bg-amber-100 text-amber-800";
                         if (order.status === "입금완료") statusBadgeColor = "bg-blue-100 text-blue-800";
                         else if (order.status === "카드대기") statusBadgeColor = "bg-purple-100 text-purple-800";
 
                         let actionButtons = "";
                         if (order.method === "계좌이체" && order.status === "입금대기") {
-                            // 입금대기 상태일 땐 입금확인 버튼만 활성화
                             actionButtons = `
                                 <button onclick="triggerUpdateStatus(${order.id}, '입금완료')" class="flex-1 bg-blue-600 text-white py-2 rounded-xl text-xs font-black hover:bg-blue-700 transition">💵 입금확인</button>
                                 <button onclick="cancelOrder(${order.id})" class="bg-gray-100 text-gray-500 px-3 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 transition">취소</button>
                             `;
                         } else {
-                            // 입금완료 상태이거나 카드대기 상태일 때 비로소 [수령 완료] 슛 개통
                             actionButtons = `
                                 <button onclick="triggerCompleteOrder(${order.id})" class="flex-1 bg-green-600 text-white py-2 rounded-xl text-xs font-black hover:bg-green-700 transition">✅ 수령 완료</button>
                                 <button onclick="cancelOrder(${order.id})" class="bg-gray-100 text-gray-500 px-3 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 transition">취소</button>
@@ -656,13 +717,13 @@
 
                         waitList.innerHTML += `
                             <div class="bg-white p-5 rounded-3xl border border-gray-100 space-y-3 shadow-2xs relative">
-                                <span class="absolute right-5 top-5 bg-orange-100 text-orange-700 text-xs font-bold px-2 py-0.5 rounded-md">👑 단골 ${historyCount}회차</span>
+                                <span class="absolute right-5 top-5 text-xs font-black px-2 py-1 rounded-md ${badgeStyle.classes}">${badgeStyle.text}</span>
                                 <h4 class="text-lg font-black">${order.name} (${order.phone})</h4>
                                 <p class="text-orange-600 font-bold">📦 과일: ${order.fruit} | 수량: ${order.qty}개 | 결제: ${order.method}</p>
                                 <div class="flex items-center gap-2">
                                     <span class="text-gray-400 text-xs">상태:</span>
                                     <span class="${statusBadgeColor} text-[11px] font-black px-2 py-0.5 rounded-md">${order.status}</span>
-                                    <span class="text-gray-300 text-xs ml-auto">예약: ${order.time_str || ''}</span>
+                                    <span class="text-gray-400 text-xs ml-auto">예약: ${krOrderTime}</span>
                                 </div>
                                 <div class="flex gap-2 pt-2 border-t border-gray-100">
                                     ${actionButtons}
@@ -672,26 +733,34 @@
                     });
                 }
 
-                // ✅ 판매완료 장부 파싱 (실시간 수령 시간 노출)
+                // ✅ 판매완료 장부 렌더링 (등급 뱃지 동기화 완료)
                 if(Array.isArray(data.completed)) {
                     data.completed.forEach(order => {
                         const historyCount = getCustomerOrderCount(order.name);
+                        const krOrderTime = convertToKoreanTime(order.time_str);
                         
-                        // 만약 수령 시간 데이터가 들어있다면 이쁘게 하단에 출력
+                        // 🎨 요구사항 반영: 완료 장부용 차등 뱃지 바인딩
+                        const badgeStyle = getBadgeStyleByCount(historyCount);
+                        
                         let收령TimeHtml = "";
                         if (order.status_changed_time) {
-                            收령TimeHtml = `<p class="text-green-700 font-extrabold text-xs bg-green-50 p-2 rounded-xl flex items-center gap-1 mt-1">🕒 실제 수령시간: ${order.status_changed_time}</p>`;
+                            收령TimeHtml = `<p class="text-green-700 font-extrabold text-xs bg-green-50 p-2 rounded-xl flex items-center gap-1 mt-1">🕒 수령 시간: ${order.status_changed_time}</p>`;
                         } else {
-                            收령TimeHtml = `<p class="text-gray-400 font-bold text-xs bg-gray-50 p-2 rounded-xl flex items-center gap-1 mt-1">🕒 실제 수령시간: 수령완료 기록 복구됨</p>`;
+                            收령TimeHtml = `<p class="text-gray-400 font-bold text-xs bg-gray-50 p-2 rounded-xl flex items-center gap-1 mt-1">🕒 수령 시간: 수령완료 기록 복구됨</p>`;
                         }
 
                         doneList.innerHTML += `
                             <div class="bg-white p-5 rounded-3xl border border-gray-100 space-y-2 shadow-2xs relative">
-                                <span class="absolute right-5 top-5 bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded-md">👑 단골 ${historyCount}회차</span>
+                                <span class="absolute right-5 top-5 text-xs font-black px-2 py-1 rounded-md ${badgeStyle.classes}">${badgeStyle.text}</span>
                                 <h4 class="text-lg font-black">${order.name} (${order.phone})</h4>
-                                <p class="text-gray-600 font-bold text-sm">📦 과일: ${order.fruit} | 수량: ${order.qty}개 | 결제: ${order.method}</p>
-                                <p class="text-gray-400 text-xs">예약 접수: ${order.time_str || '기록없음'}</p>
+                                <p class="text-orange-600 font-bold text-sm">📦 과일: ${order.fruit} | 수량: ${order.qty}개 | 결제: ${order.method}</p>
+                                <p class="text-gray-400 text-xs">예약 접수: ${krOrderTime}</p>
                                 ${收령TimeHtml}
+                                <div class="pt-2 border-t border-gray-100 text-right">
+                                    <button onclick="deleteCompletedOrder(${order.id})" class="bg-red-50 text-red-600 hover:bg-red-100 font-bold text-xs px-2.5 py-1.5 rounded-xl transition">
+                                        🗑️ 장부에서 삭제
+                                    </button>
+                                </div>
                             </div>`;
                         doneCount++;
                     });
@@ -704,7 +773,6 @@
             }
         }
 
-        // 일반 상태 변경 함수 (입금확인 전용)
         async function triggerUpdateStatus(id, status) {
             try {
                 const res = await fetch(`${API_URL}/api/admin/orders/${id}?status=${status}&password=${PASS}`, {
@@ -719,7 +787,6 @@
             }
         }
 
-        // 요구사항 2번: 수령완료 버튼 누를 때 '실시간 컴퓨터/모바일 시각'을 가로채서 백엔드 규격에 전송 처리
         async function triggerCompleteOrder(id) {
             const now = new Date();
             const ampm = now.getHours() >= 12 ? '오후' : '오전';
@@ -730,14 +797,10 @@
             const timeString = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${ampm} ${String(hour).padStart(2,'0')}:${mm}:${ss}`;
 
             try {
-                // 파이썬 4번 기능인 수령완료 API 주소를 호출하되, 데이터가 온전히 스킹되도록 주입
-                // 기존 백엔드 API 명세가 수령완료 처리를 온전히 받으므로 상태만 '판매완료'로 슛
                 const res = await fetch(`${API_URL}/api/admin/orders/${id}?status=판매완료&password=${PASS}`, {
                     method: 'PUT'
                 });
                 if(res.ok) {
-                    // [근본적 로직 패치]: 백엔드 orders 테이블에 수령시간을 기록하기 위해 로컬스토리지나 임시 캐시 파싱 기법 적용
-                    // 형 백엔드가 status만 받으므로, 화면단 엑셀과 연동 장부에 100% 저장하기 위해 로컬 브라우저 세션 캐시 저장 기법 결합 완착!
                     localStorage.setItem(`delivered_time_${id}`, timeString);
                     alert('🎉 수령 완료 처리 성공! 영수 장부 매출로 안전하게 누적되었습니다.');
                     renderAdminOrders();
@@ -763,7 +826,25 @@
             }
         }
 
-        // 요구사항 3번: 수령 완료 시간까지 완벽하게 추출하여 엑셀 문서로 내보내는 정산 함수
+        async function deleteCompletedOrder(id) {
+            if(confirm('⚠️ 경고! 이 버튼을 누르면 판매완료 장부 및 내역이 영구 삭제되며 매출 합산에서 제외됩니다. 정말로 삭제하시겠습니까?')) {
+                try {
+                    const res = await fetch(`${API_URL}/api/admin/orders/${id}?password=${PASS}`, {
+                        method: 'DELETE'
+                    });
+                    if(res.ok) {
+                        localStorage.removeItem(`delivered_time_${id}`); 
+                        alert('🗑️ 해당 매출 데이터가 장부에서 정상적으로 영구 삭제되었습니다.');
+                        loadStoreData(); 
+                    } else {
+                        alert('장부 삭제 실패 (서버 오류)');
+                    }
+                } catch(e) {
+                    alert('서버 통신 에러로 삭제하지 못했습니다.');
+                }
+            }
+        }
+
         function downloadExcel() {
             if (globalOrders.length === 0) {
                 alert("출력할 장부 데이터가 없습니다!");
@@ -778,21 +859,36 @@
             }
 
             const excelRows = completedData.map((order, idx) => {
-                // 로컬 캐시 스토리지에서 매칭되는 수령 실시간 시간 긁어오기
                 let customTime = localStorage.getItem(`delivered_time_${order.id}`);
                 if(!customTime) {
                     const d = new Date();
-                    customTime = `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()} 오후 내역 복구`;
+                    customTime = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} 오후 내역 복구`;
+                }
+
+                let fruitNameOnly = order.fruit || "과일 품목";
+                let rawPriceNum = 0;
+                
+                try {
+                    if(order.fruit && order.fruit.includes("(")) {
+                        let fruitParts = order.fruit.split("(");
+                        fruitNameOnly = fruitParts[0].trim(); 
+                        
+                        let pricePart = fruitParts[1].replace(/[^0-9]/g, ""); 
+                        rawPriceNum = parseInt(pricePart) || 0;
+                    }
+                } catch(err) {
+                    console.error("금액 가공 실패:", err);
                 }
 
                 return {
                     "연번": idx + 1,
-                    "예약 접수 시간": order.time_str || "기록없음",
-                    "진짜 수령 완료 시간": customTime, // 실시간 수령 시간 데이터 컬럼 매칭 완료!
+                    "예약 접수 시간": convertToKoreanTime(order.time_str), 
+                    "수령 시간": customTime, 
                     "고객명": order.name,
                     "연락처": order.phone,
-                    "판매 품목 내역": order.fruit,
+                    "판매 품목": fruitNameOnly, 
                     "주문 수량": order.qty + "개",
+                    "금액": rawPriceNum, 
                     "결제 방식": order.method,
                     "상태": order.status
                 };
@@ -802,8 +898,7 @@
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "매출 실전 장부");
 
-            const max_len = excelRows.reduce((w, r) => Math.max(w, r["판매 품목 내역"].length), 15);
-            worksheet["!cols"] = [ {wch: 6}, {wch: 22}, {wch: 25}, {wch: 12}, {wch: 15}, {wch: max_len + 5}, {wch: 10}, {wch: 12}, {wch: 10} ];
+            worksheet["!cols"] = [ {wch: 6}, {wch: 22}, {wch: 25}, {wch: 12}, {wch: 15}, {wch: 20}, {wch: 10}, {wch: 12}, {wch: 12}, {wch: 10} ];
 
             XLSX.writeFile(workbook, `하루마켓_흑석점_최종정산장부_${new Date().toISOString().slice(0,10)}.xlsx`);
         }
