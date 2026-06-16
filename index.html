@@ -321,55 +321,34 @@
             return globalOrders.filter(o => o.name.trim() === name.trim() && o.phone.trim() === phone.trim()).length;
         }
 
-        function convertToKoreanTime(timeStr) {
-            if (!timeStr) return "시간 정보 없음";
-            try {
-                if (timeStr.includes("오후") || timeStr.includes("오전")) {
-                    let parts = timeStr.trim().split(/\s+/);
-                    let datePart = parts[0]; 
-                    let ampm = parts[1];
-                    let timePart = parts[2];
-                    
-                    let hms = timePart.split(":");
-                    let h = parseInt(hms[0]);
-                    let m = hms[1];
+       function convertToKoreanTime(timeStr) {
+    if (!timeStr) return "시간 정보 없음";
 
-                    if(ampm === "오후" && h < 12) h += 12;
-                    if(ampm === "오전" && h === 12) h = 0;
-                    
-                    let dateArr = datePart.split("-");
-                    let year = parseInt(dateArr[0]);
-                    let month = parseInt(dateArr[1]) - 1;
-                    let day = parseInt(dateArr[2]);
-                    
-                    let baseUtcDate = new Date(Date.UTC(year, month, day, h, parseInt(m), 0));
-                    let krOffset = 9 * 60 * 60 * 1000;
-                    let targetDate = new Date(baseUtcDate.getTime() + krOffset);
-                    
-                    const options = {
-                        year: 'numeric', month: '2-digit', day: '2-digit',
-                        hour: '2-digit', minute: '2-digit',
-                        hour12: true,
-                        timeZone: 'Asia/Seoul'
-                    };
-                    return new Intl.DateTimeFormat('ko-KR', options).format(targetDate);
-                }
-                
-                let parsedDate = new Date(timeStr);
-                if (!isNaN(parsedDate.getTime())) {
-                    const options = {
-                        year: 'numeric', month: '2-digit', day: '2-digit',
-                        hour: '2-digit', minute: '2-digit',
-                        hour12: true,
-                        timeZone: 'Asia/Seoul'
-                    };
-                    return new Intl.DateTimeFormat('ko-KR', options).format(parsedDate);
-                }
-                return timeStr;
-            } catch(e) {
-                return timeStr; 
-            }
+    // 이미 한국시간 문자열이면 그대로 사용
+    if (timeStr.includes("오전") || timeStr.includes("오후")) {
+        return timeStr;
+    }
+
+    try {
+        const parsedDate = new Date(timeStr);
+
+        if (!isNaN(parsedDate.getTime())) {
+            return parsedDate.toLocaleString('ko-KR', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true,
+                timeZone: 'Asia/Seoul'
+            });
         }
+
+        return timeStr;
+    } catch (e) {
+        return timeStr;
+    }
+}
 
         function getNowKoreanTimeString() {
             const now = new Date();
