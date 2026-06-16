@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from pydantic import BaseModel
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -31,6 +32,7 @@ class OrderSubmit(BaseModel):
     fruit_index: int
     qty: int
     method: str
+    time_str: str
 
 class SettingsUpdate(BaseModel):
     notice: str
@@ -73,29 +75,29 @@ def get_admin_orders(password: str):
 @app.post("/api/orders")
 def submit_order(order: OrderSubmit):
     fruits = supabase.table("fruit_items").select("*").order("id", desc=False).execute().data
+
     if order.fruit_index >= len(fruits):
         raise HTTPException(status_code=400, detail="존재하지 않는 과일입니다.")
-    
+
     target_fruit = fruits[order.fruit_index]
-    
+
     if target_fruit["stock"] < order.qty:
         raise HTTPException(status_code=400, detail="앗! 그새 재고가 부족해졌습니다.")
-    
-    # 실시간 재고 깎기
+
+    # 재고 차감
     new_stock = target_fruit["stock"] - order.qty
-    supabase.table("fruit_items").update({"stock": new_stock}).eq("id", target_fruit["id"]).execute()
-    
-    # 예약 주문 넣은 시간 이쁘게 포맷팅
-    now = datetime.now()
-    time_str = now.strftime("%Y-%m-%d 오후 %I:%M")
-    
+
+    supabase.table("fruit_items").update({
+        "stock": new_stock
+    }).eq("id", target_fruit["id"]).execute()
+
     total_price = target_fruit["price"] * order.qty
     fruit_detail_str = f"{target_fruit['name']} ({total_price:,}원)"
     initial_status = "입금대기" if order.method == "계좌이체" else "카드대기"
-    
-    # DB에 최종 주문 기록 보관
+
+    # 프론트에서 보내준 한국시간 저장
     new_order = {
-        "time_str": time_str,
+        "time_str": order.time_str,
         "name": order.name,
         "phone": order.phone,
         "fruit": fruit_detail_str,
@@ -103,7 +105,9 @@ def submit_order(order: OrderSubmit):
         "method": order.method,
         "status": initial_status
     }
+
     supabase.table("orders").insert(new_order).execute()
+
     return {"status": "success"}
 
 # 4. 사장님이 입금확인/수령완료 버튼 눌렀을 때 주문 상태 업데이트하기

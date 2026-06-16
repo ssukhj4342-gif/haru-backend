@@ -321,23 +321,65 @@
             return globalOrders.filter(o => o.name.trim() === name.trim() && o.phone.trim() === phone.trim()).length;
         }
 
-        // 🛠️ 시간 함수 전면 간소화 (문자열 그대로 노출하되, 새로 생성하는 값만 KST 통일)
         function convertToKoreanTime(timeStr) {
             if (!timeStr) return "시간 정보 없음";
-            return timeStr; // 파이썬이 이미 글자로 준 값 그대로 정직하게 출력
+            try {
+                if (timeStr.includes("오후") || timeStr.includes("오전")) {
+                    let parts = timeStr.trim().split(/\s+/);
+                    let datePart = parts[0]; 
+                    let ampm = parts[1];
+                    let timePart = parts[2];
+                    
+                    let hms = timePart.split(":");
+                    let h = parseInt(hms[0]);
+                    let m = hms[1];
+
+                    if(ampm === "오후" && h < 12) h += 12;
+                    if(ampm === "오전" && h === 12) h = 0;
+                    
+                    let dateArr = datePart.split("-");
+                    let year = parseInt(dateArr[0]);
+                    let month = parseInt(dateArr[1]) - 1;
+                    let day = parseInt(dateArr[2]);
+                    
+                    let baseUtcDate = new Date(Date.UTC(year, month, day, h, parseInt(m), 0));
+                    let krOffset = 9 * 60 * 60 * 1000;
+                    let targetDate = new Date(baseUtcDate.getTime() + krOffset);
+                    
+                    const options = {
+                        year: 'numeric', month: '2-digit', day: '2-digit',
+                        hour: '2-digit', minute: '2-digit',
+                        hour12: true,
+                        timeZone: 'Asia/Seoul'
+                    };
+                    return new Intl.DateTimeFormat('ko-KR', options).format(targetDate);
+                }
+                
+                let parsedDate = new Date(timeStr);
+                if (!isNaN(parsedDate.getTime())) {
+                    const options = {
+                        year: 'numeric', month: '2-digit', day: '2-digit',
+                        hour: '2-digit', minute: '2-digit',
+                        hour12: true,
+                        timeZone: 'Asia/Seoul'
+                    };
+                    return new Intl.DateTimeFormat('ko-KR', options).format(parsedDate);
+                }
+                return timeStr;
+            } catch(e) {
+                return timeStr; 
+            }
         }
 
-        // 한국 현지 실시간 정밀 시각 생성기 (수령용 & 예약 강제 덤프용 공용 엔진)
         function getNowKoreanTimeString() {
             const now = new Date();
             const options = {
-                year: 'numeric', month: 'numeric', day: 'numeric',
-                hour: 'numeric', minute: 'numeric',
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit', second: '2-digit',
                 hour12: true,
                 timeZone: 'Asia/Seoul'
             };
-            // 백엔드가 생성하던 포맷인 "2026. 06. 17. 오후 03:13" 완벽 복사 일치형 변환
-            return new Intl.DateTimeFormat('ko-KR', options).format(now).replace(/\s+/g, ' ');
+            return new Intl.DateTimeFormat('ko-KR', options).format(now);
         }
 
         function refreshMainDisplay() {
@@ -575,7 +617,6 @@
             }
         }
 
-        // 🛠️ [시간 버그 원천 폭파] 예약 진행 시 프론트엔드가 실시간 한국 시각을 아예 통째로 생성해서 꽂아버리기!
         async function submitOrder() {
             const name = document.getElementById('buyerName').value;
             const phone = document.getElementById('buyerPhone').value;
@@ -584,26 +625,20 @@
             const method = document.querySelector('input[name="payMethod"]:checked').value;
 
             if(!name || !phone) { alert('성함과 번호를 적어주세요!'); return; }
-            
-            // 🔥 수령 시간 잘 나오던 방식과 100% 동일한 포맷의 찐 한국 시간 문자열 갈취 생성!
-            const customKoreanBookTime = getNowKoreanTimeString();
-
             try {
                 const res = await fetch(`${API_URL}/api/orders`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    // [대수술 패치]: 백엔드 파이썬의 time_str 필드를 프론트엔드가 생성한 찐 KST 시각으로 강제 덮어씌워 전송!
-                    // 파이썬 FastAPI 특징 상 BaseModel에 정의되지 않은 값은 무시되거나, 백엔드 내부 로직에 주입되므로
-                    // 형의 파이썬 코드 구조 상 장부에 연동되도록 캐시 매칭 로직까지 프론트에 원천 본딩 완료!
-                    body: JSON.stringify({ name, phone, fruit_index: fruit_idx, qty, method })
+                    body: JSON.stringify({
+    name,
+    phone,
+    fruit_index: fruit_idx,
+    qty,
+    method,
+    time_str: getNowKoreanTimeString()
+})
                 });
-                if(res.ok) { 
-                    // 로컬 스토리지에 새 주문 번호 캐시 대비용 임시 시간 낙인 박아두기
-                    localStorage.setItem(`booked_time_fallback_${name}_${phone}`, customKoreanBookTime);
-                    alert('🎉 예약 성공!'); 
-                    closeModal(); 
-                    loadStoreData(); 
-                }
+                if(res.ok) { alert('🎉 예약 성공!'); closeModal(); loadStoreData(); }
             } catch(e) { alert('예약 서버 통신 실패!'); }
         }
 
@@ -623,14 +658,7 @@
                 if(Array.isArray(data.pending)) {
                     data.pending.forEach(order => {
                         const historyCount = getStrictCustomerOrderCount(order.name, order.phone);
-                        
-                        // 🛠️ 시간 완전 일치 동기화 슛!
-                        let krOrderTime = convertToKoreanTime(order.time_str);
-                        let fallbackTime = localStorage.getItem(`booked_time_fallback_${order.name.trim()}_${order.phone.trim()}`);
-                        if (fallbackTime && (order.time_str.includes("새벽") || order.time_str.includes("오전 05"))) {
-                            krOrderTime = fallbackTime; // 미국 오염 시간이 넘어왔을 시 찐 한국 시간으로 덮어쓰기!
-                        }
-
+                        const krOrderTime = convertToKoreanTime(order.time_str);
                         const badgeStyle = getBadgeStyleByCount(historyCount);
                         
                         let statusBadgeColor = "bg-amber-100 text-amber-800";
@@ -658,7 +686,7 @@
                                 <div class="flex items-center gap-2">
                                     <span class="text-gray-400 text-xs">상태:</span>
                                     <span class="${statusBadgeColor} text-[11px] font-black px-2 py-0.5 rounded-md">${order.status}</span>
-                                    <span class="text-gray-400 text-xs ml-auto">예약: ${krOrderTime}</span>
+                                    <span class="text-gray-300 text-xs ml-auto">예약: ${krOrderTime}</span>
                                 </div>
                                 <div class="flex gap-2 pt-2 border-t border-gray-100">
                                     ${actionButtons}
@@ -674,33 +702,47 @@
             } catch(e) { console.error("장부 데이터 수집 에러", e); }
         }
 
+        // 🛠️ [대대적 개편] 이름, 품목, 그리고 '전화번호' 검색 확장 및 엑셀 전변수 '분류 정렬' 탑재 로직
         function filterAndRenderCompletedOrders() {
             const keyword = document.getElementById('searchKeyword').value.trim().toLowerCase();
             const sortOrder = document.getElementById('searchSortOrder').value;
             const doneList = document.getElementById('completedOrderList');
             doneList.innerHTML = '';
 
+            // 1. 검색 필터링 (이름, 품목명에 더해 '전화번호' 변수 정밀 검색 탑재)
             let filtered = rawCompletedOrders.filter(order => {
                 const nameMatch = order.name && order.name.toLowerCase().includes(keyword);
                 const fruitMatch = order.fruit && order.fruit.toLowerCase().includes(keyword);
-                const phoneMatch = order.phone && order.phone.replace(/[^0-9]/g, "").includes(keyword); 
+                const phoneMatch = order.phone && order.phone.replace(/[^0-9]/g, "").includes(keyword); // 하이픈 유무 상관없이 숫자 매칭
                 return nameMatch || fruitMatch || phoneMatch;
             });
 
+            // 2. 엑셀 추출 변수 기반 다기능 분류 정렬 엔진 가동
             filtered.sort((a, b) => {
-                if (sortOrder === 'latest') return b.id - a.id;
-                else if (sortOrder === 'oldest') return a.id - b.id;
-                else if (sortOrder === 'nameAsc') return (a.name || "").localeCompare(b.name || "", 'ko');
-                else if (sortOrder === 'fruitGroup') return (a.fruit || "").localeCompare(b.fruit || "", 'ko');
-                else if (sortOrder === 'payBank') {
+                if (sortOrder === 'latest') {
+                    // 수령 완료 정렬 (기본값 최신 수령순)
+                    return b.id - a.id;
+                } else if (sortOrder === 'oldest') {
+                    // 수령 완료 정렬 (과거 수령순)
+                    return a.id - b.id;
+                } else if (sortOrder === 'nameAsc') {
+                    // 고객명 기준 가나다순 분류 정렬
+                    return (a.name || "").localeCompare(b.name || "", 'ko');
+                } else if (sortOrder === 'fruitGroup') {
+                    // 품목명 기준 모아보기 분류 정렬
+                    return (a.fruit || "").localeCompare(b.fruit || "", 'ko');
+                } else if (sortOrder === 'payBank') {
+                    // 결제 방식 분류 (계좌이체 우선 정렬)
                     if (a.method === '계좌이체' && b.method !== '계좌이체') return -1;
                     if (a.method !== '계좌이체' && b.method === '계좌이체') return 1;
                     return b.id - a.id;
                 } else if (sortOrder === 'payCard') {
+                    // 결제 방식 분류 (현장카드 우선 정렬)
                     if (a.method === '현장카드' && b.method !== '현장카드') return -1;
                     if (a.method !== '현장카드' && b.method === '현장카드') return 1;
                     return b.id - a.id;
                 } else if (sortOrder === 'bookLatest') {
+                    // 예약접수 시간 기준 정렬 (time_str 문자열 비교)
                     return (b.time_str || "").localeCompare(a.time_str || "");
                 }
                 return b.id - a.id;
@@ -715,15 +757,9 @@
 
             filtered.forEach(order => {
                 const historyCount = getStrictCustomerOrderCount(order.name, order.phone);
-                
-                // 🛠️ 시간 동기화 완료 교정 슛
-                let krOrderTime = convertToKoreanTime(order.time_str);
-                let fallbackTime = localStorage.getItem(`booked_time_fallback_${order.name.trim()}_${order.phone.trim()}`);
-                if (fallbackTime && (order.time_str.includes("새벽") || order.time_str.includes("오전 05"))) {
-                    krOrderTime = fallbackTime;
-                }
-
+                const krOrderTime = convertToKoreanTime(order.time_str);
                 const badgeStyle = getBadgeStyleByCount(historyCount);
+                
                 let displayDeliveredTime = order.status_changed_time ? convertToKoreanTime(order.status_changed_time) : (localStorage.getItem(`delivered_time_${order.id}`) || krOrderTime);
 
                 doneList.innerHTML += `
@@ -795,13 +831,7 @@
             if (completedData.length === 0) { alert("판매완료 내역이 없습니다!"); return; }
 
             const excelRows = completedData.map((order, idx) => {
-                let krOrderTime = convertToKoreanTime(order.time_str);
-                let fallbackTime = localStorage.getItem(`booked_time_fallback_${order.name.trim()}_${order.phone.trim()}`);
-                if (fallbackTime && (order.time_str.includes("새벽") || order.time_str.includes("오전 05"))) {
-                    krOrderTime = fallbackTime;
-                }
-
-                let displayDeliveredTime = order.status_changed_time ? convertToKoreanTime(order.status_changed_time) : (localStorage.getItem(`delivered_time_${order.id}`) || krOrderTime);
+                let displayDeliveredTime = order.status_changed_time ? convertToKoreanTime(order.status_changed_time) : (localStorage.getItem(`delivered_time_${order.id}`) || convertToKoreanTime(order.time_str));
                 let fruitNameOnly = order.fruit || "과일 품목";
                 let rawPriceNum = 0;
                 try {
@@ -814,7 +844,7 @@
 
                 return {
                     "연번": idx + 1,
-                    "예약 접수 시간": krOrderTime, 
+                    "예약 접수 시간": convertToKoreanTime(order.time_str), 
                     "수령 시간": displayDeliveredTime, 
                     "고객명": order.name,
                     "연락처": order.phone,
