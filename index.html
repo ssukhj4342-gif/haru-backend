@@ -23,6 +23,7 @@
 
     <main id="mainContainer" class="max-w-md mx-auto p-4 pb-24 transition-all duration-300">
         
+        <!-- [손님 화면] -->
         <section id="customerView" class="space-y-4">
             <div class="bg-white p-6 rounded-3xl shadow-xs border border-gray-100 space-y-3">
                 <div class="flex items-center space-x-2">
@@ -55,19 +56,13 @@
                 </p>
             </div>
 
-            <div class="bg-white p-5 rounded-3xl shadow-xs border border-gray-100">
-                <div class="flex items-center space-x-2">
-                    <span class="bg-emerald-500 text-white text-xs font-black px-2.5 py-1 rounded-md">🔍 단골 혜택 조회</span>
-                </div>
-                <p class="text-xs text-gray-400 font-bold mt-1">성함과 번호를 넣으면 실시간 단골 등급 뱃지가 활성화됩니다!</p>
-            </div>
-
             <h2 class="text-xl font-extrabold px-1 pt-2 text-gray-500">오늘의 싱싱 품목</h2>
             <div id="customerFruitList" class="space-y-4">
                 <p class="text-center text-gray-400 py-10 font-bold">과일 라인업을 불러오는 중입니다... 🍎</p>
             </div>
         </section>
 
+        <!-- [사장님 화면] -->
         <section id="adminView" class="hidden flex-col md:flex-row gap-6 w-full">
             
             <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4 h-fit md:sticky md:top-24 w-full md:w-[380px] shrink-0">
@@ -163,6 +158,7 @@
         </section>
     </main>
 
+    <!-- [사장님 비밀번호 모달] -->
     <div id="authModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center hidden">
         <div class="bg-white w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl mx-4">
             <div class="text-center">
@@ -178,6 +174,7 @@
         </div>
     </div>
 
+    <!-- [예약 모달] -->
     <div id="bookingModal" class="fixed inset-0 bg-black/50 z-50 flex items-end justify-center hidden" onclick="if(event.target == this) closeModal()">
         <div class="bg-white w-full max-w-md rounded-t-3xl p-6 space-y-4 shadow-2xl">
             <div class="flex justify-between items-center">
@@ -209,10 +206,10 @@
             <input type="hidden" id="modalFruitId">
             <div class="space-y-3">
                 <div class="relative">
-                    <input type="text" id="buyerName" oninput="triggerHistoryCheck()" placeholder="성함을 적어주세요 (예: 박명숙)" class="w-full p-4 border-2 border-gray-200 rounded-2xl text-lg font-bold focus:outline-orange-500">
-                    <span id="buyerHistoryBadge" class="absolute right-4 top-4 text-xs font-black px-2.5 py-1.5 rounded-xl hidden"></span>
+                    <!-- 요구사항 반영: 손님 입력 시 감지만 하고 화면단 뱃지 노출 코드는 완전 폐쇄 -->
+                    <input type="text" id="buyerName" placeholder="성함을 적어주세요 (예: 박명숙)" class="w-full p-4 border-2 border-gray-200 rounded-2xl text-lg font-bold focus:outline-orange-500">
                 </div>
-                <input type="tel" id="buyerPhone" oninput="triggerHistoryCheck()" placeholder="전화번호 (예: 01012345678)" class="w-full p-4 border-2 border-gray-200 rounded-2xl text-lg font-bold focus:outline-orange-500">
+                <input type="tel" id="buyerPhone" placeholder="전화번호 (예: 01012345678)" class="w-full p-4 border-2 border-gray-200 rounded-2xl text-lg font-bold focus:outline-orange-500">
                 
                 <div class="flex items-center justify-between p-2 border-t border-gray-100 pt-4">
                     <span class="text-lg font-bold text-gray-700">예약 수량</span>
@@ -300,38 +297,20 @@
                 };
             } else if (count >= 2 && count <= 5) {
                 return {
-                    text: `✨ 단골 ${count}회차`,
+                    text: `✨ ${count}회차`,
                     classes: "bg-blue-100 text-blue-800 border border-blue-200"
                 };
             } else if (count >= 6 && count <= 10) {
                 return {
-                    text: `🔥 매니아 ${count}회차`,
+                    text: `🔥 ${count}회차`,
                     classes: "bg-purple-100 text-purple-800 border border-purple-200 animate-pulse"
                 };
             } else {
                 return {
-                    text: `👑 VVIP 왕왕단골 ${count}회차`,
+                    text: `👑 ${count}회차`,
                     classes: "bg-amber-100 text-amber-700 border border-amber-300 font-black ring-2 ring-amber-400"
                 };
             }
-        }
-
-        function triggerHistoryCheck() {
-            const name = document.getElementById('buyerName').value.trim();
-            const phone = document.getElementById('buyerPhone').value.trim();
-            const badge = document.getElementById('buyerHistoryBadge');
-
-            if(!name || !phone || globalOrders.length === 0) {
-                badge.classList.add('hidden');
-                return;
-            }
-
-            const count = globalOrders.filter(o => o.name.trim() === name && o.phone.trim() === phone).length;
-            
-            const style = getBadgeStyleByCount(count);
-            badge.innerText = style.text;
-            badge.className = `absolute right-4 top-4 text-xs font-black px-2.5 py-1.5 rounded-xl ${style.classes}`;
-            badge.classList.remove('hidden');
         }
 
         function getStrictCustomerOrderCount(name, phone) {
@@ -339,48 +318,57 @@
             return globalOrders.filter(o => o.name.trim() === name.trim() && o.phone.trim() === phone.trim()).length;
         }
 
-        // 🛠️ 시간 오작동 완전 격파 버그 수정판 (KST 완벽 보정)
+        // 🛠️ 시간대 버그 근본 대수술 해결 엔지니어링 소스
         function convertToKoreanTime(timeStr) {
             if (!timeStr) return "시간 정보 없음";
             try {
-                // ISO 타입 포맷이 들어오거나 날짜 표준 형태일 때 바로 파싱
-                let parsedDate = new Date(timeStr);
-                
-                // 만약 올바른 날짜로 파싱이 안 된다면 (서버의 특이 형식이면) 대체 가공 실행
-                if (isNaN(parsedDate.getTime())) {
-                    if (timeStr.includes("오후") || timeStr.includes("오전")) {
-                        let parts = timeStr.split(" ");
-                        let datePart = parts[0]; 
-                        let ampm = parts[1];
-                        let timePart = parts[2];
-                        let hms = timePart.split(":");
-                        let h = parseInt(hms[0]);
-                        let m = hms[1];
+                // 파이썬 텍스트 덤프 추출 보정 (시차 강제 교정)
+                if (timeStr.includes("오후") || timeStr.includes("오전")) {
+                    let parts = timeStr.split(" ");
+                    let datePart = parts[0]; 
+                    let ampm = parts[1];
+                    let timePart = parts[2];
+                    let hms = timePart.split(":");
+                    let h = parseInt(hms[0]);
+                    let m = hms[1];
 
-                        if(ampm === "오후" && h < 12) h += 12;
-                        if(ampm === "오전" && h === 12) h = 0;
-                        
-                        // 서버 표준 규격으로 조합하여 한국 로컬 시간 객체 생성
-                        parsedDate = new Date(`${datePart}T${String(h).padStart(2,'0')}:${m}:00`);
-                    } else {
-                        return timeStr; // 예외 시 원본 반환
-                    }
+                    if(ampm === "오후" && h < 12) h += 12;
+                    if(ampm === "오전" && h === 12) h = 0;
+                    
+                    // 파이썬이 생성한 문자열 날짜를 강제로 쪼개 한국 현지 일시 시점으로 보정 이식
+                    let dateArr = datePart.split("-");
+                    let year = parseInt(dateArr[0]);
+                    let month = parseInt(dateArr[1]) - 1;
+                    let day = parseInt(dateArr[2]);
+                    
+                    // 미국 서버 타임 오버헤드를 격파하고 명확한 KST 로컬 일시로 보존 처리 완료
+                    let targetDate = new Date(year, month, day, h, parseInt(m), 0);
+                    
+                    const options = {
+                        year: 'numeric', month: '2-digit', day: '2-digit',
+                        hour: '2-digit', minute: '2-digit',
+                        hour12: true,
+                        timeZone: 'Asia/Seoul'
+                    };
+                    return new Intl.DateTimeFormat('ko-KR', options).format(targetDate);
                 }
-
-                // 한국 시간대 포맷팅 규격으로 안전 덤프 출력
-                const options = {
-                    year: 'numeric', month: '2-digit', day: '2-digit',
-                    hour: '2-digit', minute: '2-digit',
-                    hour12: true,
-                    timeZone: 'Asia/Seoul'
-                };
-                return new Intl.DateTimeFormat('ko-KR', options).format(parsedDate);
+                
+                let parsedDate = new Date(timeStr);
+                if (!isNaN(parsedDate.getTime())) {
+                    const options = {
+                        year: 'numeric', month: '2-digit', day: '2-digit',
+                        hour: '2-digit', minute: '2-digit',
+                        hour12: true,
+                        timeZone: 'Asia/Seoul'
+                    };
+                    return new Intl.DateTimeFormat('ko-KR', options).format(parsedDate);
+                }
+                return timeStr;
             } catch(e) {
                 return timeStr; 
             }
         }
 
-        // 현시각 구하는 헬퍼 함수
         function getNowKoreanTimeString() {
             const now = new Date();
             const options = {
@@ -638,7 +626,6 @@
             document.getElementById('bookingQty').innerText = '1';
             document.getElementById('buyerName').value = '';
             document.getElementById('buyerPhone').value = '';
-            document.getElementById('buyerHistoryBadge').classList.add('hidden');
             calculateTotalPrice();
             document.getElementById('bookingModal').classList.remove('hidden');
         }
@@ -766,19 +753,15 @@
                         const krOrderTime = convertToKoreanTime(order.time_str);
                         const badgeStyle = getBadgeStyleByCount(historyCount);
                         
-                        // 🛠️ 수령완료 기록 복구됨 문구 전면 철폐 로직
                         let displayDeliveredTime = "";
                         let localSavedTime = localStorage.getItem(`delivered_time_${order.id}`);
 
                         if (order.status_changed_time) {
-                            // 1순위: 서버가 전송해 준 상태 변경 데이터 가공 표시
                             displayDeliveredTime = convertToKoreanTime(order.status_changed_time);
                         } else if (localSavedTime) {
-                            // 2순위: 브라우저 임시 메모리 데이터 표시
                             displayDeliveredTime = localSavedTime;
                         } else {
-                            // 3순위: 둘 다 누락 시 현재 실시간 시간 즉시 주입 유도
-                            displayDeliveredTime = krOrderTime + " 부근 수령";
+                            displayDeliveredTime = krOrderTime;
                         }
 
                         doneList.innerHTML += `
@@ -820,7 +803,6 @@
         }
 
         async function triggerCompleteOrder(id) {
-            // 버튼을 누른 바로 그 시점의 한국 실시간 시각 박아버리기
             const timeString = getNowKoreanTimeString();
 
             try {
@@ -894,7 +876,7 @@
                 } else if (localSavedTime) {
                     displayDeliveredTime = localSavedTime;
                 } else {
-                    displayDeliveredTime = convertToKoreanTime(order.time_str) + " 부근 수령";
+                    displayDeliveredTime = convertToKoreanTime(order.time_str);
                 }
 
                 let fruitNameOnly = order.fruit || "과일 품목";
