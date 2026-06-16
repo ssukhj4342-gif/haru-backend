@@ -23,7 +23,6 @@
 
     <main id="mainContainer" class="max-w-md mx-auto p-4 pb-24 transition-all duration-300">
         
-        <!-- [손님 화면] -->
         <section id="customerView" class="space-y-4">
             <div class="bg-white p-6 rounded-3xl shadow-xs border border-gray-100 space-y-3">
                 <div class="flex items-center space-x-2">
@@ -56,13 +55,19 @@
                 </p>
             </div>
 
+            <div class="bg-white p-5 rounded-3xl shadow-xs border border-gray-100">
+                <div class="flex items-center space-x-2">
+                    <span class="bg-emerald-500 text-white text-xs font-black px-2.5 py-1 rounded-md">🔍 단골 혜택 조회</span>
+                </div>
+                <p class="text-xs text-gray-400 font-bold mt-1">성함과 번호를 넣으면 실시간 단골 등급 뱃지가 활성화됩니다!</p>
+            </div>
+
             <h2 class="text-xl font-extrabold px-1 pt-2 text-gray-500">오늘의 싱싱 품목</h2>
             <div id="customerFruitList" class="space-y-4">
                 <p class="text-center text-gray-400 py-10 font-bold">과일 라인업을 불러오는 중입니다... 🍎</p>
             </div>
         </section>
 
-        <!-- [사장님 화면] -->
         <section id="adminView" class="hidden flex-col md:flex-row gap-6 w-full">
             
             <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4 h-fit md:sticky md:top-24 w-full md:w-[380px] shrink-0">
@@ -158,7 +163,6 @@
         </section>
     </main>
 
-    <!-- [사장님 비밀번호 모달] -->
     <div id="authModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center hidden">
         <div class="bg-white w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl mx-4">
             <div class="text-center">
@@ -174,7 +178,6 @@
         </div>
     </div>
 
-    <!-- [예약 모달] -->
     <div id="bookingModal" class="fixed inset-0 bg-black/50 z-50 flex items-end justify-center hidden" onclick="if(event.target == this) closeModal()">
         <div class="bg-white w-full max-w-md rounded-t-3xl p-6 space-y-4 shadow-2xl">
             <div class="flex justify-between items-center">
@@ -206,10 +209,10 @@
             <input type="hidden" id="modalFruitId">
             <div class="space-y-3">
                 <div class="relative">
-                    <input type="text" id="buyerName" oninput="checkCustomerHistory(this.value)" placeholder="성함을 적어주세요 (예: 박명숙)" class="w-full p-4 border-2 border-gray-200 rounded-2xl text-lg font-bold focus:outline-orange-500">
+                    <input type="text" id="buyerName" oninput="triggerHistoryCheck()" placeholder="성함을 적어주세요 (예: 박명숙)" class="w-full p-4 border-2 border-gray-200 rounded-2xl text-lg font-bold focus:outline-orange-500">
                     <span id="buyerHistoryBadge" class="absolute right-4 top-4 text-xs font-black px-2.5 py-1.5 rounded-xl hidden"></span>
                 </div>
-                <input type="tel" id="buyerPhone" placeholder="전화번호 (예: 01012345678)" class="w-full p-4 border-2 border-gray-200 rounded-2xl text-lg font-bold focus:outline-orange-500">
+                <input type="tel" id="buyerPhone" oninput="triggerHistoryCheck()" placeholder="전화번호 (예: 01012345678)" class="w-full p-4 border-2 border-gray-200 rounded-2xl text-lg font-bold focus:outline-orange-500">
                 
                 <div class="flex items-center justify-between p-2 border-t border-gray-100 pt-4">
                     <span class="text-lg font-bold text-gray-700">예약 수량</span>
@@ -289,7 +292,6 @@
             }
         }
 
-        // 🎨 대망의 임의 지정 등급별 뱃지 스타일 가공 처리 마법 함수 (형이 말한 횟수별 느낌 완벽 매칭)
         function getBadgeStyleByCount(count) {
             if (count === 0 || count === 1) {
                 return {
@@ -298,71 +300,96 @@
                 };
             } else if (count >= 2 && count <= 5) {
                 return {
-                    text: `✨ ${count}회차`,
+                    text: `✨ 단골 ${count}회차`,
                     classes: "bg-blue-100 text-blue-800 border border-blue-200"
                 };
             } else if (count >= 6 && count <= 10) {
                 return {
-                    text: `🔥 ${count}회차`,
+                    text: `🔥 매니아 ${count}회차`,
                     classes: "bg-purple-100 text-purple-800 border border-purple-200 animate-pulse"
                 };
             } else {
-                // 11회 이상: 왕 이모티콘 등판 👑
                 return {
-                    text: `👑 ${count}회차`,
+                    text: `👑 VVIP 왕왕단골 ${count}회차`,
                     classes: "bg-amber-100 text-amber-700 border border-amber-300 font-black ring-2 ring-amber-400"
                 };
             }
         }
 
-        function checkCustomerHistory(name) {
+        function triggerHistoryCheck() {
+            const name = document.getElementById('buyerName').value.trim();
+            const phone = document.getElementById('buyerPhone').value.trim();
             const badge = document.getElementById('buyerHistoryBadge');
-            if(!name.trim() || globalOrders.length === 0) {
+
+            if(!name || !phone || globalOrders.length === 0) {
                 badge.classList.add('hidden');
                 return;
             }
-            const count = globalOrders.filter(o => o.name.trim() === name.trim()).length;
+
+            const count = globalOrders.filter(o => o.name.trim() === name && o.phone.trim() === phone).length;
             
-            // 실시간 등급 뱃지 스타일 대조 주입
             const style = getBadgeStyleByCount(count);
             badge.innerText = style.text;
             badge.className = `absolute right-4 top-4 text-xs font-black px-2.5 py-1.5 rounded-xl ${style.classes}`;
             badge.classList.remove('hidden');
         }
 
-        function getCustomerOrderCount(name) {
-            if(!name || globalOrders.length === 0) return 0;
-            return globalOrders.filter(o => o.name.trim() === name.trim()).length;
+        function getStrictCustomerOrderCount(name, phone) {
+            if(!name || !phone || globalOrders.length === 0) return 0;
+            return globalOrders.filter(o => o.name.trim() === name.trim() && o.phone.trim() === phone.trim()).length;
         }
 
+        // 🛠️ 시간 오작동 완전 격파 버그 수정판 (KST 완벽 보정)
         function convertToKoreanTime(timeStr) {
-            if (!timeStr) return "시간 기록 없음";
+            if (!timeStr) return "시간 정보 없음";
             try {
-                if(timeStr.includes("오후") || timeStr.includes("오전")) {
-                    let parts = timeStr.split(" ");
-                    let datePart = parts[0]; 
-                    let ampm = parts[1];
-                    let timePart = parts[2];
-                    let hms = timePart.split(":");
-                    let h = parseInt(hms[0]);
-                    let m = hms[1];
+                // ISO 타입 포맷이 들어오거나 날짜 표준 형태일 때 바로 파싱
+                let parsedDate = new Date(timeStr);
+                
+                // 만약 올바른 날짜로 파싱이 안 된다면 (서버의 특이 형식이면) 대체 가공 실행
+                if (isNaN(parsedDate.getTime())) {
+                    if (timeStr.includes("오후") || timeStr.includes("오전")) {
+                        let parts = timeStr.split(" ");
+                        let datePart = parts[0]; 
+                        let ampm = parts[1];
+                        let timePart = parts[2];
+                        let hms = timePart.split(":");
+                        let h = parseInt(hms[0]);
+                        let m = hms[1];
 
-                    if(ampm === "오후" && h < 12) h += 12;
-                    if(ampm === "오전" && h === 12) h = 0;
-
-                    let serverDate = new Date(`${datePart}T${String(h).padStart(2,'0')}:${m}:00Z`);
-                    let krOffset = 9 * 60 * 60 * 1000;
-                    let krDate = new Date(serverDate.getTime() + krOffset);
-
-                    let resAmPm = krDate.getHours() >= 12 ? "오후" : "오전";
-                    let resHour = krDate.getHours() % 12;
-                    resHour = resHour ? resHour : 12;
-                    return `${krDate.getFullYear()}-${String(krDate.getMonth()+1).padStart(2,'0')}-${String(krDate.getDate()).padStart(2,'0')} ${resAmPm} ${String(resHour).padStart(2,'0')}:${String(krDate.getMinutes()).padStart(2,'0')}`;
+                        if(ampm === "오후" && h < 12) h += 12;
+                        if(ampm === "오전" && h === 12) h = 0;
+                        
+                        // 서버 표준 규격으로 조합하여 한국 로컬 시간 객체 생성
+                        parsedDate = new Date(`${datePart}T${String(h).padStart(2,'0')}:${m}:00`);
+                    } else {
+                        return timeStr; // 예외 시 원본 반환
+                    }
                 }
-                return timeStr;
+
+                // 한국 시간대 포맷팅 규격으로 안전 덤프 출력
+                const options = {
+                    year: 'numeric', month: '2-digit', day: '2-digit',
+                    hour: '2-digit', minute: '2-digit',
+                    hour12: true,
+                    timeZone: 'Asia/Seoul'
+                };
+                return new Intl.DateTimeFormat('ko-KR', options).format(parsedDate);
             } catch(e) {
                 return timeStr; 
             }
+        }
+
+        // 현시각 구하는 헬퍼 함수
+        function getNowKoreanTimeString() {
+            const now = new Date();
+            const options = {
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit', second: '2-digit',
+                hour12: true,
+                timeZone: 'Asia/Seoul'
+            };
+            return new Intl.DateTimeFormat('ko-KR', options).format(now);
         }
 
         function refreshMainDisplay() {
@@ -689,13 +716,12 @@
 
                 let waitCount = 0, doneCount = 0;
 
-                // 📥 실시간 예약 현황 렌더링 (등급 뱃지 동기화 완료)
+                // 📥 실시간 예약 현황 렌더링
                 if(Array.isArray(data.pending)) {
                     data.pending.forEach(order => {
-                        const historyCount = getCustomerOrderCount(order.name);
+                        const historyCount = getStrictCustomerOrderCount(order.name, order.phone);
                         const krOrderTime = convertToKoreanTime(order.time_str);
                         
-                        // 🎨 요구사항 반영: 횟수별 뱃지 스타일 가공 바인딩
                         const badgeStyle = getBadgeStyleByCount(historyCount);
                         
                         let statusBadgeColor = "bg-amber-100 text-amber-800";
@@ -733,20 +759,26 @@
                     });
                 }
 
-                // ✅ 판매완료 장부 렌더링 (등급 뱃지 동기화 완료)
+                // ✅ 판매완료 장부 렌더링
                 if(Array.isArray(data.completed)) {
                     data.completed.forEach(order => {
-                        const historyCount = getCustomerOrderCount(order.name);
+                        const historyCount = getStrictCustomerOrderCount(order.name, order.phone);
                         const krOrderTime = convertToKoreanTime(order.time_str);
-                        
-                        // 🎨 요구사항 반영: 완료 장부용 차등 뱃지 바인딩
                         const badgeStyle = getBadgeStyleByCount(historyCount);
                         
-                        let收령TimeHtml = "";
+                        // 🛠️ 수령완료 기록 복구됨 문구 전면 철폐 로직
+                        let displayDeliveredTime = "";
+                        let localSavedTime = localStorage.getItem(`delivered_time_${order.id}`);
+
                         if (order.status_changed_time) {
-                            收령TimeHtml = `<p class="text-green-700 font-extrabold text-xs bg-green-50 p-2 rounded-xl flex items-center gap-1 mt-1">🕒 수령 시간: ${order.status_changed_time}</p>`;
+                            // 1순위: 서버가 전송해 준 상태 변경 데이터 가공 표시
+                            displayDeliveredTime = convertToKoreanTime(order.status_changed_time);
+                        } else if (localSavedTime) {
+                            // 2순위: 브라우저 임시 메모리 데이터 표시
+                            displayDeliveredTime = localSavedTime;
                         } else {
-                            收령TimeHtml = `<p class="text-gray-400 font-bold text-xs bg-gray-50 p-2 rounded-xl flex items-center gap-1 mt-1">🕒 수령 시간: 수령완료 기록 복구됨</p>`;
+                            // 3순위: 둘 다 누락 시 현재 실시간 시간 즉시 주입 유도
+                            displayDeliveredTime = krOrderTime + " 부근 수령";
                         }
 
                         doneList.innerHTML += `
@@ -755,7 +787,7 @@
                                 <h4 class="text-lg font-black">${order.name} (${order.phone})</h4>
                                 <p class="text-orange-600 font-bold text-sm">📦 과일: ${order.fruit} | 수량: ${order.qty}개 | 결제: ${order.method}</p>
                                 <p class="text-gray-400 text-xs">예약 접수: ${krOrderTime}</p>
-                                ${收령TimeHtml}
+                                <p class="text-green-700 font-extrabold text-xs bg-green-50 p-2 rounded-xl flex items-center gap-1 mt-1">🕒 수령 시간: ${displayDeliveredTime}</p>
                                 <div class="pt-2 border-t border-gray-100 text-right">
                                     <button onclick="deleteCompletedOrder(${order.id})" class="bg-red-50 text-red-600 hover:bg-red-100 font-bold text-xs px-2.5 py-1.5 rounded-xl transition">
                                         🗑️ 장부에서 삭제
@@ -788,13 +820,8 @@
         }
 
         async function triggerCompleteOrder(id) {
-            const now = new Date();
-            const ampm = now.getHours() >= 12 ? '오후' : '오전';
-            let hour = now.getHours() % 12;
-            hour = hour ? hour : 12; 
-            const mm = String(now.getMinutes()).padStart(2, '0');
-            const ss = String(now.getSeconds()).padStart(2, '0');
-            const timeString = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${ampm} ${String(hour).padStart(2,'0')}:${mm}:${ss}`;
+            // 버튼을 누른 바로 그 시점의 한국 실시간 시각 박아버리기
+            const timeString = getNowKoreanTimeString();
 
             try {
                 const res = await fetch(`${API_URL}/api/admin/orders/${id}?status=판매완료&password=${PASS}`, {
@@ -859,10 +886,15 @@
             }
 
             const excelRows = completedData.map((order, idx) => {
-                let customTime = localStorage.getItem(`delivered_time_${order.id}`);
-                if(!customTime) {
-                    const d = new Date();
-                    customTime = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} 오후 내역 복구`;
+                let displayDeliveredTime = "";
+                let localSavedTime = localStorage.getItem(`delivered_time_${order.id}`);
+
+                if (order.status_changed_time) {
+                    displayDeliveredTime = convertToKoreanTime(order.status_changed_time);
+                } else if (localSavedTime) {
+                    displayDeliveredTime = localSavedTime;
+                } else {
+                    displayDeliveredTime = convertToKoreanTime(order.time_str) + " 부근 수령";
                 }
 
                 let fruitNameOnly = order.fruit || "과일 품목";
@@ -872,7 +904,6 @@
                     if(order.fruit && order.fruit.includes("(")) {
                         let fruitParts = order.fruit.split("(");
                         fruitNameOnly = fruitParts[0].trim(); 
-                        
                         let pricePart = fruitParts[1].replace(/[^0-9]/g, ""); 
                         rawPriceNum = parseInt(pricePart) || 0;
                     }
@@ -883,7 +914,7 @@
                 return {
                     "연번": idx + 1,
                     "예약 접수 시간": convertToKoreanTime(order.time_str), 
-                    "수령 시간": customTime, 
+                    "수령 시간": displayDeliveredTime, 
                     "고객명": order.name,
                     "연락처": order.phone,
                     "판매 품목": fruitNameOnly, 
