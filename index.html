@@ -9,13 +9,11 @@
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         
-        /* 🖨️ A4 용지 2x5 스티커 라벨 전용 고품질 인쇄 CSS (4장 나오는 빈페이지 완벽 차단) */
         @page {
             size: A4 portrait;
             margin: 5mm;
         }
         @media print {
-            /* 인쇄 시 기존 화면 전체 박멸 */
             html, body {
                 height: auto !important;
                 overflow: hidden !important;
@@ -226,7 +224,7 @@
                     <div id="orderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4"></div>
                 </div>
 
-                <!-- 📅 판매완료 장부 (날짜 피커 필터 기능 추가!) -->
+                <!-- 📊 판매완료 장부 (엑셀 2가지 모드 분리 & 월별 선택) -->
                 <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
                     <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b pb-4">
                         <div>
@@ -234,9 +232,17 @@
                                 ✅ 판매완료 장부 (<span id="completedCount" class="text-green-600">0</span>건)
                             </h2>
                         </div>
-                        <button onclick="downloadExcel()" class="bg-green-600 hover:bg-green-700 text-white font-bold text-xs px-3 py-2 rounded-xl flex items-center gap-1 shadow-xs transition self-start lg:self-auto">
-                            📊 매출 엑셀 다운로드
-                        </button>
+                        <div class="flex flex-wrap gap-2">
+                            <button onclick="downloadExcel('all')" class="bg-green-700 hover:bg-green-800 text-white font-bold text-xs px-3 py-2.5 rounded-xl flex items-center gap-1 shadow-xs transition">
+                                📊 전체 기간 장부 엑셀
+                            </button>
+                            <div class="flex items-center gap-1 bg-green-50 p-1 border border-green-200 rounded-xl">
+                                <input type="month" id="excelMonthPicker" class="p-1 text-xs font-bold bg-white border border-green-300 rounded-lg">
+                                <button onclick="downloadExcel('month')" class="bg-green-600 hover:bg-green-700 text-white font-bold text-xs px-2.5 py-1.5 rounded-lg transition">
+                                    📅 월별 엑셀
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- 📅 일자별 날짜 선택 달력 피커 구역 -->
@@ -373,7 +379,7 @@
         </div>
     </div>
 
-    <!-- 🔎 내 주문 조회 모달 -->
+    <!-- 🔎 내 주문 조회 모달 (성함 + 닉네임 완전 일치 검색) -->
     <div id="myOrdersModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center hidden p-4" onclick="if(event.target == this) closeMyOrdersModal()">
         <div class="bg-white w-full max-w-md rounded-3xl p-6 space-y-4 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
             <div class="flex justify-between items-center border-b pb-3">
@@ -388,7 +394,7 @@
                 <button id="btnFetchMyOrders" onclick="fetchMyOrders()" class="w-full bg-orange-500 text-white font-bold py-2.5 rounded-xl text-sm disabled:bg-gray-400">조회하기</button>
             </div>
             <div id="myOrdersResult" class="overflow-y-auto space-y-3 flex-1 pr-1 border-t pt-3">
-                <p class="text-center text-gray-400 text-xs py-8 font-bold">닉네임과 성함을 입력 후 조회하세요.</p>
+                <p class="text-center text-gray-400 text-xs py-8 font-bold">성함과 카톡 닉네임을 모두 일치하게 입력해 주세요.</p>
             </div>
         </div>
     </div>
@@ -428,6 +434,11 @@
         window.onload = function() {
             loadStoreData();
             setupFileListeners();
+            // 오늘 연월 기본 세팅 (YYYY-MM)
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            document.getElementById('excelMonthPicker').value = `${yyyy}-${mm}`;
         };
 
         function setupFileListeners() {
@@ -493,9 +504,10 @@
             }
         }
 
-        function getStrictCustomerOrderCount(name, nickname) {
-            if(!name || globalOrders.length === 0) return 0;
-            return globalOrders.filter(o => o.name && o.name.trim() === name.trim() && (nickname ? (o.kakao_nickname && o.kakao_nickname.trim() === nickname.trim()) : true)).length;
+        // 👑 [요구사항] 단골 식별: 오직 '카톡 닉네임'이 같을 때 동일 단골 고객으로 산출!
+        function getStrictCustomerOrderCount(nickname) {
+            if(!nickname || globalOrders.length === 0) return 0;
+            return globalOrders.filter(o => o.kakao_nickname && o.kakao_nickname.trim() === nickname.trim()).length;
         }
 
         function refreshMainDisplay() {
@@ -817,12 +829,13 @@
         function openMyOrdersModal() { document.getElementById('myOrdersModal').classList.remove('hidden'); }
         function closeMyOrdersModal() { document.getElementById('myOrdersModal').classList.add('hidden'); }
 
+        // 🔎 [요구사항] 내 주문 검색: '성함' + '닉네임' 두 개 모두 완전 일치해야 조회 가능!
         async function fetchMyOrders() {
             const kakao = document.getElementById('searchMyKakao').value.trim();
             const name = document.getElementById('searchMyName').value.trim();
             const btn = document.getElementById('btnFetchMyOrders');
 
-            if(!kakao || !name) { alert('닉네임과 성함을 입력해 주세요!'); return; }
+            if(!kakao || !name) { alert('성함과 카톡 닉네임을 모두 정확히 입력해 주세요!'); return; }
 
             btn.disabled = true;
             btn.innerText = "조회 중...";
@@ -843,12 +856,16 @@
         function renderMyOrders(orders, kakao, name) {
             const box = document.getElementById('myOrdersResult');
             box.innerHTML = '';
-            if(orders.length === 0) {
-                box.innerHTML = `<p class="text-center text-gray-400 text-xs py-8 font-bold">일치하는 주문 내역이 없습니다.</p>`;
+            
+            // 성함과 닉네임이 모두 100% 완전 일치하는 주문건만 2차 방어 검증
+            const strictlyMatched = orders.filter(o => o.name && o.name.trim() === name && o.kakao_nickname && o.kakao_nickname.trim() === kakao);
+
+            if(strictlyMatched.length === 0) {
+                box.innerHTML = `<p class="text-center text-gray-400 text-xs py-8 font-bold">일치하는 본인 주문 내역이 없습니다.</p>`;
                 return;
             }
 
-            orders.forEach(o => {
+            strictlyMatched.forEach(o => {
                 let canCancel = o.status === '입금대기' || o.status === '접수완료';
                 let cancelBtnHtml = canCancel 
                     ? `<button onclick="cancelMyOrder(${o.id}, '${kakao}', '${name}', this)" class="bg-red-50 text-red-600 font-bold text-xs px-2.5 py-1.5 rounded-xl hover:bg-red-100">주문 취소</button>`
@@ -1052,7 +1069,7 @@
                 const waitList = document.getElementById('orderList');
                 waitList.innerHTML = '';
                 pendingPickup.forEach(order => {
-                    const historyCount = getStrictCustomerOrderCount(order.name, order.kakao_nickname);
+                    const historyCount = getStrictCustomerOrderCount(order.kakao_nickname);
                     const badgeStyle = getBadgeStyleByCount(historyCount);
 
                     let actionBtn = '';
@@ -1081,7 +1098,7 @@
                 const deliveryList = document.getElementById('deliveryOrderList');
                 deliveryList.innerHTML = '';
                 deliveryOrders.forEach(order => {
-                    const historyCount = getStrictCustomerOrderCount(order.name, order.kakao_nickname);
+                    const historyCount = getStrictCustomerOrderCount(order.kakao_nickname);
                     const badgeStyle = getBadgeStyleByCount(historyCount);
 
                     let deliveryActionBtn = order.status === '입금대기'
@@ -1113,7 +1130,6 @@
             } catch(e) { console.error("장부 조회 에러", e); }
         }
 
-        // 🖨️ A4 용지 2x5 규격 깔끔 일괄 인쇄
         function printAllDeliveryLabels() {
             const deliveryOrders = (globalOrders || []).filter(o => o.order_type === '배달' && o.status !== '판매완료');
             
@@ -1191,10 +1207,9 @@
             }
         }
 
-        // 📅 [수정] 키워드 + 날짜(달력) 필터링 조합 처리
         function filterAndRenderCompletedOrders() {
             const keyword = document.getElementById('searchKeyword').value.trim().toLowerCase();
-            const selectedDate = document.getElementById('searchDate').value; // 'YYYY-MM-DD'
+            const selectedDate = document.getElementById('searchDate').value; 
             const doneList = document.getElementById('completedOrderList');
             doneList.innerHTML = '';
 
@@ -1203,10 +1218,9 @@
                                        (o.kakao_nickname && o.kakao_nickname.toLowerCase().includes(keyword)) ||
                                        (o.fruit && o.fruit.toLowerCase().includes(keyword));
                 
-                // 날짜 필터링 (time_str 또는 status_changed_time에서 날짜 비교)
                 let matchesDate = true;
                 if(selectedDate) {
-                    const targetFormattedDate = selectedDate.replace(/-/g, '. '); // YYYY. MM. DD
+                    const targetFormattedDate = selectedDate.replace(/-/g, '. '); 
                     const orderTimeStr = o.status_changed_time || o.time_str || '';
                     matchesDate = orderTimeStr.includes(targetFormattedDate) || orderTimeStr.startsWith(selectedDate);
                 }
@@ -1222,7 +1236,7 @@
             }
 
             filtered.forEach(order => {
-                const historyCount = getStrictCustomerOrderCount(order.name, order.kakao_nickname);
+                const historyCount = getStrictCustomerOrderCount(order.kakao_nickname);
                 const badgeStyle = getBadgeStyleByCount(historyCount);
 
                 doneList.innerHTML += `
@@ -1249,27 +1263,137 @@
             filterAndRenderCompletedOrders();
         }
 
-        function downloadExcel() {
-            if (rawCompletedOrders.length === 0) { alert("판매완료 내역이 없습니다!"); return; }
+        // 📊 [요구사항 100% 반영] 상단 원가/마진 자동계산기 + 필터 내장 고급 매출 엑셀 생성기
+        function downloadExcel(mode = 'all') {
+            let targetOrders = [...rawCompletedOrders];
 
-            const excelRows = rawCompletedOrders.map((order, idx) => ({
-                "연번": idx + 1,
-                "구분": order.order_type || "픽업",
-                "카톡 닉네임": order.kakao_nickname || "",
-                "고객명": order.name,
-                "배달주소": order.address || "-",
-                "공동현관 비번": order.door_password || "-",
-                "판매 품목": order.fruit,
-                "총 결제금액": order.total_price,
-                "결제 방식": order.method,
-                "접수 시간": order.time_str,
-                "완료 시간": order.status_changed_time
-            }));
+            if (mode === 'month') {
+                const selectedMonth = document.getElementById('excelMonthPicker').value; // 'YYYY-MM'
+                if (!selectedMonth) {
+                    alert("📅 선택할 연월(Month)을 지정해 주세요!");
+                    return;
+                }
+                const formattedMonth = selectedMonth.replace('-', '. '); // '2026. 08'
+                targetOrders = targetOrders.filter(o => {
+                    const timeStr = o.status_changed_time || o.time_str || '';
+                    return timeStr.includes(formattedMonth) || timeStr.startsWith(selectedMonth);
+                });
 
-            const worksheet = XLSX.utils.json_to_sheet(excelRows);
+                if (targetOrders.length === 0) {
+                    alert(`📅 ${selectedMonth}월에는 판매 완료된 내역이 없습니다.`);
+                    return;
+                }
+            }
+
+            if (targetOrders.length === 0) {
+                alert("판매 완료된 내역이 없습니다!");
+                return;
+            }
+
+            // 등록된 전체 과일 품목 목록 수집 (마진 계산기용)
+            const availableFruits = (fruitItems && fruitItems.length > 0) ? fruitItems.map(f => f.name) : ["기본 품목"];
+
+            // Sheet Data 구성 (배열의 배열)
+            const sheetData = [];
+
+            // --- 1. 상단 고정 영역: 💡 원가/마진 자동 산출 계산기 템플릿 (1행 ~ 6행) ---
+            sheetData.push(["💡 하루마켓 흑석점 - 품목별 원가/마진 정산 계산기", "", "", "", "", "", "", "", "", "", ""]);
+            sheetData.push(["📌 안내: '품목별 원가(E열)'에 원가를 직접 입력하시면 총 원가, 순이익, 마진율이 자동 계산됩니다.", "", "", "", "", "", "", "", "", "", ""]);
+            sheetData.push(["품목명", "총 판매 수량", "총 매출액(원)", "평균 단가(원)", "품목별 원가(입력)", "총 원가(원)", "총 순이익(원)", "마진율(%)", "", "", ""]);
+
+            // 품목별 수식 작성 (4행부터 시작)
+            availableFruits.forEach((fName, idx) => {
+                const rowNum = 4 + idx;
+                sheetData.push([
+                    fName,
+                    { t: 'n', f: `SUMIF($G$9:$G$1000, A${rowNum}, $J$9:$J$1000)` }, // 총 판매수량
+                    { t: 'n', f: `SUMIF($G$9:$G$1000, A${rowNum}, $L$9:$L$1000)` }, // 총 매출액
+                    { t: 'n', f: `IF(B${rowNum}>0, C${rowNum}/B${rowNum}, 0)` },     // 평균 단가
+                    0,                                                             // 원가 (사용자 입력 칸)
+                    { t: 'n', f: `B${rowNum}*E${rowNum}` },                        // 총 원가
+                    { t: 'n', f: `C${rowNum}-F${rowNum}` },                        // 총 순이익
+                    { t: 'n', f: `IF(C${rowNum}>0, G${rowNum}/C${rowNum}, 0)` }      // 마진율
+                ]);
+            });
+
+            // 빈 행 (구분선)
+            sheetData.push([]);
+
+            // --- 2. 하단 데이터 영역: 실전 매출 장부 (8행부터 시작, 헤더: 8행) ---
+            sheetData.push([
+                "연번",
+                "구분(수령방식)",
+                "카톡 닉네임",
+                "고객 성함",
+                "고객 누적주문횟수",
+                "배달 주소",
+                "판매 품목명",
+                "공동현관 비번",
+                "단가(원)",
+                "주문 수량(개)",
+                "배달비(원)",
+                "총 결제금액(원)",
+                "결제 방식",
+                "주문 접수시간",
+                "수령 완료시간"
+            ]);
+
+            // 주문 내역 데이터 채우기 (9행부터~)
+            targetOrders.forEach((order, idx) => {
+                const orderUserCount = getStrictCustomerOrderCount(order.kakao_nickname);
+                sheetData.push([
+                    idx + 1,
+                    order.order_type || "픽업",
+                    order.kakao_nickname || "",
+                    order.name || "",
+                    orderUserCount,
+                    order.address || "-",
+                    order.fruit_name || order.fruit || "",
+                    order.door_password || "-",
+                    order.price || 0,
+                    order.qty || 1,
+                    order.delivery_fee || 0,
+                    order.total_price || 0,
+                    order.method || "계좌이체",
+                    order.time_str || "",
+                    order.status_changed_time || ""
+                ]);
+            });
+
+            // 워크시트 생성
+            const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
+
+            // 📌 8행(헤더)에 AutoFilter(자동 필터) 적용 (인덱스: 7)
+            const dataHeaderRow = 7; 
+            const lastRow = sheetData.length - 1;
+            worksheet['!autofilter'] = { ref: `A8:O${lastRow + 1}` };
+
+            // 📌 상단 6행까지 셀 고정 (Freeze Panes)
+            worksheet['!views'] = [{ state: 'frozen', xSplit: 0, ySplit: 6 }];
+
+            // 컬럼 너비 자동 맞춤
+            worksheet['!cols'] = [
+                { wch: 6 },  // 연번
+                { wch: 14 }, // 구분
+                { wch: 16 }, // 카톡 닉네임
+                { wch: 12 }, // 고객 성함
+                { wch: 18 }, // 누적주문횟수
+                { wch: 30 }, // 배달 주소
+                { wch: 22 }, // 판매 품목명
+                { wch: 15 }, // 비번
+                { wch: 12 }, // 단가
+                { wch: 12 }, // 수량
+                { wch: 12 }, // 배달비
+                { wch: 15 }, // 총 결제금액
+                { wch: 12 }, // 결제방식
+                { wch: 22 }, // 접수시간
+                { wch: 22 }  // 완료시간
+            ];
+
             const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "매출 실전 장부");
-            XLSX.writeFile(workbook, `하루마켓_흑석점_정산장부_${new Date().toISOString().slice(0,10)}.xlsx`);
+            const fileNameMode = mode === 'month' ? document.getElementById('excelMonthPicker').value : '전체기간';
+            XLSX.utils.book_append_sheet(workbook, worksheet, "매출 정산 분석장부");
+            XLSX.writeFile(workbook, `하루마켓_흑석점_매출장부_${fileNameMode}_${new Date().toISOString().slice(0,10)}.xlsx`);
         }
     </script>
 </body>
