@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 import os
 from datetime import datetime
-from zoneinfo import ZoneInfo # 외부 패키지(pytz) 없이 파이썬 내장 모듈 사용
+from zoneinfo import ZoneInfo
 from supabase import create_client, Client
 
 app = FastAPI(title="Haru Market API")
@@ -23,7 +23,6 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 ADMIN_PASS = "13157"
 
-# 한국 시간 구하기 (zoneinfo 내장 모듈 사용)
 def get_kST_time():
     return datetime.now(ZoneInfo("Asia/Seoul"))
 
@@ -31,7 +30,7 @@ def get_kST_time_str():
     now = get_kST_time()
     return now.strftime("%Y. %m. %d. %p %I:%M").replace("AM", "오전").replace("PM", "오후")
 
-# --- Models ---
+# --- Request Models ---
 class SettingsUpdate(BaseModel):
     notice: Optional[str] = ""
     notice_img: Optional[str] = ""
@@ -57,6 +56,12 @@ class FruitUpdate(BaseModel):
     description: Optional[str] = None
     hide_stock: Optional[bool] = None
 
+class CartItem(BaseModel):
+    fruit_id: int
+    fruit_name: str
+    price: int
+    qty: int
+
 class OrderCreate(BaseModel):
     order_type: str
     kakao_nickname: str
@@ -64,8 +69,7 @@ class OrderCreate(BaseModel):
     phone: str
     address: Optional[str] = ""
     door_password: Optional[str] = ""
-    fruit_index: int
-    qty: int
+    items: List[CartItem] # 장바구니 품목 배열
     method: str
 
 # --- Endpoints ---
@@ -142,6 +146,7 @@ def delete_fruit(fruit_id: int, password: str = Query(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# 🛒 장바구니 통합 주문 생성 API
 @app.post("/api/orders")
 def create_order(order: OrderCreate):
     try:
@@ -149,22 +154,38 @@ def create_order(order: OrderCreate):
         if order.order_type == "배달" and now_kst.hour >= 12:
             raise HTTPException(status_code=400, detail="금일 배달 주문이 마감되었습니다. (오후 12시까지 가능)")
 
-        fruits_res = supabase.table("fruit_items").select("*").order("id", desc=False).execute()
-        fruits = fruits_res.data or []
+        if not order.items:
+            raise HTTPException(status_code=400, detail="주문할 품목이 선택되지 않았습니다.")
 
-        if order.fruit_index < 0 or order.fruit_index >= len(fruits):
-            raise HTTPException(status_code=400, detail="유효하지 않은 과일 품목입니다.")
+        # DB 전체 과일 조회하여 재고 차감 및 품목 텍스트 구성
+        fruits_res = supabase.table("fruit_items").select("*").execute()
+        db_fruits = {f["id"]: f for f in (fruits_res.data or [])}
 
-        target_fruit = fruits[order.fruit_index]
-        
-        if target_fruit["stock"] < order.qty:
-            raise HTTPException(status_code=400, detail=f"재고가 부족합니다. (현재 남은 재고: {target_fruit['stock']}개)")
+        fruit_summary_list = []
+        total_fruit_price = 0
+        total_qty = 0
 
-        fruit_total = target_fruit["price"] * order.qty
+        for cart_item in order.items:
+            f_id = cart_item.fruit_id
+            if f_id not in db_fruits:
+                raise HTTPException(status_code=400, detail=f"'{cart_item.fruit_name}' 품목을 찾을 수 없습니다.")
+            
+            db_f = db_fruits[f_id]
+            if db_f["stock"] < cart_item.qty:
+                raise HTTPException(status_code=400, detail=f"'{db_f['name']}'의 재고가 부족합니다. (남은 재고: {db_f['stock']}개)")
+
+            item_total = db_f["price"] * cart_item.qty
+            total_fruit_price += item_total
+            total_qty += cart_item.qty
+            fruit_summary_list.append(f"{db_f['name']} x{cart_item.qty}개")
+
+            # 재고 즉시 차감
+            supabase.table("fruit_items").update({"stock": db_f["stock"] - cart_item.qty}).eq("id", f_id).execute()
+
         delivery_fee = 3000 if order.order_type == "배달" else 0
-        total_price = fruit_total + delivery_fee
-
+        total_price = total_fruit_price + delivery_fee
         order_time = get_kST_time_str()
+        fruit_summary_str = ", ".join(fruit_summary_list)
 
         new_order = {
             "order_type": order.order_type,
@@ -173,12 +194,11 @@ def create_order(order: OrderCreate):
             "phone": order.phone.strip(),
             "address": order.address.strip() if order.address else "",
             "door_password": order.door_password.strip() if order.door_password else "",
-            "fruit": f"{target_fruit['name']} ({target_fruit['price']:,}원)",
-            "fruit_name": target_fruit["name"],
-            "fruit_index": order.fruit_index,
-            "qty": order.qty,
-            "quantity": order.qty,
-            "price": target_fruit["price"],
+            "fruit": fruit_summary_str,
+            "fruit_name": fruit_summary_str,
+            "qty": total_qty,
+            "quantity": total_qty,
+            "price": total_fruit_price,
             "total_price": total_price,
             "delivery_fee": delivery_fee,
             "method": order.method,
@@ -188,10 +208,6 @@ def create_order(order: OrderCreate):
         }
 
         order_res = supabase.table("orders").insert(new_order).execute()
-
-        new_stock = target_fruit["stock"] - order.qty
-        supabase.table("fruit_items").update({"stock": new_stock}).eq("id", target_fruit["id"]).execute()
-
         return {"status": "success", "data": order_res.data}
     except HTTPException as he:
         raise he
@@ -216,13 +232,6 @@ def cancel_my_order(order_id: int, kakao_nickname: str = Query(...), name: str =
         order_data = order_res.data[0]
         if order_data["status"] not in ["입금대기", "접수완료"]:
             raise HTTPException(status_code=400, detail="처리완료건은 취소 불가능합니다.")
-
-        fruit_name = order_data.get("fruit_name")
-        qty = order_data.get("qty", 1)
-        if fruit_name:
-            f_res = supabase.table("fruit_items").select("*").eq("name", fruit_name).execute()
-            if f_res.data:
-                supabase.table("fruit_items").update({"stock": f_res.data[0]["stock"] + qty}).eq("id", f_res.data[0]["id"]).execute()
 
         supabase.table("orders").delete().eq("id", order_id).execute()
         return {"status": "success"}
@@ -267,15 +276,6 @@ def delete_admin_order(order_id: int, password: str = Query(...)):
     if password != ADMIN_PASS:
         raise HTTPException(status_code=401, detail="비밀번호 오류")
     try:
-        order_res = supabase.table("orders").select("*").eq("id", order_id).execute()
-        if order_res.data and order_res.data[0].get("status") != "판매완료":
-            fruit_name = order_res.data[0].get("fruit_name")
-            qty = order_res.data[0].get("qty", 1)
-            if fruit_name:
-                f_res = supabase.table("fruit_items").select("*").eq("name", fruit_name).execute()
-                if f_res.data:
-                    supabase.table("fruit_items").update({"stock": f_res.data[0]["stock"] + qty}).eq("id", f_res.data[0]["id"]).execute()
-
         res = supabase.table("orders").delete().eq("id", order_id).execute()
         return {"status": "success", "data": res.data}
     except Exception as e:
