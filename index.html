@@ -28,10 +28,10 @@
         </div>
     </header>
 
-    <!-- 🛒 장바구니 플로팅 우측하단 버튼 -->
+    <!-- 🛒 장바구니 플로팅 버튼 (손님 화면에서만 노출) -->
     <button id="cartFloatingBtn" onclick="openCartModal()" class="fixed bottom-6 right-6 z-30 bg-orange-600 text-white p-4 rounded-full shadow-2xl flex items-center gap-2 font-black hover:bg-orange-700 transition transform hover:scale-105">
         <span class="text-xl">🛒</span>
-        <span id="cartBadgeCount" class="bg-white text-orange-600 text-xs px-2 py-0.5 rounded-full">0</span>
+        <span id="cartBadgeCount" class="bg-white text-orange-600 text-xs px-2 py-0.5 rounded-full font-bold">0</span>
     </button>
 
     <main id="mainContainer" class="max-w-md mx-auto p-4 pb-24 transition-all duration-300">
@@ -158,7 +158,7 @@
                     <div id="adminFruitList" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
                 </div>
 
-                <!-- 🚚 배달 전용 대시보드 (입금확인 + 라벨 인쇄 + 배달완료) -->
+                <!-- 🚚 배달 전용 대시보드 -->
                 <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-3xl shadow-sm border border-blue-100 space-y-4">
                     <div class="flex justify-between items-center border-b border-blue-200/60 pb-3">
                         <div>
@@ -218,7 +218,6 @@
                 <button onclick="closeCartModal()" class="text-gray-400 text-2xl font-bold px-2">✕</button>
             </div>
 
-            <!-- 장바구니 품목 목록 -->
             <div id="cartItemsList" class="space-y-2 max-h-48 overflow-y-auto pr-1"></div>
 
             <div class="space-y-2">
@@ -362,17 +361,17 @@
         </div>
     </div>
 
-    <!-- 🖨️ PDF 라벨지 인쇄 전용 영역 -->
-    <div id="printLabelTemplate" style="position: absolute; left: -9999px; top: -9999px;">
-        <div id="labelContent" style="padding: 20px; width: 450px; font-family: sans-serif; background: #fff;">
-            <div style="border: 3px solid #1d4ed8; padding: 20px; border-radius: 15px; background: #fff;">
+    <!-- 🖨️ PDF 라벨지 인쇄 전용 영역 (수정: html2pdf 호환 가능한 안보이는 위치로 보장) -->
+    <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 0; overflow: hidden; pointer-events: none; opacity: 0.01; z-index: -1;">
+        <div id="pdfPrintContainer" style="width: 450px; padding: 20px; font-family: sans-serif; background: #ffffff;">
+            <div style="border: 3px solid #1d4ed8; padding: 20px; border-radius: 15px; background: #ffffff;">
                 <h2 style="font-size: 22px; font-weight: 900; color: #1d4ed8; text-align: center; margin-bottom: 15px; border-bottom: 2px solid #93c5fd; padding-bottom: 10px;">
                     🚚 하루마켓 흑석점 배달전표
                 </h2>
                 <div style="font-size: 15px; line-height: 1.8; color: #1e293b;">
-                    <p style="margin: 5px 0;"><strong>💬 카톡 닉네임:</strong> <span id="pdfKakao" style="font-size: 18px; font-weight: bold;"></span></p>
-                    <p style="margin: 5px 0;"><strong>👤 성 함:</strong> <span id="pdfName" style="font-size: 18px; font-weight: bold;"></span></p>
-                    <p style="margin: 5px 0;"><strong>📞 연 락 처:</strong> <span id="pdfPhone"></span></p>
+                    <p style="margin: 5px 0;"><strong>💬 카톡 닉네임:</strong> <span id="pdfKakao" style="font-size: 18px; font-weight: bold; color: #000000;"></span></p>
+                    <p style="margin: 5px 0;"><strong>👤 성 함:</strong> <span id="pdfName" style="font-size: 18px; font-weight: bold; color: #000000;"></span></p>
+                    <p style="margin: 5px 0;"><strong>📞 연 락 처:</strong> <span id="pdfPhone" style="color: #000000;"></span></p>
                     <div style="margin: 10px 0; padding: 10px; background: #eff6ff; border-radius: 8px; border: 1px solid #bfdbfe;">
                         <strong>🏠 배달 주소:</strong><br>
                         <span id="pdfAddress" style="font-size: 18px; font-weight: 900; color: #1e40af; display: block; margin-top: 3px;"></span>
@@ -398,7 +397,7 @@
         let selectedOrderType = '픽업'; 
         let isDeliveryAvailable = true;
         let uploadedDetailImgs = []; 
-        let cart = []; // 🛒 장바구니 배열 [{ fruit_id, fruit_name, price, qty }]
+        let cart = []; 
 
         window.onload = function() {
             loadStoreData();
@@ -549,7 +548,6 @@
             updateCartUI();
         }
 
-        // 🛒 장바구니 로직
         function addToCart(fruitId, fruitName, price) {
             const existing = cart.find(c => c.fruit_id === fruitId);
             if(existing) {
@@ -827,20 +825,25 @@
             } else { alert('비밀번호가 틀렸습니다!'); }
         }
 
+        // 💡 [수정 1] 사장님 모드 스위치 시 손님 장바구니 버튼 숨김 처리
         function switchView(view) {
             currentView = view;
             const container = document.getElementById('mainContainer');
             const toggleBtn = document.getElementById('toggleBtn');
+            const cartBtn = document.getElementById('cartFloatingBtn');
+
             if (view === 'admin') {
                 document.getElementById('customerView').classList.add('hidden');
                 document.getElementById('adminView').classList.remove('hidden');
                 document.getElementById('adminView').classList.add('flex');
+                if (cartBtn) cartBtn.classList.add('hidden'); // 사장님 모드에서는 장바구니 버튼 숨김!
                 container.classList.replace('max-w-md', 'md:max-w-7xl');
                 toggleBtn.innerText = '📱 손님 화면 보기';
                 renderAdminOrders();
             } else {
                 document.getElementById('customerView').classList.remove('hidden');
                 document.getElementById('adminView').classList.add('hidden');
+                if (cartBtn) cartBtn.classList.remove('hidden'); // 손님 모드에서 다시 노출
                 container.classList.replace('md:max-w-7xl', 'max-w-md');
                 toggleBtn.innerText = '👨‍🌾 사장님 모드';
                 loadStoreData();
@@ -931,7 +934,6 @@
             }
         }
 
-        // 사장님 대시보드 (입금확인 + 라벨출력 + 완료)
         async function renderAdminOrders() {
             try {
                 const res = await fetch(`${API_URL}/api/admin/orders?password=${PASS}`);
@@ -962,7 +964,6 @@
                 });
                 document.getElementById('orderCount').innerText = pendingPickup.length;
 
-                // 배달 목록 (입금확인 ➡️ 라벨인쇄 ➡️ 배달완료)
                 const deliveryList = document.getElementById('deliveryOrderList');
                 deliveryList.innerHTML = '';
                 deliveryOrders.forEach(order => {
@@ -998,7 +999,7 @@
             } catch(e) { console.error("장부 조회 에러", e); }
         }
 
-        // 🖨️ PDF 라벨지 생성 함수 수정 적용
+        // 💡 [수정 2] PDF 다운로드 호환성 수정 완료
         function downloadDeliveryPDF(order) {
             document.getElementById('pdfKakao').innerText = order.kakao_nickname || '';
             document.getElementById('pdfName').innerText = order.name || '';
@@ -1009,13 +1010,14 @@
             document.getElementById('pdfPrice').innerText = Number(order.total_price).toLocaleString() + "원";
             document.getElementById('pdfTime').innerText = "접수일시: " + (order.time_str || '');
 
-            const element = document.getElementById('labelContent');
+            const element = document.getElementById('pdfPrintContainer');
+            
             const opt = {
-                margin: 0,
+                margin: 10,
                 filename: `배달전표_${order.name}_${order.kakao_nickname}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, logging: false },
-                jsPDF: { unit: 'pt', format: 'a5', orientation: 'portrait' }
+                html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
+                jsPDF: { unit: 'mm', format: 'a5', orientation: 'portrait' }
             };
 
             html2pdf().set(opt).from(element).save();
