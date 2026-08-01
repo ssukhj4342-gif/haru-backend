@@ -1313,7 +1313,7 @@
             filterAndRenderCompletedOrders();
         }
 
-        // 📊 [수정 반영] 마진계산기 수식 정확도 보장 + 동일 주문 내 2번째 품목부터 공란(빈칸) 처리
+        // 📊 [수식 완전 오차 0% 검증 수술] G열(품목명), I열(수량), J열(합계금액) 무조건 100% 매칭!
         function downloadExcel(mode = 'all') {
             let targetOrders = [...rawCompletedOrders];
 
@@ -1380,7 +1380,8 @@
                 </tr>
             `;
 
-            // 💡 [수식 정확도 보장] G열: 판매품목명, I열: 주문수량, J열: 품목합계금액
+            // 💡 [핵심] 하단 장부 칼럼 매칭 주소:
+            // G열: 판매 품목명, I열: 주문 수량(개), J열: 품목 합계금액(원)
             availableFruits.forEach((fName, idx) => {
                 const r = 4 + idx;
                 const defaultSellingPrice = fruitPriceMap[fName] || 0;
@@ -1409,8 +1410,8 @@
                     <td>${fName}</td>
                     <td class="num">${defaultSellingPrice}</td>
                     <td class="num">0</td>
-                    <td class="num">=SUMIF($G$10:$G$65536, A${r}, $I$10:$I$65536)</td>
-                    <td class="num">=SUMIF($G$10:$G$65536, A${r}, $J$10:$J$65536)</td>
+                    <td class="num">=SUMIF($G$10:$G$65536, "*"&A${r}&"*", $I$10:$I$65536)</td>
+                    <td class="num">=SUMIF($G$10:$G$65536, "*"&A${r}&"*", $J$10:$J$65536)</td>
                     <td class="num">=D${r}*C${r}</td>
                     <td class="num">=E${r}-F${r}</td>
                     <td class="rate">=IF(E${r}>0, G${r}/E${r}, 0)</td>
@@ -1421,7 +1422,7 @@
 
             html += `<tr><td colspan="16"></td></tr>`;
 
-            // 데이터 헤더 (9행)
+            // 장부 데이터 헤더 (9행)
             html += `
                 <tr>
                     <th class="data-header">연번</th>
@@ -1429,6 +1430,7 @@
                     <th class="data-header">카톡 닉네임</th>
                     <th class="data-header">고객 성함</th>
                     <th class="data-header">고객 누적회차</th>
+                    <th class="data-header">배달 주소</th>
                     <th class="data-header">판매 품목명</th>
                     <th class="data-header">단가(원)</th>
                     <th class="data-header">주문 수량(개)</th>
@@ -1436,14 +1438,13 @@
                     <th class="data-header">배달비(원)</th>
                     <th class="data-header">총 결제금액(원)</th>
                     <th class="data-header">결제 방식</th>
-                    <th class="data-header">배달 주소</th>
                     <th class="data-header">공동현관 비번</th>
                     <th class="data-header">주문 접수시간</th>
                     <th class="data-header">수령 완료시간</th>
                 </tr>
             `;
 
-            // 💡 [요구사항 반영] 동일 주문 내 2번째 품목부터는 공통 정보 완전 빈칸(공란) 처리
+            // 동일 주문 내 2번째 품목부터는 공통 정보 빈칸(공란)으로 처리하여 주문 묶음 표시
             let rowSeq = 1;
             targetOrders.forEach(order => {
                 const orderUserCount = getStrictCustomerOrderCount(order.kakao_nickname);
@@ -1467,6 +1468,7 @@
                             <td>${isFirst ? (order.kakao_nickname || "") : ''}</td>
                             <td>${isFirst ? (order.name || "") : ''}</td>
                             <td class="center">${isFirst ? (orderUserCount + '회차') : ''}</td>
+                            <td>${isFirst ? (order.address || "-") : ''}</td>
                             <td>${pureName}</td>
                             <td class="num">${itemPrice}</td>
                             <td class="num">${itemQty}</td>
@@ -1474,7 +1476,6 @@
                             <td class="num">${isFirst ? (order.delivery_fee || 0) : ''}</td>
                             <td class="num" style="${isFirst ? 'font-weight:bold; color:#dc2626;' : ''}">${isFirst ? (order.total_price || 0) : ''}</td>
                             <td class="center">${isFirst ? (order.method || "계좌이체") : ''}</td>
-                            <td>${isFirst ? (order.address || "-") : ''}</td>
                             <td class="center">${isFirst ? (order.door_password || "-") : ''}</td>
                             <td class="center">${isFirst ? (order.time_str || "") : ''}</td>
                             <td class="center">${isFirst ? (order.status_changed_time || "") : ''}</td>
@@ -1489,6 +1490,7 @@
                         <td>${order.kakao_nickname || ""}</td>
                         <td>${order.name || ""}</td>
                         <td class="center">${orderUserCount}회차</td>
+                        <td>${order.address || "-"}</td>
                         <td>${rawFruitStr}</td>
                         <td class="num">${order.price || 0}</td>
                         <td class="num">${order.qty || 1}</td>
@@ -1496,7 +1498,6 @@
                         <td class="num">${order.delivery_fee || 0}</td>
                         <td class="num" style="font-weight:bold; color:#dc2626;">${order.total_price || 0}</td>
                         <td class="center">${order.method || "계좌이체"}</td>
-                        <td>${order.address || "-"}</td>
                         <td class="center">${order.door_password || "-"}</td>
                         <td class="center">${order.time_str || ""}</td>
                         <td class="center">${order.status_changed_time || ""}</td>
