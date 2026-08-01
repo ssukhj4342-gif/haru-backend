@@ -53,49 +53,54 @@
         }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-900 min-h-screen">
+<body class="bg-gray-50 text-gray-900 min-h-screen selection:bg-orange-500 selection:text-white">
 
     <!-- 상단 헤더 -->
-    <header class="bg-white sticky top-0 z-40 border-b border-gray-200 px-6 py-4 flex justify-between items-center shadow-xs">
-        <h1 class="text-2xl font-black text-orange-600 tracking-tight cursor-pointer flex items-center gap-2" onclick="switchView('customer')">
+    <header class="bg-white/90 backdrop-blur-md sticky top-0 z-40 border-b border-gray-200 px-6 py-3.5 flex justify-between items-center shadow-2xs">
+        <h1 class="text-2xl font-black text-orange-600 tracking-tight cursor-pointer flex items-center gap-2 active:scale-95 transition transform" onclick="switchView('customer')">
             하루마켓 흑석점 🍊
         </h1>
         <div class="flex items-center gap-2">
-            <button onclick="openMyOrdersModal()" class="bg-gray-100 text-gray-700 px-3.5 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 transition">
+            <button onclick="openMyOrdersModal()" class="bg-gray-100 active:bg-gray-200 text-gray-700 px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-2xs">
                 🔎 내 주문
             </button>
-            <button id="toggleBtn" onclick="openAdminAuthModal()" class="bg-orange-100 text-orange-700 px-3.5 py-2 rounded-xl text-xs font-bold transition hover:bg-orange-200">
+            <button id="toggleBtn" onclick="openAdminAuthModal()" class="bg-orange-100 active:bg-orange-200 text-orange-800 px-3.5 py-2 rounded-xl text-xs font-bold transition">
                 👨‍🌾 사장님
             </button>
         </div>
     </header>
 
-    <main id="mainContainer" class="max-w-md mx-auto p-4 pb-32 transition-all duration-300">
+    <main id="mainContainer" class="max-w-md mx-auto p-4 pb-36 transition-all duration-300">
         
         <!-- 손님 원페이지 주문서 화면 -->
-        <section id="customerView" class="space-y-6">
+        <section id="customerView" class="space-y-5">
             
             <!-- 공지 및 매장 안내 카드 -->
-            <div class="bg-white p-6 rounded-3xl shadow-xs border border-gray-100 space-y-3">
-                <div class="flex items-center space-x-2">
-                    <span class="bg-orange-500 text-white text-xs font-black px-2.5 py-1 rounded-md">📢 데일리 공지</span>
+            <div class="bg-gradient-to-br from-orange-500 to-amber-500 text-white p-6 rounded-3xl shadow-md space-y-3 relative overflow-hidden">
+                <div class="flex items-center justify-between">
+                    <span class="bg-white/20 backdrop-blur-md text-white text-xs font-black px-2.5 py-1 rounded-lg">📢 데일리 공지</span>
+                    <span class="text-xs text-orange-100 font-bold">당일 신선 과일 입고</span>
                 </div>
-                <div id="displayNoticeImgContainer" class="w-full max-h-60 bg-gray-50 rounded-2xl overflow-hidden hidden flex items-center justify-center">
+                <div id="displayNoticeImgContainer" class="w-full max-h-60 bg-black/10 rounded-2xl overflow-hidden hidden flex items-center justify-center">
                     <img id="displayNoticeImg" src="" class="w-full h-full object-cover">
                 </div>
-                <p id="displayDailyNotice" class="text-xl font-black text-gray-800 leading-snug whitespace-pre-line">로딩 중...</p>
+                <p id="displayDailyNotice" class="text-xl font-black leading-snug whitespace-pre-line drop-shadow-xs">로딩 중...</p>
             </div>
 
-            <div class="bg-orange-50 p-5 rounded-3xl border border-orange-100 space-y-1">
-                <span class="bg-orange-600 text-white text-xs font-bold px-2.5 py-1 rounded-md">💰 입금 계좌안내</span>
-                <p id="displayAccount" class="text-lg font-black text-orange-900 pt-1">로딩 중...</p>
-                <p id="displayAccountOwner" class="text-sm text-orange-700 font-bold">로딩 중...</p>
+            <!-- 계좌안내 카피 팁 내장 -->
+            <div class="bg-amber-50 p-5 rounded-3xl border border-amber-200/80 space-y-1 relative group cursor-pointer active:scale-98 transition" onclick="copyTextToClipboard(storeMeta.account, '계좌번호가 복사되었습니다!')">
+                <div class="flex justify-between items-center">
+                    <span class="bg-amber-600 text-white text-[11px] font-black px-2.5 py-0.5 rounded-md">💰 입금 계좌안내 (터치 시 복사)</span>
+                    <span class="text-xs text-amber-700 font-bold">📋 복사</span>
+                </div>
+                <p id="displayAccount" class="text-lg font-black text-amber-950 pt-1 tracking-wide">로딩 중...</p>
+                <p id="displayAccountOwner" class="text-xs text-amber-800 font-bold">로딩 중...</p>
             </div>
 
             <div class="bg-white p-5 rounded-3xl shadow-xs border border-gray-100 flex items-center justify-between">
                 <div>
-                    <span class="bg-amber-100 text-amber-800 text-xs font-bold px-2.5 py-1 rounded-md">⏰ 오늘 영업 시간</span>
-                    <p id="displayHours" class="text-lg font-extrabold text-gray-800 mt-2">로딩 중...</p>
+                    <span class="bg-gray-100 text-gray-700 text-xs font-bold px-2.5 py-1 rounded-md">⏰ 오늘 영업 시간</span>
+                    <p id="displayHours" class="text-lg font-black text-gray-800 mt-2">로딩 중...</p>
                 </div>
                 <span class="text-3xl">🏪</span>
             </div>
@@ -105,7 +110,7 @@
                 <div class="flex justify-between items-center border-b pb-3">
                     <div>
                         <h2 class="text-xl font-black text-gray-900">🛒 1. 과일 수량 선택</h2>
-                        <p class="text-xs text-gray-400 font-bold mt-0.5">구매하실 수량을 조절하면 금액이 자동 계산됩니다.</p>
+                        <p class="text-xs text-gray-400 font-bold mt-0.5">원하시는 과일 수량을 조절하면 금액이 계산됩니다.</p>
                     </div>
                 </div>
 
@@ -122,11 +127,11 @@
                 <div class="space-y-2">
                     <label class="block text-xs font-bold text-gray-400">💡 수령 방식 선택</label>
                     <div class="grid grid-cols-2 gap-2">
-                        <button type="button" id="btnTypePickup" onclick="selectOrderType('픽업')" class="h-16 p-2 border-2 border-orange-500 bg-orange-50 text-orange-900 rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-0.5">
+                        <button type="button" id="btnTypePickup" onclick="selectOrderType('픽업')" class="h-16 p-2 border-2 border-orange-500 bg-orange-50 text-orange-900 rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-0.5 transition active:scale-95">
                             <span>🏢 매장 픽업</span>
                             <span class="text-[10px] font-normal text-orange-700">직접 방문 수령</span>
                         </button>
-                        <button type="button" id="btnTypeDelivery" onclick="selectOrderType('배달')" class="h-16 p-2 border-2 border-gray-200 bg-white text-gray-500 rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-0.5">
+                        <button type="button" id="btnTypeDelivery" onclick="selectOrderType('배달')" class="h-16 p-2 border-2 border-gray-200 bg-white text-gray-500 rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-0.5 transition active:scale-95">
                             <span>🚚 배달 주문</span>
                             <span id="deliveryBadgeText" class="text-[10px] font-normal text-gray-400">배달비 3,000원 (12시 마감)</span>
                         </button>
@@ -137,11 +142,11 @@
                 <div class="bg-orange-50/70 p-4 rounded-2xl border border-orange-200 space-y-3">
                     <p class="text-xs font-black text-orange-800">💳 결제 수단 선택</p>
                     <div class="grid grid-cols-2 gap-2" id="payMethodGroup">
-                        <label class="flex items-center justify-center gap-1.5 p-3 bg-white border-2 border-orange-500 rounded-xl cursor-pointer font-bold text-xs text-orange-900" id="labelPayBank">
+                        <label class="flex items-center justify-center gap-1.5 p-3 bg-white border-2 border-orange-500 rounded-xl cursor-pointer font-bold text-xs text-orange-900 shadow-2xs" id="labelPayBank">
                             <input type="radio" name="payMethod" value="계좌이체" checked onchange="togglePayMethodView('계좌이체')" class="accent-orange-500">
                             계좌이체
                         </label>
-                        <label class="flex items-center justify-center gap-1.5 p-3 bg-white border-2 border-gray-200 rounded-xl cursor-pointer font-bold text-xs text-gray-500" id="labelPayCard">
+                        <label class="flex items-center justify-center gap-1.5 p-3 bg-white border-2 border-gray-200 rounded-xl cursor-pointer font-bold text-xs text-gray-500 shadow-2xs" id="labelPayCard">
                             <input type="radio" name="payMethod" value="현장결제" onchange="togglePayMethodView('현장결제')" class="accent-orange-500">
                             현장 결제
                         </label>
@@ -159,27 +164,27 @@
                 <div class="space-y-3">
                     <div>
                         <label class="block text-xs font-bold text-gray-400 mb-1">💬 카톡 닉네임 (아파트+휴대폰뒷자리)</label>
-                        <input type="text" id="buyerKakao" placeholder="예: 래미안1234" class="w-full p-3.5 border-2 border-gray-200 rounded-2xl text-base font-bold focus:outline-orange-500">
+                        <input type="text" id="buyerKakao" placeholder="예: 래미안1234" class="w-full p-3.5 border-2 border-gray-200 rounded-2xl text-base font-bold focus:border-orange-500 focus:outline-none transition">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-gray-400 mb-1">👤 주문자 성함</label>
-                        <input type="text" id="buyerName" placeholder="예: 박명숙" class="w-full p-3.5 border-2 border-gray-200 rounded-2xl text-base font-bold focus:outline-orange-500">
+                        <input type="text" id="buyerName" placeholder="예: 박명숙" class="w-full p-3.5 border-2 border-gray-200 rounded-2xl text-base font-bold focus:border-orange-500 focus:outline-none transition">
                     </div>
                     
                     <div id="addressInputBox" class="hidden space-y-3 border-t border-orange-200 pt-3">
                         <div>
                             <label class="block text-xs font-bold text-orange-900 mb-1">🏠 배달 상세 주소</label>
-                            <input type="text" id="buyerAddress" placeholder="예: 흑석동 센트레빌 101동 1202호" class="w-full p-3.5 border-2 border-orange-300 bg-orange-50/50 rounded-2xl text-base font-bold focus:outline-orange-500">
+                            <input type="text" id="buyerAddress" placeholder="예: 흑석동 센트레빌 101동 1202호" class="w-full p-3.5 border-2 border-orange-300 bg-orange-50/50 rounded-2xl text-base font-bold focus:border-orange-500 focus:outline-none transition">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-orange-900 mb-1">🔑 공동현관 비밀번호</label>
-                            <input type="text" id="buyerDoorPassword" placeholder="예: #1234* 또는 자유출입" class="w-full p-3.5 border-2 border-orange-300 bg-orange-50/50 rounded-2xl text-base font-bold focus:outline-orange-500">
+                            <input type="text" id="buyerDoorPassword" placeholder="예: #1234* 또는 자유출입" class="w-full p-3.5 border-2 border-orange-300 bg-orange-50/50 rounded-2xl text-base font-bold focus:border-orange-500 focus:outline-none transition">
                         </div>
                     </div>
                 </div>
 
                 <!-- 최종 주문하기 버튼 -->
-                <button id="btnSubmitOrder" onclick="submitOrder()" class="w-full bg-orange-500 hover:bg-orange-600 text-white text-xl font-black py-4 rounded-2xl shadow-xl transition disabled:bg-gray-400 disabled:cursor-not-allowed transform active:scale-98">
+                <button id="btnSubmitOrder" onclick="submitOrder()" class="w-full bg-orange-500 hover:bg-orange-600 active:scale-98 text-white text-xl font-black py-4 rounded-2xl shadow-xl transition disabled:bg-gray-400 disabled:cursor-not-allowed">
                     🍊 일괄 주문 완료하기
                 </button>
             </div>
@@ -333,23 +338,22 @@
         </section>
     </main>
 
-    <!-- 📌 스크롤 시 화면 하단 항시 고정 결제바 -->
-    <div id="stickyCheckoutBar" class="fixed bottom-0 left-0 right-0 z-30 bg-gray-900 text-white border-t border-gray-800 shadow-2xl p-4 transition-all duration-300">
+    <!-- 📌 스크롤 시 화면 하단 항시 고정 결제바 (시각적 상태 반응 가이드 적용) -->
+    <div id="stickyCheckoutBar" class="fixed bottom-0 left-0 right-0 z-30 bg-gray-900/95 backdrop-blur-md text-white border-t border-gray-800 shadow-2xl p-4 transition-all duration-300">
         <div class="max-w-md mx-auto flex items-center justify-between">
             <div>
                 <p class="text-xs text-gray-400 font-bold">선택 품목: <span id="stickyTotalCount" class="text-orange-400 font-black">0</span>개</p>
                 <p class="text-2xl font-black text-orange-400 tracking-tight" id="stickyTotalPrice">0원</p>
             </div>
-            <button onclick="scrollToOrderForm()" class="bg-orange-500 hover:bg-orange-600 text-white px-5 py-3 rounded-2xl font-black text-sm shadow-lg transition transform active:scale-95 flex items-center gap-1">
-                <span>주문서 작성하기</span>
-                <span>👇</span>
+            <button id="btnBarCheckout" onclick="scrollToOrderForm()" class="bg-gray-700 text-gray-300 px-5 py-3 rounded-2xl font-black text-sm transition transform active:scale-95 flex items-center gap-1">
+                <span id="btnBarText">과일을 선택해 주세요 🍎</span>
             </button>
         </div>
     </div>
 
-    <!-- 📢 계좌이체 주문 완료 후 입금 안내 모달 팝업 -->
-    <div id="bankModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden p-4">
-        <div class="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 text-center shadow-2xl transform transition-all">
+    <!-- 📢 계좌이체 주문 완료 후 입금 안내 모달 팝업 (원클릭 복사 기능 내장) -->
+    <div id="bankModal" class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 text-center shadow-2xl transform transition-all animate-in fade-in zoom-in-95">
             <div class="w-16 h-16 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-3xl mx-auto font-black">
                 💰
             </div>
@@ -358,22 +362,23 @@
                 <p class="text-xs text-orange-600 font-bold">📢 입금 확인 후 과일 수령 및 배달이 시작됩니다.</p>
             </div>
 
-            <div class="bg-orange-50 p-4 rounded-2xl border border-orange-200 text-left space-y-2">
-                <div>
-                    <span class="text-[11px] font-bold text-gray-400 block">입금 은행 및 계좌번호</span>
-                    <span id="bankModalAccount" class="text-base font-black text-orange-900 select-all block"></span>
+            <div class="bg-orange-50 p-4 rounded-2xl border border-orange-200 text-left space-y-2 cursor-pointer active:scale-98 transition" onclick="copyTextToClipboard(storeMeta.account, '계좌번호가 복사되었습니다!')">
+                <div class="flex justify-between items-center">
+                    <span class="text-[11px] font-bold text-gray-400 block">입금 계좌번호 (터치 시 복사)</span>
+                    <span class="text-[11px] font-bold text-orange-600">📋 복사</span>
                 </div>
+                <span id="bankModalAccount" class="text-base font-black text-orange-900 block tracking-wide"></span>
                 <div>
                     <span class="text-[11px] font-bold text-gray-400 block">예금주</span>
                     <span id="bankModalOwner" class="text-sm font-bold text-gray-800 block"></span>
                 </div>
-                <div class="border-t border-orange-200 pt-2">
+                <div class="border-t border-orange-200/80 pt-2">
                     <span class="text-[11px] font-bold text-gray-400 block">총 입금 금액</span>
                     <span id="bankModalAmount" class="text-xl font-black text-red-600 block"></span>
                 </div>
             </div>
 
-            <button onclick="closeBankModal()" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-3.5 rounded-2xl text-base shadow-md transition">
+            <button onclick="closeBankModal()" class="w-full bg-orange-500 hover:bg-orange-600 active:scale-95 text-white font-black py-3.5 rounded-2xl text-base shadow-md transition">
                 확인했습니다! (입금 진행)
             </button>
         </div>
@@ -470,6 +475,22 @@
             const mm = String(today.getMonth() + 1).padStart(2, '0');
             document.getElementById('excelMonthPicker').value = `${yyyy}-${mm}`;
         };
+
+        // 📋 클립보드 원클릭 복사 도우미
+        function copyTextToClipboard(text, successMsg) {
+            if(!text) return;
+            navigator.clipboard.writeText(text).then(() => {
+                alert(successMsg || '복사되었습니다!');
+            }).catch(() => {
+                const tempInput = document.createElement("input");
+                tempInput.value = text;
+                document.body.appendChild(tempInput);
+                tempInput.select();
+                document.execCommand("copy");
+                document.body.removeChild(tempInput);
+                alert(successMsg || '복사되었습니다!');
+            });
+        }
 
         function setupFileListeners() {
             document.getElementById('fileNoticeImg').addEventListener('change', function(e) {
@@ -589,7 +610,7 @@
                 let currentQty = selectedItems[item.id] ? selectedItems[item.id].qty : 0;
 
                 userListEl.innerHTML += `
-                    <div class="bg-gray-50/80 p-4 rounded-2xl border border-gray-200 space-y-3">
+                    <div class="bg-gray-50/80 p-4 rounded-2xl border border-gray-200 space-y-3 hover:border-orange-300 transition">
                         ${imgHtmlContainer}
                         <div class="flex justify-between items-start gap-3">
                             <div class="space-y-1 min-w-0 flex-1">
@@ -603,7 +624,7 @@
                             </div>
 
                             <div class="flex flex-col items-end gap-2 shrink-0">
-                                <button onclick="openDetailModal(${index})" class="px-2.5 py-1 bg-white border border-gray-200 text-gray-600 font-bold rounded-xl text-xs shadow-2xs hover:bg-gray-100">🔍 상세사진</button>
+                                <button onclick="openDetailModal(${index})" class="px-2.5 py-1 bg-white border border-gray-200 text-gray-600 font-bold rounded-xl text-xs shadow-2xs hover:bg-gray-100 transition">🔍 상세사진</button>
                                 
                                 <div class="flex items-center space-x-1.5 border-2 border-orange-300 rounded-xl p-1 bg-white shadow-2xs">
                                     <button onclick="adjustOrderFormQty(${item.id}, '${item.name}', ${item.price}, -1)" class="w-7 h-7 bg-orange-50 border border-orange-200 rounded-lg text-sm font-black text-orange-900 active:scale-90 transition">-</button>
@@ -657,6 +678,7 @@
             updateStickyCheckoutBar();
         }
 
+        // 스크롤 결제바 상태 시각화 가이드 적용
         function updateStickyCheckoutBar() {
             let totalQty = 0;
             let totalFruitPrice = 0;
@@ -672,6 +694,17 @@
             document.getElementById('stickyTotalCount').innerText = totalQty;
             document.getElementById('stickyTotalPrice').innerText = finalPrice.toLocaleString() + "원";
             document.getElementById('bookingTotalPrice').innerText = finalPrice.toLocaleString() + "원";
+
+            const btnBar = document.getElementById('btnBarCheckout');
+            const btnBarText = document.getElementById('btnBarText');
+
+            if (totalQty > 0) {
+                btnBar.className = "bg-orange-500 hover:bg-orange-600 text-white px-5 py-3 rounded-2xl font-black text-sm shadow-lg transition transform active:scale-95 flex items-center gap-1 animate-pulse";
+                btnBarText.innerText = "주문서 작성하기 👇";
+            } else {
+                btnBar.className = "bg-gray-700 text-gray-300 px-5 py-3 rounded-2xl font-black text-sm transition transform active:scale-95 flex items-center gap-1";
+                btnBarText.innerText = "과일을 선택해 주세요 🍎";
+            }
         }
 
         function scrollToOrderForm() {
@@ -728,14 +761,14 @@
             const payCardLabel = document.getElementById('labelPayCard');
 
             if(type === '픽업') {
-                btnPickup.className = "h-16 p-2 border-2 border-orange-500 bg-orange-50 text-orange-900 rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-0.5";
-                btnDelivery.className = "h-16 p-2 border-2 border-gray-200 bg-white text-gray-500 rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-0.5";
+                btnPickup.className = "h-16 p-2 border-2 border-orange-500 bg-orange-50 text-orange-900 rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-0.5 transition active:scale-95";
+                btnDelivery.className = "h-16 p-2 border-2 border-gray-200 bg-white text-gray-500 rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-0.5 transition active:scale-95";
                 addrBox.classList.add('hidden');
                 feeNotice.classList.add('hidden');
                 payCardLabel.classList.remove('hidden');
             } else {
-                btnDelivery.className = "h-16 p-2 border-2 border-blue-500 bg-blue-50 text-blue-900 rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-0.5";
-                btnPickup.className = "h-16 p-2 border-2 border-gray-200 bg-white text-gray-500 rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-0.5";
+                btnDelivery.className = "h-16 p-2 border-2 border-blue-500 bg-blue-50 text-blue-900 rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-0.5 transition active:scale-95";
+                btnPickup.className = "h-16 p-2 border-2 border-gray-200 bg-white text-gray-500 rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-0.5 transition active:scale-95";
                 addrBox.classList.remove('hidden');
                 feeNotice.classList.remove('hidden');
                 
@@ -750,13 +783,13 @@
             const bankLabel = document.getElementById('labelPayBank');
             const cardLabel = document.getElementById('labelPayCard');
             if(method === '계좌이체') {
-                bankLabel.className = "flex items-center justify-center gap-1.5 p-3 bg-white border-2 border-orange-500 rounded-xl cursor-pointer font-bold text-xs text-orange-900";
-                cardLabel.className = "flex items-center justify-center gap-1.5 p-3 bg-white border-2 border-gray-200 rounded-xl cursor-pointer font-bold text-xs text-gray-500";
+                bankLabel.className = "flex items-center justify-center gap-1.5 p-3 bg-white border-2 border-orange-500 rounded-xl cursor-pointer font-bold text-xs text-orange-900 shadow-2xs";
+                cardLabel.className = "flex items-center justify-center gap-1.5 p-3 bg-white border-2 border-gray-200 rounded-xl cursor-pointer font-bold text-xs text-gray-500 shadow-2xs";
                 document.getElementById('modalAccountBox').classList.remove('hidden');
                 document.getElementById('modalCardBox').classList.add('hidden');
             } else {
-                bankLabel.className = "flex items-center justify-center gap-1.5 p-3 bg-white border-2 border-gray-200 rounded-xl cursor-pointer font-bold text-xs text-gray-500";
-                cardLabel.className = "flex items-center justify-center gap-1.5 p-3 bg-white border-2 border-orange-500 rounded-xl cursor-pointer font-bold text-xs text-orange-900";
+                bankLabel.className = "flex items-center justify-center gap-1.5 p-3 bg-white border-2 border-gray-200 rounded-xl cursor-pointer font-bold text-xs text-gray-500 shadow-2xs";
+                cardLabel.className = "flex items-center justify-center gap-1.5 p-3 bg-white border-2 border-orange-500 rounded-xl cursor-pointer font-bold text-xs text-orange-900 shadow-2xs";
                 document.getElementById('modalAccountBox').classList.add('hidden');
                 document.getElementById('modalCardBox').classList.remove('hidden');
             }
@@ -1085,6 +1118,7 @@
             }
         }
 
+        // 사장님 닉네임 클릭 시 원클릭 복사
         async function renderAdminOrders() {
             try {
                 const res = await fetch(`${API_URL}/api/admin/orders?password=${PASS}`);
@@ -1113,7 +1147,7 @@
                     waitList.innerHTML += `
                         <div class="bg-white p-5 rounded-3xl border border-gray-100 space-y-3 shadow-2xs relative">
                             <span class="absolute right-5 top-5 text-xs font-black px-2 py-1 rounded-md ${badgeStyle.classes}">${badgeStyle.text}</span>
-                            <h4 class="text-lg font-black">${order.name} (${order.kakao_nickname || '닉네임없음'})</h4>
+                            <h4 class="text-lg font-black text-gray-900 cursor-pointer active:text-orange-600" onclick="copyTextToClipboard('${order.kakao_nickname}', '카톡 닉네임 복사완료!')">${order.name} (<span class="underline underline-offset-2">${order.kakao_nickname || '닉네임없음'}</span> 📋)</h4>
                             <p class="text-orange-600 font-bold">📦 과일: ${order.fruit} | 결제: ${order.method}</p>
                             <p class="text-xs text-gray-400">🕒 접수일시: ${order.time_str || ''} [상태: ${order.status}]</p>
                             <div class="flex gap-2 pt-2 border-t border-gray-100">
@@ -1141,7 +1175,7 @@
                                 <span class="bg-blue-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md">🚚 배달 [${order.status}]</span>
                             </div>
                             <div>
-                                <h4 class="text-lg font-black text-gray-900">${order.name} (${order.kakao_nickname})</h4>
+                                <h4 class="text-lg font-black text-gray-900 cursor-pointer active:text-blue-600" onclick="copyTextToClipboard('${order.kakao_nickname}', '카톡 닉네임 복사완료!')">${order.name} (<span class="underline underline-offset-2">${order.kakao_nickname}</span> 📋)</h4>
                                 <p class="text-sm font-extrabold text-blue-700 mt-0.5">🏠 주소: ${order.address}</p>
                                 <p class="text-xs font-black text-red-600 mt-0.5">🔑 공동현관 비번: ${order.door_password || '없음/자유출입'}</p>
                             </div>
@@ -1273,7 +1307,7 @@
                         <span class="absolute right-5 top-5 text-xs font-black px-2 py-1 rounded-md ${badgeStyle.classes}">${badgeStyle.text}</span>
                         <div>
                             <span class="text-xs font-bold px-2 py-0.5 rounded-md bg-green-100 text-green-800">${order.order_type || '픽업'} 완료</span>
-                            <h4 class="text-lg font-black mt-1">${order.name} (${order.kakao_nickname || ''})</h4>
+                            <h4 class="text-lg font-black mt-1 text-gray-900 cursor-pointer active:text-orange-600" onclick="copyTextToClipboard('${order.kakao_nickname}', '카톡 닉네임 복사완료!')">${order.name} (<span class="underline underline-offset-2">${order.kakao_nickname || ''}</span> 📋)</h4>
                             <p class="text-orange-600 font-bold text-sm">📦 ${order.fruit} | ${Number(order.total_price).toLocaleString()}원</p>
                             ${order.address ? `<p class="text-xs text-gray-500 font-bold mt-1">🏠 ${order.address}</p>` : ''}
                             <p class="text-[11px] text-gray-400 mt-1">🕒 접수: ${order.time_str || ''} / 완료: ${order.status_changed_time || ''}</p>
@@ -1292,7 +1326,6 @@
             filterAndRenderCompletedOrders();
         }
 
-        // 📊 [수식 완전 수정] 직접 엑셀 수식 주입 `<td>=D4*C4</td>` 방식으로 엑셀 엔진 수식 동적 개입 보장
         function downloadExcel(mode = 'all') {
             let targetOrders = [...rawCompletedOrders];
 
@@ -1387,14 +1420,11 @@
                 </tr>
             `;
 
-            // 💡 [핵심 수식 수술] 
-            // C4: 원가, D4: 수량, E4: 매출액
-            // F4: 총 원가 = `=D4*C4`
-            // G4: 총 순이익 = `=E4-F4`
-            // H4: 마진율 = `=IF(E4>0, G4/E4, 0)`
             availableFruits.forEach((fName, idx) => {
                 const r = 4 + idx;
                 const defaultSellingPrice = fruitPriceMap[fName] || 0;
+                const preQty = salesQtyMap[fName] || 0;
+                const preTotal = salesTotalMap[fName] || 0;
 
                 let sumColHtml = "";
                 if (idx === 0) {
@@ -1420,11 +1450,11 @@
                     <td class="text-cell">${fName}</td>
                     <td class="num">${defaultSellingPrice}</td>
                     <td class="num">0</td>
-                    <td class="num">=SUMIF($G$10:$G$65536, A${r}, $I$10:$I$65536)</td>
-                    <td class="num">=SUMIF($G$10:$G$65536, A${r}, $J$10:$J$65536)</td>
-                    <td class="num">=D${r}*C${r}</td>
-                    <td class="num">=E${r}-F${r}</td>
-                    <td class="rate">=IF(E${r}>0, G${r}/E${r}, 0)</td>
+                    <td class="num" x:f="=SUMIF($G$10:$G$65536, &quot;*&quot;&amp;A${r}&amp;&quot;*&quot;, $I$10:$I$65536)">${preQty}</td>
+                    <td class="num" x:f="=SUMIF($G$10:$G$65536, &quot;*&quot;&amp;A${r}&amp;&quot;*&quot;, $J$10:$J$65536)">${preTotal}</td>
+                    <td class="num" x:f="=D${r}*C${r}">0</td>
+                    <td class="num" x:f="=E${r}-F${r}">${preTotal}</td>
+                    <td class="rate" x:f="=IF(E${r}>0, G${r}/E${r}, 0)">100.00%</td>
                     ${sumColHtml}
                 </tr>
                 `;
