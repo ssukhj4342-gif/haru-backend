@@ -75,7 +75,7 @@
         <!-- 손님 원페이지 주문서 화면 -->
         <section id="customerView" class="space-y-5">
             
-            <!-- 🎨 공지사항 배경톤 눈 피로 방지 교정 (차분한 부드러운 오렌지 톤) -->
+            <!-- 🎨 공지사항 디자인 개선 (눈 안 아픈 부드러운 오렌지 톤) -->
             <div class="bg-amber-50/90 border border-amber-200 p-6 rounded-3xl shadow-2xs space-y-3 relative overflow-hidden">
                 <div class="flex items-center justify-between">
                     <span class="bg-orange-500 text-white text-xs font-black px-2.5 py-1 rounded-lg">📢 데일리 공지</span>
@@ -87,7 +87,7 @@
                 <p id="displayDailyNotice" class="text-lg font-extrabold text-amber-950 leading-snug whitespace-pre-line">로딩 중...</p>
             </div>
 
-            <!-- 계좌안내 -->
+            <!-- 계좌안내 (원클릭 복사 적용) -->
             <div class="bg-orange-50 p-5 rounded-3xl border border-orange-200/80 space-y-1 relative cursor-pointer active:scale-98 transition" onclick="copyTextToClipboard(storeMeta.account, '계좌번호가 복사되었습니다!')">
                 <div class="flex justify-between items-center">
                     <span class="bg-orange-600 text-white text-[11px] font-black px-2.5 py-0.5 rounded-md">💰 입금 계좌안내 (터치 시 복사)</span>
@@ -110,7 +110,7 @@
                 <div class="flex justify-between items-center border-b pb-3">
                     <div>
                         <h2 class="text-xl font-black text-gray-900">🛒 1. 과일 수량 선택</h2>
-                        <p class="text-xs text-gray-400 font-bold mt-0.5">원하시는 과일 수량을 조절하면 금액이 계산됩니다.</p>
+                        <p class="text-xs text-gray-400 font-bold mt-0.5">구매하실 수량을 조절하면 금액이 자동 계산됩니다.</p>
                     </div>
                 </div>
 
@@ -338,7 +338,7 @@
         </section>
     </main>
 
-    <!-- 📌 스크롤 시 화면 하단 항시 고정 결제바 -->
+    <!-- 📌 스크롤 시 화면 하단 항시 고정 결제바 (수량별 시각적 반응 가이드 개선) -->
     <div id="stickyCheckoutBar" class="fixed bottom-0 left-0 right-0 z-30 bg-gray-900/95 backdrop-blur-md text-white border-t border-gray-800 shadow-2xl p-4 transition-all duration-300">
         <div class="max-w-md mx-auto flex items-center justify-between">
             <div>
@@ -351,7 +351,7 @@
         </div>
     </div>
 
-    <!-- 📢 계좌이체 주문 완료 후 입금 안내 모달 팝업 -->
+    <!-- 📢 계좌이체 주문 완료 후 입금 안내 모달 팝업 (원클릭 복사 내장) -->
     <div id="bankModal" class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center hidden p-4">
         <div class="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 text-center shadow-2xl transform transition-all animate-in fade-in zoom-in-95">
             <div class="w-16 h-16 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-3xl mx-auto font-black">
@@ -367,7 +367,7 @@
                     <span class="text-[11px] font-bold text-gray-400 block">입금 계좌번호 (터치 시 복사)</span>
                     <span class="text-[11px] font-bold text-orange-600">📋 복사</span>
                 </div>
-                <span id="bankModalAccount" class="text-base font-black text-orange-900 block tracking-wide"></span>
+                <span id="bankModalAccount" class="text-base font-black text-orange-900 block tracking-wide select-all"></span>
                 <div>
                     <span class="text-[11px] font-bold text-gray-400 block">예금주</span>
                     <span id="bankModalOwner" class="text-sm font-bold text-gray-800 block"></span>
@@ -423,10 +423,10 @@
             </div>
             <div class="space-y-2">
                 <div class="grid grid-cols-2 gap-2">
-                    <input type="text" id="searchMyKakao" placeholder="카톡 닉네임" class="p-3 border border-gray-300 rounded-xl text-sm">
-                    <input type="text" id="searchMyName" placeholder="성함" class="p-3 border border-gray-300 rounded-xl text-sm">
+                    <input type="text" id="searchMyKakao" placeholder="카톡 닉네임" class="p-3 border border-gray-300 rounded-xl text-sm focus:outline-orange-500">
+                    <input type="text" id="searchMyName" placeholder="성함" class="p-3 border border-gray-300 rounded-xl text-sm focus:outline-orange-500">
                 </div>
-                <button id="btnFetchMyOrders" onclick="fetchMyOrders()" class="w-full bg-orange-500 text-white font-bold py-2.5 rounded-xl text-sm disabled:bg-gray-400">조회하기</button>
+                <button id="btnFetchMyOrders" onclick="fetchMyOrders()" class="w-full bg-orange-500 text-white font-bold py-2.5 rounded-xl text-sm active:scale-95 transition disabled:bg-gray-400">조회하기</button>
             </div>
             <div id="myOrdersResult" class="overflow-y-auto space-y-3 flex-1 pr-1 border-t pt-3">
                 <p class="text-center text-gray-400 text-xs py-8 font-bold">성함과 카톡 닉네임을 모두 일치하게 입력해 주세요.</p>
@@ -476,6 +476,7 @@
             document.getElementById('excelMonthPicker').value = `${yyyy}-${mm}`;
         };
 
+        // 📋 클립보드 원클릭 복사
         function copyTextToClipboard(text, successMsg) {
             if(!text) return;
             navigator.clipboard.writeText(text).then(() => {
@@ -661,6 +662,7 @@
             updateStickyCheckoutBar();
         }
 
+        // 수량 조절 및 결제바 실시간 갱신
         function adjustOrderFormQty(fruitId, fruitName, price, change) {
             if (!selectedItems[fruitId]) {
                 selectedItems[fruitId] = { fruit_id: fruitId, fruit_name: fruitName, price: price, qty: 0 };
@@ -677,7 +679,7 @@
             updateStickyCheckoutBar();
         }
 
-        // 🐛 [버그 완벽 수정] 하단 결제바 수량/금액/버튼 가이드 상태 실시간 연동
+        // 결제바 수량/금액/문구 동적 연동
         function updateStickyCheckoutBar() {
             let totalQty = 0;
             let totalFruitPrice = 0;
@@ -1324,7 +1326,7 @@
             filterAndRenderCompletedOrders();
         }
 
-        // 📊 [총원가 수식 완벽 주입] `<td>=D${r}*C${r}</td>` 주입 방식으로 수식 작동 보장
+        // 📊 [총원가 수식 원천 보장] HTML 변환 시 수식을 엑셀 직관적 태그 <td>=D4*C4</td>로 정밀 주입
         function downloadExcel(mode = 'all') {
             let targetOrders = [...rawCompletedOrders];
 
@@ -1419,7 +1421,7 @@
                 </tr>
             `;
 
-            // 💡 [원가 수식 직접 주입 수정] <td>=D${r}*C${r}</td>
+            // F열(총원가)에 =D4*C4 직접 주입
             availableFruits.forEach((fName, idx) => {
                 const r = 4 + idx;
                 const defaultSellingPrice = fruitPriceMap[fName] || 0;
