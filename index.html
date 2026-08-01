@@ -6,10 +6,43 @@
     <title>하루마켓 흑석점 - 싱싱 과일 예약 & 배달</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <!-- PDF 출력 라이브러리 -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        
+        /* 🖨️ A4 용지 2x5 라벨 스티커 전용 인쇄 CSS */
+        @media print {
+            body * { visibility: hidden; }
+            #labelPrintArea, #labelPrintArea * { visibility: visible; }
+            #labelPrintArea {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 210mm;
+                padding: 5mm;
+                box-sizing: border-box;
+                background: white;
+            }
+            .label-page {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                grid-template-rows: repeat(5, 1fr);
+                gap: 4mm;
+                height: 285mm;
+                page-break-after: always;
+            }
+            .label-card {
+                border: 1.5px solid #2563eb;
+                border-radius: 8px;
+                padding: 8px;
+                box-sizing: border-box;
+                font-size: 11px;
+                line-height: 1.3;
+                background: #ffffff;
+                display: flex;
+                flex-col;
+                justify-content: space-between;
+            }
+        }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-900 min-h-screen">
@@ -159,15 +192,18 @@
                     <div id="adminFruitList" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
                 </div>
 
-                <!-- 🚚 배달 전용 대시보드 -->
+                <!-- 🚚 배달 전용 대시보드 (A4 2x5 일괄 인쇄 버튼 지원) -->
                 <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-3xl shadow-sm border border-blue-100 space-y-4">
-                    <div class="flex justify-between items-center border-b border-blue-200/60 pb-3">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-blue-200/60 pb-3 gap-3">
                         <div>
                             <h2 class="text-xl font-extrabold text-blue-900 flex items-center gap-2">
                                 🚚 실시간 배달 대시보드 (<span id="deliveryOrderCount" class="text-blue-600">0</span>건)
                             </h2>
-                            <p class="text-xs text-blue-600 font-bold mt-0.5">계좌이체 입금 확인 후 라벨지를 출력하여 배달을 완료해 주세요.</p>
+                            <p class="text-xs text-blue-600 font-bold mt-0.5">입금 확인 후 배달 전표 라벨지를 A4 용지 규격에 일괄 출력하세요.</p>
                         </div>
+                        <button onclick="printAllDeliveryLabels()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow-md transition self-stretch sm:self-auto justify-center">
+                            🖨️ 전체 배달 라벨 일괄 출력 (A4 10칸/장)
+                        </button>
                     </div>
                     <div id="deliveryOrderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4"></div>
                 </div>
@@ -195,7 +231,7 @@
 
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-gray-50 p-3 rounded-2xl border border-gray-200">
                         <div class="sm:col-span-2 relative">
-                            <input type="text" id="searchKeyword" oninput="filterAndRenderCompletedOrders()" placeholder="🔍 이름, 닉네임, 품목명, 전화번호 검색..." class="w-full p-2.5 bg-white border border-gray-300 rounded-xl text-sm font-bold focus:outline-orange-500">
+                            <input type="text" id="searchKeyword" oninput="filterAndRenderCompletedOrders()" placeholder="🔍 이름, 닉네임, 품목명 검색..." class="w-full p-2.5 bg-white border border-gray-300 rounded-xl text-sm font-bold focus:outline-orange-500">
                         </div>
                         <div>
                             <select id="searchSortOrder" onchange="filterAndRenderCompletedOrders()" class="w-full p-2.5 bg-white border border-gray-300 rounded-xl text-sm font-bold text-gray-700 focus:outline-orange-500">
@@ -263,10 +299,6 @@
                 <div>
                     <label class="block text-xs font-bold text-gray-400 mb-1">👤 성함</label>
                     <input type="text" id="buyerName" placeholder="예: 박명숙" class="w-full p-3.5 border-2 border-gray-200 rounded-2xl text-base font-bold focus:outline-orange-500">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-400 mb-1">📞 연락처</label>
-                    <input type="tel" id="buyerPhone" placeholder="예: 01012345678" class="w-full p-3.5 border-2 border-gray-200 rounded-2xl text-base font-bold focus:outline-orange-500">
                 </div>
                 
                 <div id="addressInputBox" class="hidden space-y-3 border-t border-orange-200 pt-3">
@@ -362,30 +394,8 @@
         </div>
     </div>
 
-    <!-- 🖨️ PDF 라벨지 실시간 모달 팝업 (100% 동작 정석 캡처 방식) -->
-    <div id="pdfModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden p-4">
-        <div class="bg-white p-4 rounded-3xl max-w-sm w-full space-y-3">
-            <div id="pdfCaptureArea" class="bg-white p-5 rounded-2xl border-4 border-blue-600 text-slate-800 space-y-2">
-                <h2 class="text-xl font-black text-blue-700 text-center pb-2 border-b-2 border-blue-200">
-                    🚚 하루마켓 흑석점 배달전표
-                </h2>
-                <div class="text-sm space-y-1.5 pt-1">
-                    <p><strong>💬 카톡 닉네임:</strong> <span id="pdfKakao" class="font-black text-base text-black"></span></p>
-                    <p><strong>👤 성 함:</strong> <span id="pdfName" class="font-black text-base text-black"></span></p>
-                    <p><strong>📞 연 락 처:</strong> <span id="pdfPhone" class="font-bold"></span></p>
-                    <div class="bg-blue-50 p-2.5 rounded-xl border border-blue-200 my-2 space-y-1">
-                        <strong class="text-xs text-blue-900 block">🏠 배달 상세 주소:</strong>
-                        <span id="pdfAddress" class="font-black text-blue-800 text-base block leading-tight"></span>
-                        <strong class="text-xs text-red-600 block mt-1">🔑 공동현관 비번: <span id="pdfDoorPass" class="text-sm font-bold text-red-600"></span></strong>
-                    </div>
-                    <p><strong>📦 주문 품목:</strong> <span id="pdfFruit" class="font-black text-amber-700"></span></p>
-                    <p><strong>💰 결제 금액:</strong> <span id="pdfPrice" class="font-black text-red-600 text-base"></span> (배달비 포함)</p>
-                    <p id="pdfTime" class="text-[10px] text-gray-400 text-right pt-2 border-t border-gray-100"></p>
-                </div>
-            </div>
-            <p class="text-center text-xs font-bold text-gray-400">PDF 파일을 생성하고 있습니다...</p>
-        </div>
-    </div>
+    <!-- 🖨️ A4 용지 2x5 라벨 전용 인쇄 영역 (화면엔 안 보임, 인쇄 시 활성화) -->
+    <div id="labelPrintArea"></div>
 
     <script>
         const API_URL = "https://haru-market-api.onrender.com"; 
@@ -457,7 +467,7 @@
             } catch (e) { console.error("네트워크 통신 오류:", e); }
         }
 
-        // 👑 단골 고객 뱃지 및 회차 로직
+        // 👑 단골 고객 뱃지 및 회차 로직 (성함 + 닉네임 기반 집계)
         function getBadgeStyleByCount(count) {
             if (count === 0 || count === 1) {
                 return { text: `🌱 최초 주문`, classes: "bg-emerald-100 text-emerald-800 border border-emerald-200" };
@@ -470,9 +480,9 @@
             }
         }
 
-        function getStrictCustomerOrderCount(name, phone) {
-            if(!name || !phone || globalOrders.length === 0) return 0;
-            return globalOrders.filter(o => o.name && o.phone && o.name.trim() === name.trim() && o.phone.trim() === phone.trim()).length;
+        function getStrictCustomerOrderCount(name, nickname) {
+            if(!name || globalOrders.length === 0) return 0;
+            return globalOrders.filter(o => o.name && o.name.trim() === name.trim() && (nickname ? (o.kakao_nickname && o.kakao_nickname.trim() === nickname.trim()) : true)).length;
         }
 
         function refreshMainDisplay() {
@@ -719,16 +729,16 @@
             }
         }
 
+        // 전화번호 삭제된 일괄 주문 제출
         async function submitOrder() {
             const kakao = document.getElementById('buyerKakao').value;
             const name = document.getElementById('buyerName').value;
-            const phone = document.getElementById('buyerPhone').value;
             const address = document.getElementById('buyerAddress').value;
             const doorPassword = document.getElementById('buyerDoorPassword').value;
             const method = document.querySelector('input[name="payMethod"]:checked').value;
 
             if(cart.length === 0) { alert('장바구니가 비어있습니다!'); return; }
-            if(!kakao || !name || !phone) { alert('카톡 닉네임, 성함, 연락처를 꼭 입력해주세요!'); return; }
+            if(!kakao || !name) { alert('카톡 닉네임과 성함을 꼭 입력해주세요!'); return; }
             if(selectedOrderType === '배달' && !address) { alert('배달 상세 주소를 적어주세요!'); return; }
 
             try {
@@ -739,7 +749,6 @@
                         order_type: selectedOrderType,
                         kakao_nickname: kakao,
                         name: name,
-                        phone: phone,
                         address: address,
                         door_password: doorPassword,
                         items: cart,
@@ -953,7 +962,6 @@
             }
         }
 
-        // 사장님 모드 주문 목록 (👑 단골 뱃지 포함)
         async function renderAdminOrders() {
             try {
                 const res = await fetch(`${API_URL}/api/admin/orders?password=${PASS}`);
@@ -967,7 +975,7 @@
                 const waitList = document.getElementById('orderList');
                 waitList.innerHTML = '';
                 pendingPickup.forEach(order => {
-                    const historyCount = getStrictCustomerOrderCount(order.name, order.phone);
+                    const historyCount = getStrictCustomerOrderCount(order.name, order.kakao_nickname);
                     const badgeStyle = getBadgeStyleByCount(historyCount);
 
                     let actionBtn = order.status === '입금대기'
@@ -977,7 +985,7 @@
                     waitList.innerHTML += `
                         <div class="bg-white p-5 rounded-3xl border border-gray-100 space-y-3 shadow-2xs relative">
                             <span class="absolute right-5 top-5 text-xs font-black px-2 py-1 rounded-md ${badgeStyle.classes}">${badgeStyle.text}</span>
-                            <h4 class="text-lg font-black">${order.name} (${order.kakao_nickname || '닉네임없음'}) - ${order.phone}</h4>
+                            <h4 class="text-lg font-black">${order.name} (${order.kakao_nickname || '닉네임없음'})</h4>
                             <p class="text-orange-600 font-bold">📦 과일: ${order.fruit} | 결제: ${order.method}</p>
                             <p class="text-xs text-gray-400">🕒 접수일시: ${order.time_str || ''} [상태: ${order.status}]</p>
                             <div class="flex gap-2 pt-2 border-t border-gray-100">
@@ -991,7 +999,7 @@
                 const deliveryList = document.getElementById('deliveryOrderList');
                 deliveryList.innerHTML = '';
                 deliveryOrders.forEach(order => {
-                    const historyCount = getStrictCustomerOrderCount(order.name, order.phone);
+                    const historyCount = getStrictCustomerOrderCount(order.name, order.kakao_nickname);
                     const badgeStyle = getBadgeStyleByCount(historyCount);
 
                     let deliveryActionBtn = order.status === '입금대기'
@@ -1008,14 +1016,10 @@
                                 <h4 class="text-lg font-black text-gray-900">${order.name} (${order.kakao_nickname})</h4>
                                 <p class="text-sm font-extrabold text-blue-700 mt-0.5">🏠 주소: ${order.address}</p>
                                 <p class="text-xs font-black text-red-600 mt-0.5">🔑 공동현관 비번: ${order.door_password || '없음/자유출입'}</p>
-                                <p class="text-xs text-gray-500 font-bold mt-0.5">📞 연락처: ${order.phone}</p>
                             </div>
                             <p class="text-orange-600 font-bold text-sm">📦 ${order.fruit} (총 ${Number(order.total_price).toLocaleString()}원)</p>
                             <p class="text-[11px] text-gray-400 font-bold">🕒 주문 접수일시: ${order.time_str || ''}</p>
                             <div class="flex gap-2 pt-2 border-t border-gray-100">
-                                <button onclick="printDeliveryPDF(${JSON.stringify(order).replace(/"/g, '&quot;')})" class="bg-gray-900 text-white font-bold text-xs px-3 py-2 rounded-xl hover:bg-black">
-                                    🖨️ 라벨지 PDF 출력
-                                </button>
                                 ${deliveryActionBtn}
                                 <button onclick="cancelAdminOrder(${order.id})" class="bg-gray-100 text-gray-500 px-3 py-2 rounded-xl text-xs font-bold">취소</button>
                             </div>
@@ -1027,36 +1031,49 @@
             } catch(e) { console.error("장부 조회 에러", e); }
         }
 
-        // 🖨️ PDF 라벨 출력 기능 (모달 가시 캡처 후 100% 저장 방식)
-        function printDeliveryPDF(order) {
-            document.getElementById('pdfKakao').innerText = order.kakao_nickname || '';
-            document.getElementById('pdfName').innerText = order.name || '';
-            document.getElementById('pdfPhone').innerText = order.phone || '';
-            document.getElementById('pdfAddress').innerText = order.address || '';
-            document.getElementById('pdfDoorPass').innerText = order.door_password || '없음';
-            document.getElementById('pdfFruit').innerText = order.fruit || '';
-            document.getElementById('pdfPrice').innerText = Number(order.total_price).toLocaleString() + "원";
-            document.getElementById('pdfTime').innerText = "접수일시: " + (order.time_str || '');
+        // 🖨️ A4 용지 규격 2x5 (총 10칸/페이지) 배달 라벨 일괄 출력 및 PDF 인쇄
+        function printAllDeliveryLabels() {
+            const deliveryOrders = (globalOrders || []).filter(o => o.order_type === '배달' && o.status !== '판매완료');
+            
+            if (deliveryOrders.length === 0) {
+                alert("🚚 출력할 배달 주문이 없습니다!");
+                return;
+            }
 
-            const modal = document.getElementById('pdfModal');
-            const captureArea = document.getElementById('pdfCaptureArea');
-            modal.classList.remove('hidden');
+            const printArea = document.getElementById('labelPrintArea');
+            printArea.innerHTML = '';
 
-            setTimeout(() => {
-                const opt = {
-                    margin: 5,
-                    filename: `배달라벨_${order.name}_${order.kakao_nickname}.pdf`,
-                    image: { type: 'jpeg', quality: 0.98 },
-                    html2canvas: { scale: 2 },
-                    jsPDF: { unit: 'mm', format: 'a5', orientation: 'portrait' }
-                };
-
-                html2pdf().set(opt).from(captureArea).save().then(() => {
-                    modal.classList.add('hidden');
-                }).catch(err => {
-                    alert("PDF 생성 중 오류가 발생했습니다.");
-                    modal.classList.add('hidden');
+            // A4 용지 1장당 10개씩 배치 (2열 x 5행)
+            const chunkSize = 10;
+            for (let i = 0; i < deliveryOrders.length; i += chunkSize) {
+                const chunk = deliveryOrders.slice(i, i + chunkSize);
+                let pageHtml = `<div class="label-page">`;
+                
+                chunk.forEach(order => {
+                    pageHtml += `
+                        <div class="label-card">
+                            <div style="border-bottom: 1.5px solid #2563eb; padding-bottom: 4px; margin-bottom: 4px; text-align: center;">
+                                <strong style="font-size: 13px; color: #1d4ed8;">🚚 하루마켓 흑석점 배달전표</strong>
+                            </div>
+                            <p><strong>닉네임:</strong> ${order.kakao_nickname || ''} / <strong>성함:</strong> ${order.name || ''}</p>
+                            <p style="background: #eff6ff; border: 1px solid #bfdbfe; padding: 3px; border-radius: 4px; margin: 3px 0;">
+                                <strong>주소:</strong> <span style="font-size: 12px; font-weight: 900; color: #1e40af;">${order.address || ''}</span>
+                            </p>
+                            <p style="color: #dc2626;"><strong>공동현관 비번:</strong> ${order.door_password || '없음'}</p>
+                            <p><strong>품목:</strong> <span style="color: #d97706; font-weight: bold;">${order.fruit || ''}</span></p>
+                            <p><strong>결제금액:</strong> <span style="color: #dc2626; font-weight: bold;">${Number(order.total_price).toLocaleString()}원</span> (${order.method || ''})</p>
+                            <p style="font-size: 9px; color: #64748b; text-align: right; margin-top: 2px;">접수: ${order.time_str || ''}</p>
+                        </div>
+                    `;
                 });
+
+                pageHtml += `</div>`;
+                printArea.innerHTML += pageHtml;
+            }
+
+            // 시스템 인쇄 다이얼로그 호출 (PDF로 저장 선택 가능)
+            setTimeout(() => {
+                window.print();
             }, 300);
         }
 
@@ -1091,8 +1108,7 @@
             let filtered = rawCompletedOrders.filter(o => {
                 return (o.name && o.name.toLowerCase().includes(keyword)) ||
                        (o.kakao_nickname && o.kakao_nickname.toLowerCase().includes(keyword)) ||
-                       (o.fruit && o.fruit.toLowerCase().includes(keyword)) ||
-                       (o.phone && o.phone.includes(keyword));
+                       (o.fruit && o.fruit.toLowerCase().includes(keyword));
             });
 
             document.getElementById('completedCount').innerText = filtered.length;
@@ -1103,7 +1119,7 @@
             }
 
             filtered.forEach(order => {
-                const historyCount = getStrictCustomerOrderCount(order.name, order.phone);
+                const historyCount = getStrictCustomerOrderCount(order.name, order.kakao_nickname);
                 const badgeStyle = getBadgeStyleByCount(historyCount);
 
                 doneList.innerHTML += `
@@ -1111,7 +1127,7 @@
                         <span class="absolute right-5 top-5 text-xs font-black px-2 py-1 rounded-md ${badgeStyle.classes}">${badgeStyle.text}</span>
                         <div>
                             <span class="text-xs font-bold px-2 py-0.5 rounded-md bg-green-100 text-green-800">${order.order_type || '픽업'} 완료</span>
-                            <h4 class="text-lg font-black mt-1">${order.name} (${order.kakao_nickname || ''}) - ${order.phone}</h4>
+                            <h4 class="text-lg font-black mt-1">${order.name} (${order.kakao_nickname || ''})</h4>
                             <p class="text-orange-600 font-bold text-sm">📦 ${order.fruit} | ${Number(order.total_price).toLocaleString()}원</p>
                             ${order.address ? `<p class="text-xs text-gray-500 font-bold mt-1">🏠 ${order.address}</p>` : ''}
                             <p class="text-[11px] text-gray-400 mt-1">🕒 접수: ${order.time_str || ''} / 완료: ${order.status_changed_time || ''}</p>
@@ -1133,7 +1149,6 @@
                 "구분": order.order_type || "픽업",
                 "카톡 닉네임": order.kakao_nickname || "",
                 "고객명": order.name,
-                "연락처": order.phone,
                 "배달주소": order.address || "-",
                 "공동현관 비번": order.door_password || "-",
                 "판매 품목": order.fruit,
