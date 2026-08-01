@@ -560,7 +560,6 @@
                     ? `<p class="text-gray-400 text-xs mt-0.5">상태: <span class="font-bold text-green-600">구매 가능</span></p>`
                     : `<p class="text-gray-400 text-xs mt-0.5">남은 재고: <span class="font-bold text-gray-700">${item.stock}</span>개</p>`;
 
-                // 💡 [요구사항 반영] 과일 카드의 초기 선택 수량을 0으로 변경!
                 userListEl.innerHTML += `
                     <div class="bg-white p-5 rounded-3xl shadow-xs border border-gray-100 space-y-4">
                         ${imgHtmlContainer}
@@ -618,7 +617,7 @@
             const qtyEl = document.getElementById(`cardQty-${fruitId}`);
             if(!qtyEl) return;
             let current = parseInt(qtyEl.innerText) + change;
-            if(current >= 0) qtyEl.innerText = current; // 0 이상 허용
+            if(current >= 0) qtyEl.innerText = current;
         }
 
         function addSelectedQtyToCart(fruitId, fruitName, price) {
@@ -637,7 +636,7 @@
                 cart.push({ fruit_id: fruitId, fruit_name: fruitName, price: price, qty: qty });
             }
             alert(`🛒 '${fruitName}' ${qty}개가 장바구니에 담겼습니다!`);
-            if(qtyEl) qtyEl.innerText = "0"; // 담은 후 0으로 리셋
+            if(qtyEl) qtyEl.innerText = "0";
             updateCartUI();
         }
 
@@ -654,7 +653,7 @@
                         } else {
                             cart.push({ fruit_id: item.id, fruit_name: item.name, price: item.price, qty: qty });
                         }
-                        qtyEl.innerText = "0"; // 담은 후 0으로 리셋
+                        qtyEl.innerText = "0";
                         addedCount++;
                     }
                 }
@@ -1026,7 +1025,6 @@
 
         function toggleAddForm() { document.getElementById('itemAddForm').classList.toggle('hidden'); }
 
-        // 🛍️ [수정 완료] 등록 성공 후 입력 폼 완전 자동 리셋
         async function addNewFruitItem() {
             const btn = document.getElementById('btnAddNewFruit');
             const nameInput = document.getElementById('newFruitName');
@@ -1061,7 +1059,6 @@
                 if(res.ok) {
                     alert('새 품목 추가 완료! 🍓');
                     
-                    // 폼 리셋
                     nameInput.value = '';
                     priceInput.value = '';
                     stockInput.value = '';
@@ -1316,7 +1313,7 @@
             filterAndRenderCompletedOrders();
         }
 
-        // 📊 [수정 핵심] HTML 테이블 변환을 통한 엑셀 디자인 시각화 및 품목별 1행 개별 분리
+        // 📊 [요구사항 100% 보완] 품목별 판매가 추가 + 천단위 콤마 서식 + 소수점 둘째자리 설정 + 1품목 1행 분리 엑셀
         function downloadExcel(mode = 'all') {
             let targetOrders = [...rawCompletedOrders];
 
@@ -1343,31 +1340,38 @@
                 return;
             }
 
+            // 과일 데이터 맵 (품목별 판매가 매핑용)
+            const fruitPriceMap = {};
+            (fruitItems || []).forEach(f => {
+                fruitPriceMap[f.name] = f.price || 0;
+            });
+
             const availableFruits = (fruitItems && fruitItems.length > 0) ? fruitItems.map(f => f.name) : ["기본 품목"];
 
-            // HTML 테이블 생성 (시각적 스타일링을 지원하는 최선의 방법)
+            // HTML 테이블 기반 엑셀 생성
             let html = `
             <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
             <head><meta charset="utf-8">
             <style>
-                th, td { border: 0.5pt solid #d1d5db; padding: 6px; font-family: '맑은 고딕', sans-serif; font-size: 10pt; }
+                th, td { border: 0.5pt solid #d1d5db; padding: 7px 10px; font-family: '맑은 고딕', sans-serif; font-size: 10pt; }
                 .title { background-color: #fff7ed; color: #c2410c; font-size: 14pt; font-weight: bold; text-align: left; }
                 .calc-header { background-color: #ffedd5; color: #9a3412; font-weight: bold; text-align: center; }
                 .data-header { background-color: #1e3a8a; color: #ffffff; font-weight: bold; text-align: center; }
-                .num { text-align: right; }
+                .num { text-align: right; mso-number-format:"\#\,\#\#0"; }
+                .rate { text-align: right; mso-number-format:"0\.00%"; }
                 .center { text-align: center; }
             </style>
             </head>
             <body>
             <table>
                 <tr><td colspan="8" class="title">💡 하루마켓 흑석점 - 품목별 원가/마진 정산 분석기</td></tr>
-                <tr><td colspan="8" style="color: #6b7280; font-size: 9pt;">📌 '품목별 원가(E열)'에 원가를 입력하면 총 원가, 순이익, 마진율이 자동 계산됩니다.</td></tr>
+                <tr><td colspan="8" style="color: #6b7280; font-size: 9pt;">📌 '품목별 원가(E열)'에 원가를 입력하시면 총 원가, 순이익, 마진율이 자동 산출됩니다.</td></tr>
                 <tr>
                     <th class="calc-header">품목명</th>
+                    <th class="calc-header">품목별 판매가(원)</th>
+                    <th class="calc-header">품목별 원가(입력)</th>
                     <th class="calc-header">총 판매 수량</th>
                     <th class="calc-header">총 매출액(원)</th>
-                    <th class="calc-header">평균 단가(원)</th>
-                    <th class="calc-header">품목별 원가(입력)</th>
                     <th class="calc-header">총 원가(원)</th>
                     <th class="calc-header">총 순이익(원)</th>
                     <th class="calc-header">마진율(%)</th>
@@ -1377,21 +1381,23 @@
             // 마진 계산기 행 추가 (3행부터 시작)
             availableFruits.forEach((fName, idx) => {
                 const r = 4 + idx;
+                const defaultSellingPrice = fruitPriceMap[fName] || 0;
+
                 html += `
                 <tr>
                     <td>${fName}</td>
+                    <td class="num">${defaultSellingPrice}</td>
+                    <td class="num">0</td>
                     <td class="num">=SUMIF($G$9:$G$1000, A${r}, $J$9:$J$1000)</td>
                     <td class="num">=SUMIF($G$9:$G$1000, A${r}, $L$9:$L$1000)</td>
-                    <td class="num">=IF(B${r}>0, C${r}/B${r}, 0)</td>
-                    <td class="num">0</td>
-                    <td class="num">=B${r}*E${r}</td>
-                    <td class="num">=C${r}-F${r}</td>
-                    <td class="num">=IF(C${r}>0, G${r}/C${r}, 0)</td>
+                    <td class="num">=D${r}*C${r}</td>
+                    <td class="num">=E${r}-F${r}</td>
+                    <td class="rate">=IF(E${r}>0, G${r}/E${r}, 0)</td>
                 </tr>
                 `;
             });
 
-            html += `<tr><td colspan="8"></td></tr>`; // 여백
+            html += `<tr><td colspan="8"></td></tr>`;
 
             // 장부 데이터 헤더 (8행)
             html += `
@@ -1414,24 +1420,20 @@
                 </tr>
             `;
 
-            // 💡 [핵심 해법] 다중 주문건을 품목별 1행씩 개별 분리(Unwind)해서 엑셀 행 추가!
+            // 💡 [핵심] 품목별 1행 분리 출력
             let rowSeq = 1;
             targetOrders.forEach(order => {
                 const orderUserCount = getStrictCustomerOrderCount(order.kakao_nickname);
                 let rawFruitStr = order.fruit_name || order.fruit || "";
 
-                // '딸기 x2개, 사과 x1개' 과 같이 여러 품목이 결합된 경우 쉼표로 분리
                 let fruitItemsList = rawFruitStr.split(',').map(s => s.trim()).filter(s => s);
 
                 if (fruitItemsList.length > 0) {
                     fruitItemsList.forEach(itemStr => {
-                        // "딸기 x2개" 또는 "딸기 (10,000원)" 패턴 분석
                         let pureName = itemStr.replace(/\s*x\d+개/g, "").replace(/\s*\([\d,]+원\)/g, "").trim();
-                        
-                        // 수량 추출 (없으면 기본 qty 사용)
                         let qtyMatch = itemStr.match(/x(\d+)개/);
                         let itemQty = qtyMatch ? parseInt(qtyMatch[1]) : (order.qty || 1);
-                        let itemPrice = order.price || 0;
+                        let itemPrice = fruitPriceMap[pureName] || order.price || 0;
                         let itemTotal = itemPrice * itemQty;
 
                         html += `
@@ -1479,7 +1481,6 @@
 
             html += `</table></body></html>`;
 
-            // HTML Blob 생성 후 XLS 저장
             const blob = new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel;choice=utf-8' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
