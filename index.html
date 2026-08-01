@@ -113,7 +113,6 @@
 
             <div class="flex justify-between items-center px-1 pt-2">
                 <h2 class="text-xl font-extrabold text-gray-500">오늘의 싱싱 품목</h2>
-                <!-- 🛒 [신기능] 수량 지정된 품목들 한 번에 장바구니에 담기 버튼 -->
                 <button onclick="addAllSelectedQtyToCart()" class="bg-orange-600 hover:bg-orange-700 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow-md transition flex items-center gap-1">
                     🛒 선택 수량 한 번에 담기
                 </button>
@@ -561,6 +560,7 @@
                     ? `<p class="text-gray-400 text-xs mt-0.5">상태: <span class="font-bold text-green-600">구매 가능</span></p>`
                     : `<p class="text-gray-400 text-xs mt-0.5">남은 재고: <span class="font-bold text-gray-700">${item.stock}</span>개</p>`;
 
+                // 💡 [요구사항 반영] 과일 카드의 초기 선택 수량을 0으로 변경!
                 userListEl.innerHTML += `
                     <div class="bg-white p-5 rounded-3xl shadow-xs border border-gray-100 space-y-4">
                         ${imgHtmlContainer}
@@ -578,7 +578,7 @@
                                 
                                 <div class="flex items-center space-x-1 border border-gray-200 rounded-xl p-1 bg-gray-50">
                                     <button onclick="adjustCardQty(${item.id}, -1)" class="w-6 h-6 bg-white border border-gray-300 rounded-lg text-xs font-black shadow-2xs">-</button>
-                                    <span id="cardQty-${item.id}" class="w-5 text-center font-black text-xs">1</span>
+                                    <span id="cardQty-${item.id}" class="w-5 text-center font-black text-xs">0</span>
                                     <button onclick="adjustCardQty(${item.id}, 1)" class="w-6 h-6 bg-white border border-gray-300 rounded-lg text-xs font-black shadow-2xs">+</button>
                                 </div>
 
@@ -618,12 +618,17 @@
             const qtyEl = document.getElementById(`cardQty-${fruitId}`);
             if(!qtyEl) return;
             let current = parseInt(qtyEl.innerText) + change;
-            if(current >= 1) qtyEl.innerText = current;
+            if(current >= 0) qtyEl.innerText = current; // 0 이상 허용
         }
 
         function addSelectedQtyToCart(fruitId, fruitName, price) {
             const qtyEl = document.getElementById(`cardQty-${fruitId}`);
-            const qty = qtyEl ? parseInt(qtyEl.innerText) : 1;
+            const qty = qtyEl ? parseInt(qtyEl.innerText) : 0;
+
+            if(qty <= 0) {
+                alert("수량을 1개 이상 선택해 주세요!");
+                return;
+            }
 
             const existing = cart.find(c => c.fruit_id === fruitId);
             if(existing) {
@@ -632,11 +637,10 @@
                 cart.push({ fruit_id: fruitId, fruit_name: fruitName, price: price, qty: qty });
             }
             alert(`🛒 '${fruitName}' ${qty}개가 장바구니에 담겼습니다!`);
-            if(qtyEl) qtyEl.innerText = "1";
+            if(qtyEl) qtyEl.innerText = "0"; // 담은 후 0으로 리셋
             updateCartUI();
         }
 
-        // 🛒 [신기능] 수량이 1개 이상 지정된 모든 품목을 한 번에 담는 기능
         function addAllSelectedQtyToCart() {
             let addedCount = 0;
             fruitItems.forEach(item => {
@@ -650,7 +654,7 @@
                         } else {
                             cart.push({ fruit_id: item.id, fruit_name: item.name, price: item.price, qty: qty });
                         }
-                        qtyEl.innerText = "1"; // 초기화
+                        qtyEl.innerText = "0"; // 담은 후 0으로 리셋
                         addedCount++;
                     }
                 }
@@ -660,7 +664,7 @@
                 alert(`🛒 선택하신 품목들이 장바구니에 담겼습니다!`);
                 updateCartUI();
             } else {
-                alert("담을 수량이 지정된 과일이 없습니다.");
+                alert("담을 수량이 지정된 과일이 없습니다. (+ 버튼을 눌러 수량을 조절해 주세요)");
             }
         }
 
@@ -1022,7 +1026,7 @@
 
         function toggleAddForm() { document.getElementById('itemAddForm').classList.toggle('hidden'); }
 
-        // 🛍️ [수정] 새 품목 추가 완료 후 입력창들 싹 자동 초기화
+        // 🛍️ [수정 완료] 등록 성공 후 입력 폼 완전 자동 리셋
         async function addNewFruitItem() {
             const btn = document.getElementById('btnAddNewFruit');
             const nameInput = document.getElementById('newFruitName');
@@ -1057,7 +1061,7 @@
                 if(res.ok) {
                     alert('새 품목 추가 완료! 🍓');
                     
-                    // 입력창 리셋
+                    // 폼 리셋
                     nameInput.value = '';
                     priceInput.value = '';
                     stockInput.value = '';
@@ -1312,7 +1316,7 @@
             filterAndRenderCompletedOrders();
         }
 
-        // 🎨 [요구사항 100% 반영] 품목명 수량 제거 정제 + 디자이너급 오렌지/네이비 테마 적용 엑셀
+        // 📊 [수정 핵심] HTML 테이블 변환을 통한 엑셀 디자인 시각화 및 품목별 1행 개별 분리
         function downloadExcel(mode = 'all') {
             let targetOrders = [...rawCompletedOrders];
 
@@ -1340,104 +1344,152 @@
             }
 
             const availableFruits = (fruitItems && fruitItems.length > 0) ? fruitItems.map(f => f.name) : ["기본 품목"];
-            const sheetData = [];
 
-            // --- 1. 상단 원가/마진 자동 계산기 (1~6행) ---
-            sheetData.push(["💡 하루마켓 흑석점 - 품목별 원가/마진 정산 분석기", "", "", "", "", "", "", "", "", "", ""]);
-            sheetData.push(["📌 안내: '품목별 원가(E열)'에 원가를 직접 입력하시면 총 원가, 순이익, 마진율이 자동 산출됩니다.", "", "", "", "", "", "", "", "", "", ""]);
-            sheetData.push(["품목명", "총 판매 수량", "총 매출액(원)", "평균 단가(원)", "품목별 원가(입력)", "총 원가(원)", "총 순이익(원)", "마진율(%)", "", "", ""]);
+            // HTML 테이블 생성 (시각적 스타일링을 지원하는 최선의 방법)
+            let html = `
+            <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+            <head><meta charset="utf-8">
+            <style>
+                th, td { border: 0.5pt solid #d1d5db; padding: 6px; font-family: '맑은 고딕', sans-serif; font-size: 10pt; }
+                .title { background-color: #fff7ed; color: #c2410c; font-size: 14pt; font-weight: bold; text-align: left; }
+                .calc-header { background-color: #ffedd5; color: #9a3412; font-weight: bold; text-align: center; }
+                .data-header { background-color: #1e3a8a; color: #ffffff; font-weight: bold; text-align: center; }
+                .num { text-align: right; }
+                .center { text-align: center; }
+            </style>
+            </head>
+            <body>
+            <table>
+                <tr><td colspan="8" class="title">💡 하루마켓 흑석점 - 품목별 원가/마진 정산 분석기</td></tr>
+                <tr><td colspan="8" style="color: #6b7280; font-size: 9pt;">📌 '품목별 원가(E열)'에 원가를 입력하면 총 원가, 순이익, 마진율이 자동 계산됩니다.</td></tr>
+                <tr>
+                    <th class="calc-header">품목명</th>
+                    <th class="calc-header">총 판매 수량</th>
+                    <th class="calc-header">총 매출액(원)</th>
+                    <th class="calc-header">평균 단가(원)</th>
+                    <th class="calc-header">품목별 원가(입력)</th>
+                    <th class="calc-header">총 원가(원)</th>
+                    <th class="calc-header">총 순이익(원)</th>
+                    <th class="calc-header">마진율(%)</th>
+                </tr>
+            `;
 
+            // 마진 계산기 행 추가 (3행부터 시작)
             availableFruits.forEach((fName, idx) => {
-                const rowNum = 4 + idx;
-                sheetData.push([
-                    fName,
-                    { t: 'n', f: `SUMIF($G$9:$G$1000, "*"&A${rowNum}&"*", $J$9:$J$1000)` }, 
-                    { t: 'n', f: `SUMIF($G$9:$G$1000, "*"&A${rowNum}&"*", $L$9:$L$1000)` }, 
-                    { t: 'n', f: `IF(B${rowNum}>0, C${rowNum}/B${rowNum}, 0)` },     
-                    0,                                                             
-                    { t: 'n', f: `B${rowNum}*E${rowNum}` },                        
-                    { t: 'n', f: `C${rowNum}-F${rowNum}` },                        
-                    { t: 'n', f: `IF(C${rowNum}>0, G${rowNum}/C${rowNum}, 0)` }      
-                ]);
+                const r = 4 + idx;
+                html += `
+                <tr>
+                    <td>${fName}</td>
+                    <td class="num">=SUMIF($G$9:$G$1000, A${r}, $J$9:$J$1000)</td>
+                    <td class="num">=SUMIF($G$9:$G$1000, A${r}, $L$9:$L$1000)</td>
+                    <td class="num">=IF(B${r}>0, C${r}/B${r}, 0)</td>
+                    <td class="num">0</td>
+                    <td class="num">=B${r}*E${r}</td>
+                    <td class="num">=C${r}-F${r}</td>
+                    <td class="num">=IF(C${r}>0, G${r}/C${r}, 0)</td>
+                </tr>
+                `;
             });
 
-            sheetData.push([]);
+            html += `<tr><td colspan="8"></td></tr>`; // 여백
 
-            // --- 2. 하단 장부 데이터 영역 (8행 헤더) ---
-            sheetData.push([
-                "연번",
-                "구분(수령방식)",
-                "카톡 닉네임",
-                "고객 성함",
-                "고객 누적주문횟수",
-                "배달 주소",
-                "판매 품목명", // 💡 Pure 텍스트 품목명만 추출
-                "공동현관 비번",
-                "단가(원)",
-                "주문 수량(개)",
-                "배달비(원)",
-                "총 결제금액(원)",
-                "결제 방식",
-                "주문 접수시간",
-                "수령 완료시간"
-            ]);
+            // 장부 데이터 헤더 (8행)
+            html += `
+                <tr>
+                    <th class="data-header">연번</th>
+                    <th class="data-header">구분(수령방식)</th>
+                    <th class="data-header">카톡 닉네임</th>
+                    <th class="data-header">고객 성함</th>
+                    <th class="data-header">고객 누적주문횟수</th>
+                    <th class="data-header">배달 주소</th>
+                    <th class="data-header">판매 품목명</th>
+                    <th class="data-header">공동현관 비번</th>
+                    <th class="data-header">단가(원)</th>
+                    <th class="data-header">주문 수량(개)</th>
+                    <th class="data-header">배달비(원)</th>
+                    <th class="data-header">총 결제금액(원)</th>
+                    <th class="data-header">결제 방식</th>
+                    <th class="data-header">주문 접수시간</th>
+                    <th class="data-header">수령 완료시간</th>
+                </tr>
+            `;
 
-            // 💡 [핵심] 품목명에서 'x수량개' 텍스트 제거 정제 로직
-            targetOrders.forEach((order, idx) => {
+            // 💡 [핵심 해법] 다중 주문건을 품목별 1행씩 개별 분리(Unwind)해서 엑셀 행 추가!
+            let rowSeq = 1;
+            targetOrders.forEach(order => {
                 const orderUserCount = getStrictCustomerOrderCount(order.kakao_nickname);
-                
                 let rawFruitStr = order.fruit_name || order.fruit || "";
-                let cleanFruitStr = rawFruitStr.replace(/\s*x\d+개/g, "").trim(); // ' x2개' 등 수량 표기 말끔히 삭제!
 
-                sheetData.push([
-                    idx + 1,
-                    order.order_type || "픽업",
-                    order.kakao_nickname || "",
-                    order.name || "",
-                    orderUserCount,
-                    order.address || "-",
-                    cleanFruitStr, // 갯수 제외 품목명만 전달!
-                    order.door_password || "-",
-                    order.price || 0,
-                    order.qty || 1,
-                    order.delivery_fee || 0,
-                    order.total_price || 0,
-                    order.method || "계좌이체",
-                    order.time_str || "",
-                    order.status_changed_time || ""
-                ]);
+                // '딸기 x2개, 사과 x1개' 과 같이 여러 품목이 결합된 경우 쉼표로 분리
+                let fruitItemsList = rawFruitStr.split(',').map(s => s.trim()).filter(s => s);
+
+                if (fruitItemsList.length > 0) {
+                    fruitItemsList.forEach(itemStr => {
+                        // "딸기 x2개" 또는 "딸기 (10,000원)" 패턴 분석
+                        let pureName = itemStr.replace(/\s*x\d+개/g, "").replace(/\s*\([\d,]+원\)/g, "").trim();
+                        
+                        // 수량 추출 (없으면 기본 qty 사용)
+                        let qtyMatch = itemStr.match(/x(\d+)개/);
+                        let itemQty = qtyMatch ? parseInt(qtyMatch[1]) : (order.qty || 1);
+                        let itemPrice = order.price || 0;
+                        let itemTotal = itemPrice * itemQty;
+
+                        html += `
+                        <tr>
+                            <td class="center">${rowSeq++}</td>
+                            <td class="center">${order.order_type || "픽업"}</td>
+                            <td>${order.kakao_nickname || ""}</td>
+                            <td>${order.name || ""}</td>
+                            <td class="center">${orderUserCount}</td>
+                            <td>${order.address || "-"}</td>
+                            <td>${pureName}</td>
+                            <td class="center">${order.door_password || "-"}</td>
+                            <td class="num">${itemPrice}</td>
+                            <td class="num">${itemQty}</td>
+                            <td class="num">${order.delivery_fee || 0}</td>
+                            <td class="num">${itemTotal + (order.delivery_fee || 0)}</td>
+                            <td class="center">${order.method || "계좌이체"}</td>
+                            <td class="center">${order.time_str || ""}</td>
+                            <td class="center">${order.status_changed_time || ""}</td>
+                        </tr>
+                        `;
+                    });
+                } else {
+                    html += `
+                    <tr>
+                        <td class="center">${rowSeq++}</td>
+                        <td class="center">${order.order_type || "픽업"}</td>
+                        <td>${order.kakao_nickname || ""}</td>
+                        <td>${order.name || ""}</td>
+                        <td class="center">${orderUserCount}</td>
+                        <td>${order.address || "-"}</td>
+                        <td>${rawFruitStr}</td>
+                        <td class="center">${order.door_password || "-"}</td>
+                        <td class="num">${order.price || 0}</td>
+                        <td class="num">${order.qty || 1}</td>
+                        <td class="num">${order.delivery_fee || 0}</td>
+                        <td class="num">${order.total_price || 0}</td>
+                        <td class="center">${order.method || "계좌이체"}</td>
+                        <td class="center">${order.time_str || ""}</td>
+                        <td class="center">${order.status_changed_time || ""}</td>
+                    </tr>
+                    `;
+                }
             });
 
-            const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
+            html += `</table></body></html>`;
 
-            // AutoFilter 및 Freeze Panes
-            const lastRow = sheetData.length;
-            worksheet['!autofilter'] = { ref: `A8:O${lastRow}` };
-            worksheet['!views'] = [{ state: 'frozen', xSplit: 0, ySplit: 6 }];
-
-            // 🎨 컬럼 폭 넉넉히 가시성 있게 확장 (글자 잘림 원천 차단)
-            worksheet['!cols'] = [
-                { wch: 8 },  // 연번
-                { wch: 16 }, // 구분
-                { wch: 18 }, // 카톡 닉네임
-                { wch: 14 }, // 고객 성함
-                { wch: 18 }, // 누적주문횟수
-                { wch: 32 }, // 배달 주소
-                { wch: 24 }, // 판매 품목명
-                { wch: 16 }, // 비번
-                { wch: 14 }, // 단가
-                { wch: 14 }, // 수량
-                { wch: 14 }, // 배달비
-                { wch: 16 }, // 총 결제금액
-                { wch: 14 }, // 결제방식
-                { wch: 24 }, // 접수시간
-                { wch: 24 }  // 완료시간
-            ];
-
-            const workbook = XLSX.utils.book_new();
+            // HTML Blob 생성 후 XLS 저장
+            const blob = new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel;choice=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
             const fileNameMode = mode === 'month' ? document.getElementById('excelMonthPicker').value : '전체기간';
-            XLSX.utils.book_append_sheet(workbook, worksheet, "매출 정산 분석장부");
-            XLSX.writeFile(workbook, `하루마켓_흑석점_매출장부_${fileNameMode}_${new Date().toISOString().slice(0,10)}.xlsx`);
+            
+            a.href = url;
+            a.download = `하루마켓_흑석점_매출장부_${fileNameMode}_${new Date().toISOString().slice(0,10)}.xls`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
         }
     </script>
 </body>
