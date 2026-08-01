@@ -9,7 +9,6 @@
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         
-        /* 🖨️ A4 용지 2x5 스티커 라벨 전용 고품질 인쇄 CSS */
         @page {
             size: A4 portrait;
             margin: 8mm 6mm;
@@ -145,14 +144,13 @@
                     </div>
                 </div>
 
-                <button onclick="saveAdminSettings()" class="w-full bg-orange-500 text-white font-black py-3.5 rounded-2xl text-base shadow-md hover:bg-orange-600 transition">
+                <button id="btnSaveAdminSettings" onclick="saveAdminSettings()" class="w-full bg-orange-500 text-white font-black py-3.5 rounded-2xl text-base shadow-md hover:bg-orange-600 transition">
                     기본 정보 저장하기
                 </button>
             </div>
 
             <!-- 대시보드 영역 -->
             <div class="flex-1 space-y-6 w-full">
-                <!-- 당일 판매 품목 편집 -->
                 <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
                     <div class="flex justify-between items-center border-b pb-3">
                         <h2 class="text-xl font-extrabold text-gray-800">🍎 당일 판매 품목 편집</h2>
@@ -186,14 +184,13 @@
                                 <input type="checkbox" id="newFruitHideStock" class="accent-orange-500 w-4 h-4">
                                 이 품목의 손님 화면 재고 수량 숨기기
                             </label>
-                            <button onclick="addNewFruitItem()" class="bg-gray-900 text-white font-black px-8 py-3 rounded-xl text-sm">진짜 추가</button>
+                            <button id="btnAddNewFruit" onclick="addNewFruitItem()" class="bg-gray-900 text-white font-black px-8 py-3 rounded-xl text-sm">진짜 추가</button>
                         </div>
                     </div>
 
                     <div id="adminFruitList" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
                 </div>
 
-                <!-- 🚚 배달 전용 대시보드 -->
                 <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-3xl shadow-sm border border-blue-100 space-y-4">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-blue-200/60 pb-3 gap-3">
                         <div>
@@ -209,7 +206,6 @@
                     <div id="deliveryOrderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4"></div>
                 </div>
 
-                <!-- 📥 매장픽업 예약 현황 -->
                 <div class="space-y-3">
                     <div class="bg-white p-4 rounded-2xl border border-gray-100">
                         <h2 class="text-xl font-extrabold text-gray-800">🏢 매장 픽업 예약 현황 (<span id="orderCount" class="text-orange-500">0</span>건)</h2>
@@ -217,7 +213,6 @@
                     <div id="orderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4"></div>
                 </div>
 
-                <!-- 판매완료 장부 -->
                 <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
                     <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b pb-4">
                         <div>
@@ -322,7 +317,8 @@
                 </div>
             </div>
 
-            <button onclick="submitOrder()" class="w-full bg-orange-500 hover:bg-orange-600 text-white text-xl font-black py-4 rounded-2xl shadow-lg transition">
+            <!-- 주문 버튼 디바운싱 방어 적용 -->
+            <button id="btnSubmitOrder" onclick="submitOrder()" class="w-full bg-orange-500 hover:bg-orange-600 text-white text-xl font-black py-4 rounded-2xl shadow-lg transition disabled:bg-gray-400 disabled:cursor-not-allowed">
                 일괄 주문 완료하기
             </button>
         </div>
@@ -372,7 +368,7 @@
                     <input type="text" id="searchMyKakao" placeholder="카톡 닉네임" class="p-3 border border-gray-300 rounded-xl text-sm">
                     <input type="text" id="searchMyName" placeholder="성함" class="p-3 border border-gray-300 rounded-xl text-sm">
                 </div>
-                <button onclick="fetchMyOrders()" class="w-full bg-orange-500 text-white font-bold py-2.5 rounded-xl text-sm">조회하기</button>
+                <button id="btnFetchMyOrders" onclick="fetchMyOrders()" class="w-full bg-orange-500 text-white font-bold py-2.5 rounded-xl text-sm disabled:bg-gray-400">조회하기</button>
             </div>
             <div id="myOrdersResult" class="overflow-y-auto space-y-3 flex-1 pr-1 border-t pt-3">
                 <p class="text-center text-gray-400 text-xs py-8 font-bold">닉네임과 성함을 입력 후 조회하세요.</p>
@@ -395,7 +391,6 @@
         </div>
     </div>
 
-    <!-- 🖨️ A4 용지 2x5 라벨 전용 인쇄 영역 (화면상 완전 비노출) -->
     <div id="labelPrintArea" style="display: none;"></div>
 
     <script>
@@ -411,6 +406,7 @@
         let isDeliveryAvailable = true;
         let uploadedDetailImgs = []; 
         let cart = []; 
+        let isSubmitting = false; // 연타 방지 플래그
 
         window.onload = function() {
             loadStoreData();
@@ -561,16 +557,16 @@
                                 <h4 class="font-black text-gray-800 text-base leading-snug">${item.name}</h4>
                                 <p class="text-sm font-bold text-orange-600 mt-0.5">${Number(item.price).toLocaleString()}원</p>
                             </div>
-                            <button onclick="deleteFruitItem(${item.id})" class="bg-red-50 text-red-600 font-bold text-xs px-2.5 py-1.5 rounded-xl ml-2 hover:bg-red-100 transition">품목 삭제</button>
+                            <button onclick="deleteFruitItem(${item.id}, this)" class="bg-red-50 text-red-600 font-bold text-xs px-2.5 py-1.5 rounded-xl ml-2 hover:bg-red-100 transition">품목 삭제</button>
                         </div>
                         <div class="pt-2 border-t border-gray-200/60 flex items-center justify-between text-xs gap-2">
-                            <button onclick="toggleItemHideStock(${item.id}, ${!item.hide_stock})" class="${hideBtnClass}">
+                            <button onclick="toggleItemHideStock(${item.id}, ${!item.hide_stock}, this)" class="${hideBtnClass}">
                                 ${hideBtnText}
                             </button>
                             <div class="flex items-center gap-1 ml-auto">
                                 <span class="font-bold text-gray-400">재고:</span>
                                 <input type="number" id="stock-input-${item.id}" value="${item.stock}" class="w-12 text-right font-black bg-white text-gray-700 border border-gray-300 rounded px-1 py-0.5">
-                                <button onclick="updateStock(${item.id})" class="bg-gray-800 text-white font-bold px-2 py-0.5 rounded">변경</button>
+                                <button onclick="updateStock(${item.id}, this)" class="bg-gray-800 text-white font-bold px-2 py-0.5 rounded">변경</button>
                             </div>
                         </div>
                     </div>`;
@@ -729,7 +725,11 @@
             }
         }
 
+        // 🛡️ [수정 핵심] 주문 버튼 연타 및 중복 클릭 완벽 방어 함수
         async function submitOrder() {
+            if(isSubmitting) return; // 이미 제출 중이면 2번째 클릭 무시
+
+            const submitBtn = document.getElementById('btnSubmitOrder');
             const kakao = document.getElementById('buyerKakao').value;
             const name = document.getElementById('buyerName').value;
             const address = document.getElementById('buyerAddress').value;
@@ -739,6 +739,12 @@
             if(cart.length === 0) { alert('장바구니가 비어있습니다!'); return; }
             if(!kakao || !name) { alert('카톡 닉네임과 성함을 꼭 입력해주세요!'); return; }
             if(selectedOrderType === '배달' && !address) { alert('배달 상세 주소를 적어주세요!'); return; }
+
+            // 제출 상태 ON 및 버튼 비활성화
+            isSubmitting = true;
+            submitBtn.disabled = true;
+            const originalBtnText = submitBtn.innerText;
+            submitBtn.innerText = "⏳ 주문 접수 중입니다...";
 
             try {
                 const res = await fetch(`${API_URL}/api/orders`, {
@@ -768,6 +774,11 @@
                 }
             } catch(e) {
                 alert('예약 서버 통신 실패!');
+            } finally {
+                // 원복
+                isSubmitting = false;
+                submitBtn.disabled = false;
+                submitBtn.innerText = originalBtnText;
             }
         }
 
@@ -777,7 +788,12 @@
         async function fetchMyOrders() {
             const kakao = document.getElementById('searchMyKakao').value.trim();
             const name = document.getElementById('searchMyName').value.trim();
+            const btn = document.getElementById('btnFetchMyOrders');
+
             if(!kakao || !name) { alert('닉네임과 성함을 입력해 주세요!'); return; }
+
+            btn.disabled = true;
+            btn.innerText = "조회 중...";
 
             try {
                 const res = await fetch(`${API_URL}/api/my-orders?kakao_nickname=${encodeURIComponent(kakao)}&name=${encodeURIComponent(name)}`);
@@ -786,6 +802,10 @@
                     renderMyOrders(data.orders || [], kakao, name);
                 }
             } catch(e) { alert('주문 조회 실패!'); }
+            finally {
+                btn.disabled = false;
+                btn.innerText = "조회하기";
+            }
         }
 
         function renderMyOrders(orders, kakao, name) {
@@ -799,7 +819,7 @@
             orders.forEach(o => {
                 let canCancel = o.status === '입금대기' || o.status === '접수완료';
                 let cancelBtnHtml = canCancel 
-                    ? `<button onclick="cancelMyOrder(${o.id}, '${kakao}', '${name}')" class="bg-red-50 text-red-600 font-bold text-xs px-2.5 py-1.5 rounded-xl hover:bg-red-100">주문 취소</button>`
+                    ? `<button onclick="cancelMyOrder(${o.id}, '${kakao}', '${name}', this)" class="bg-red-50 text-red-600 font-bold text-xs px-2.5 py-1.5 rounded-xl hover:bg-red-100">주문 취소</button>`
                     : `<span class="text-xs text-gray-400 font-bold">취소 불가</span>`;
 
                 box.innerHTML += `
@@ -822,8 +842,9 @@
             });
         }
 
-        async function cancelMyOrder(orderId, kakao, name) {
+        async function cancelMyOrder(orderId, kakao, name, btnEl) {
             if(confirm('정말 이 주문을 취소하시겠습니까?')) {
+                if(btnEl) btnEl.disabled = true;
                 try {
                     const res = await fetch(`${API_URL}/api/my-orders/${orderId}?kakao_nickname=${encodeURIComponent(kakao)}&name=${encodeURIComponent(name)}`, { method: 'DELETE' });
                     if(res.ok) {
@@ -834,6 +855,7 @@
                         alert(errData.detail || '취소할 수 없습니다.');
                     }
                 } catch(e) { alert('취소 통신 오류!'); }
+                finally { if(btnEl) btnEl.disabled = false; }
             }
         }
 
@@ -877,7 +899,8 @@
             }
         }
 
-        async function toggleItemHideStock(fruitId, newHideState) {
+        async function toggleItemHideStock(fruitId, newHideState, btnEl) {
+            if(btnEl) btnEl.disabled = true;
             try {
                 const res = await fetch(`${API_URL}/api/admin/fruits/${fruitId}?password=${PASS}`, {
                     method: 'PUT',
@@ -889,9 +912,14 @@
                     loadStoreData();
                 }
             } catch(e) { alert('설정 변경 실패!'); }
+            finally { if(btnEl) btnEl.disabled = false; }
         }
 
         async function saveAdminSettings() {
+            const btn = document.getElementById('btnSaveAdminSettings');
+            btn.disabled = true;
+            btn.innerText = "저장 중...";
+
             const requestData = {
                 notice: document.getElementById('inputDailyNotice').value,
                 account: document.getElementById('inputAccount').value,
@@ -907,11 +935,16 @@
                 });
                 if(res.ok) { alert('기본 정보 저장 완료! 🍊'); loadStoreData(); }
             } catch(e) { alert('저장 실패!'); }
+            finally {
+                btn.disabled = false;
+                btn.innerText = "기본 정보 저장하기";
+            }
         }
 
         function toggleAddForm() { document.getElementById('itemAddForm').classList.toggle('hidden'); }
 
         async function addNewFruitItem() {
+            const btn = document.getElementById('btnAddNewFruit');
             const name = document.getElementById('newFruitName').value;
             const price = parseInt(document.getElementById('newFruitPrice').value);
             const stock = parseInt(document.getElementById('newFruitStock').value);
@@ -920,6 +953,10 @@
             const hideStock = document.getElementById('newFruitHideStock').checked;
 
             if(!name || isNaN(price) || isNaN(stock)) { alert('정보를 올바르게 입력해주세요!'); return; }
+
+            btn.disabled = true;
+            btn.innerText = "추가 중...";
+
             try {
                 const res = await fetch(`${API_URL}/api/admin/fruits?password=${PASS}`, {
                     method: 'POST',
@@ -937,11 +974,17 @@
                     toggleAddForm(); loadStoreData();
                 }
             } catch(e) { alert('품목 추가 실패!'); }
+            finally {
+                btn.disabled = false;
+                btn.innerText = "진짜 추가";
+            }
         }
 
-        async function updateStock(id) {
+        async function updateStock(id, btnEl) {
             const val = parseInt(document.getElementById(`stock-input-${id}`).value);
             if(isNaN(val)) return;
+            if(btnEl) btnEl.disabled = true;
+
             try {
                 const res = await fetch(`${API_URL}/api/admin/fruits/${id}?password=${PASS}`, {
                     method: 'PUT',
@@ -950,14 +993,17 @@
                 });
                 if(res.ok) { alert('재고 수정 완료!'); loadStoreData(); }
             } catch(e) { alert('재고 수정 실패!'); }
+            finally { if(btnEl) btnEl.disabled = false; }
         }
 
-        async function deleteFruitItem(id) {
+        async function deleteFruitItem(id, btnEl) {
             if(confirm('정말 삭제하시겠습니까?')) {
+                if(btnEl) btnEl.disabled = true;
                 try {
                     const res = await fetch(`${API_URL}/api/admin/fruits/${id}?password=${PASS}`, { method: 'DELETE' });
                     if(res.ok) { alert('삭제 완료.'); loadStoreData(); }
                 } catch(e) { alert('삭제 실패!'); }
+                finally { if(btnEl) btnEl.disabled = false; }
             }
         }
 
@@ -978,8 +1024,8 @@
                     const badgeStyle = getBadgeStyleByCount(historyCount);
 
                     let actionBtn = order.status === '입금대기'
-                        ? `<button onclick="triggerUpdateStatus(${order.id}, '접수완료')" class="flex-1 bg-blue-600 text-white py-2 rounded-xl text-xs font-black">💵 입금확인</button>`
-                        : `<button onclick="triggerCompleteOrder(${order.id})" class="flex-1 bg-green-600 text-white py-2 rounded-xl text-xs font-black">✅ 수령 완료</button>`;
+                        ? `<button onclick="triggerUpdateStatus(${order.id}, '접수완료', this)" class="flex-1 bg-blue-600 text-white py-2 rounded-xl text-xs font-black">💵 입금확인</button>`
+                        : `<button onclick="triggerCompleteOrder(${order.id}, this)" class="flex-1 bg-green-600 text-white py-2 rounded-xl text-xs font-black">✅ 수령 완료</button>`;
 
                     waitList.innerHTML += `
                         <div class="bg-white p-5 rounded-3xl border border-gray-100 space-y-3 shadow-2xs relative">
@@ -989,7 +1035,7 @@
                             <p class="text-xs text-gray-400">🕒 접수일시: ${order.time_str || ''} [상태: ${order.status}]</p>
                             <div class="flex gap-2 pt-2 border-t border-gray-100">
                                 ${actionBtn}
-                                <button onclick="cancelAdminOrder(${order.id})" class="bg-gray-100 text-gray-500 px-3 py-2 rounded-xl text-xs font-bold">취소</button>
+                                <button onclick="cancelAdminOrder(${order.id}, this)" class="bg-gray-100 text-gray-500 px-3 py-2 rounded-xl text-xs font-bold">취소</button>
                             </div>
                         </div>`;
                 });
@@ -1002,8 +1048,8 @@
                     const badgeStyle = getBadgeStyleByCount(historyCount);
 
                     let deliveryActionBtn = order.status === '입금대기'
-                        ? `<button onclick="triggerUpdateStatus(${order.id}, '접수완료')" class="flex-1 bg-blue-600 text-white py-2 rounded-xl text-xs font-black hover:bg-blue-700">💵 입금확인</button>`
-                        : `<button onclick="triggerCompleteOrder(${order.id})" class="flex-1 bg-indigo-600 text-white py-2 rounded-xl text-xs font-black hover:bg-indigo-700">🚚 배달 완료 처리</button>`;
+                        ? `<button onclick="triggerUpdateStatus(${order.id}, '접수완료', this)" class="flex-1 bg-blue-600 text-white py-2 rounded-xl text-xs font-black hover:bg-blue-700">💵 입금확인</button>`
+                        : `<button onclick="triggerCompleteOrder(${order.id}, this)" class="flex-1 bg-indigo-600 text-white py-2 rounded-xl text-xs font-black hover:bg-indigo-700">🚚 배달 완료 처리</button>`;
 
                     deliveryList.innerHTML += `
                         <div class="bg-white p-5 rounded-3xl border border-blue-200 space-y-3 shadow-sm relative">
@@ -1020,7 +1066,7 @@
                             <p class="text-[11px] text-gray-400 font-bold">🕒 주문 접수일시: ${order.time_str || ''}</p>
                             <div class="flex gap-2 pt-2 border-t border-gray-100">
                                 ${deliveryActionBtn}
-                                <button onclick="cancelAdminOrder(${order.id})" class="bg-gray-100 text-gray-500 px-3 py-2 rounded-xl text-xs font-bold">취소</button>
+                                <button onclick="cancelAdminOrder(${order.id}, this)" class="bg-gray-100 text-gray-500 px-3 py-2 rounded-xl text-xs font-bold">취소</button>
                             </div>
                         </div>`;
                 });
@@ -1030,7 +1076,6 @@
             } catch(e) { console.error("장부 조회 에러", e); }
         }
 
-        // 🖨️ A4 규격 2x5 스티커 라벨 고품질 일괄 인쇄 (PDF 저장 다이얼로그 지원)
         function printAllDeliveryLabels() {
             const deliveryOrders = (globalOrders || []).filter(o => o.order_type === '배달' && o.status !== '판매완료');
             
@@ -1079,26 +1124,32 @@
             }, 300);
         }
 
-        async function triggerUpdateStatus(id, status) {
+        async function triggerUpdateStatus(id, status, btnEl) {
+            if(btnEl) btnEl.disabled = true;
             try {
                 const res = await fetch(`${API_URL}/api/admin/orders/${id}?status=${status}&password=${PASS}`, { method: 'PUT' });
                 if(res.ok) { alert('💵 입금 확인 처리되었습니다!'); renderAdminOrders(); }
             } catch(e) { alert('처리 실패!'); }
+            finally { if(btnEl) btnEl.disabled = false; }
         }
 
-        async function triggerCompleteOrder(id) {
+        async function triggerCompleteOrder(id, btnEl) {
+            if(btnEl) btnEl.disabled = true;
             try {
                 const res = await fetch(`${API_URL}/api/admin/orders/${id}?status=판매완료&password=${PASS}`, { method: 'PUT' });
                 if(res.ok) { alert('🎉 완료 처리되었습니다!'); renderAdminOrders(); }
             } catch(e) { alert('처리 실패!'); }
+            finally { if(btnEl) btnEl.disabled = false; }
         }
 
-        async function cancelAdminOrder(id) {
+        async function cancelAdminOrder(id, btnEl) {
             if(confirm('이 주문을 취소하시겠습니까? (재고가 복구됩니다)')) {
+                if(btnEl) btnEl.disabled = true;
                 try {
                     const res = await fetch(`${API_URL}/api/admin/orders/${id}?password=${PASS}`, { method: 'DELETE' });
                     if(res.ok) { alert('주문 취소 완료!'); renderAdminOrders(); }
                 } catch(e) { alert('취소 실패!'); }
+                finally { if(btnEl) btnEl.disabled = false; }
             }
         }
 
@@ -1135,7 +1186,7 @@
                             <p class="text-[11px] text-gray-400 mt-1">🕒 접수: ${order.time_str || ''} / 완료: ${order.status_changed_time || ''}</p>
                         </div>
                         <div class="flex items-center justify-between pt-2 border-t border-gray-100 mt-2">
-                            <button onclick="cancelAdminOrder(${order.id})" class="bg-red-50 text-red-600 font-extrabold text-[11px] px-2.5 py-1.5 rounded-xl hover:bg-red-100 ml-auto">
+                            <button onclick="cancelAdminOrder(${order.id}, this)" class="bg-red-50 text-red-600 font-extrabold text-[11px] px-2.5 py-1.5 rounded-xl hover:bg-red-100 ml-auto">
                                 🗑️ 영구 삭제
                             </button>
                         </div>
