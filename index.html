@@ -1313,7 +1313,7 @@
             filterAndRenderCompletedOrders();
         }
 
-        // 📊 [수식 완전 오차 0% 검증 수술] G열(품목명), I열(수량), J열(합계금액) 무조건 100% 매칭!
+        // 📊 [마스터 해결] JS 사전 집계값 직접 주입 + 정확한 SUMIF 엑셀 수식 이중 완벽 적용
         function downloadExcel(mode = 'all') {
             let targetOrders = [...rawCompletedOrders];
 
@@ -1348,6 +1348,35 @@
             const availableFruits = (fruitItems && fruitItems.length > 0) ? fruitItems.map(f => f.name) : ["기본 품목"];
             const calcEndRow = 3 + availableFruits.length;
 
+            // JS 사전 데이터 집계 (백업 보장용)
+            const salesQtyMap = {};
+            const salesTotalMap = {};
+            availableFruits.forEach(fn => { salesQtyMap[fn] = 0; salesTotalMap[fn] = 0; });
+
+            // 하단 데이터 미리 정제하며 수량/매출 사전 누적
+            targetOrders.forEach(order => {
+                let rawFruitStr = order.fruit_name || order.fruit || "";
+                let fruitItemsList = rawFruitStr.split(',').map(s => s.trim()).filter(s => s);
+
+                if (fruitItemsList.length > 0) {
+                    fruitItemsList.forEach(itemStr => {
+                        let pureName = itemStr.replace(/\s*x\d+개/g, "").replace(/\s*\([\d,]+원\)/g, "").trim();
+                        let qtyMatch = itemStr.match(/x(\d+)개/);
+                        let itemQty = qtyMatch ? parseInt(qtyMatch[1]) : (order.qty || 1);
+                        let itemPrice = fruitPriceMap[pureName] || order.price || 0;
+                        let itemTotal = itemPrice * itemQty;
+
+                        if (salesQtyMap[pureName] !== undefined) {
+                            salesQtyMap[pureName] += itemQty;
+                            salesTotalMap[pureName] += itemTotal;
+                        } else {
+                            salesQtyMap[pureName] = itemQty;
+                            salesTotalMap[pureName] = itemTotal;
+                        }
+                    });
+                }
+            });
+
             let html = `
             <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
             <head><meta charset="utf-8">
@@ -1360,6 +1389,7 @@
                 .num { text-align: right; mso-number-format:"\#\,\#\#0"; }
                 .rate { text-align: right; mso-number-format:"0\.00%"; }
                 .center { text-align: center; }
+                .text-cell { mso-number-format:"\\@"; }
             </style>
             </head>
             <body>
@@ -1380,11 +1410,12 @@
                 </tr>
             `;
 
-            // 💡 [핵심] 하단 장부 칼럼 매칭 주소:
-            // G열: 판매 품목명, I열: 주문 수량(개), J열: 품목 합계금액(원)
+            // 마진 계산기 행 작성 (사전 집계값 초기 주입 + SUMIF 수식 연동)
             availableFruits.forEach((fName, idx) => {
                 const r = 4 + idx;
                 const defaultSellingPrice = fruitPriceMap[fName] || 0;
+                const preQty = salesQtyMap[fName] || 0;
+                const preTotal = salesTotalMap[fName] || 0;
 
                 let sumColHtml = "";
                 if (idx === 0) {
@@ -1407,14 +1438,14 @@
 
                 html += `
                 <tr>
-                    <td>${fName}</td>
+                    <td class="text-cell">${fName}</td>
                     <td class="num">${defaultSellingPrice}</td>
                     <td class="num">0</td>
-                    <td class="num">=SUMIF($G$10:$G$65536, "*"&A${r}&"*", $I$10:$I$65536)</td>
-                    <td class="num">=SUMIF($G$10:$G$65536, "*"&A${r}&"*", $J$10:$J$65536)</td>
-                    <td class="num">=D${r}*C${r}</td>
-                    <td class="num">=E${r}-F${r}</td>
-                    <td class="rate">=IF(E${r}>0, G${r}/E${r}, 0)</td>
+                    <td class="num" x:f="=SUMIF($G$10:$G$65536, A${r}, $I$10:$I$65536)">${preQty}</td>
+                    <td class="num" x:f="=SUMIF($G$10:$G$65536, A${r}, $J$10:$J$65536)">${preTotal}</td>
+                    <td class="num" x:f="=D${r}*C${r}">0</td>
+                    <td class="num" x:f="=E${r}-F${r}">${preTotal}</td>
+                    <td class="rate" x:f="=IF(E${r}>0, G${r}/E${r}, 0)">100.00%</td>
                     ${sumColHtml}
                 </tr>
                 `;
@@ -1422,7 +1453,7 @@
 
             html += `<tr><td colspan="16"></td></tr>`;
 
-            // 장부 데이터 헤더 (9행)
+            // 데이터 헤더 (9행)
             html += `
                 <tr>
                     <th class="data-header">연번</th>
@@ -1444,7 +1475,7 @@
                 </tr>
             `;
 
-            // 동일 주문 내 2번째 품목부터는 공통 정보 빈칸(공란)으로 처리하여 주문 묶음 표시
+            // 하단 장부 데이터 채우기 (동일 주문 내 2번째 품목부터 공란 처리)
             let rowSeq = 1;
             targetOrders.forEach(order => {
                 const orderUserCount = getStrictCustomerOrderCount(order.kakao_nickname);
@@ -1469,7 +1500,7 @@
                             <td>${isFirst ? (order.name || "") : ''}</td>
                             <td class="center">${isFirst ? (orderUserCount + '회차') : ''}</td>
                             <td>${isFirst ? (order.address || "-") : ''}</td>
-                            <td>${pureName}</td>
+                            <td class="text-cell">${pureName}</td>
                             <td class="num">${itemPrice}</td>
                             <td class="num">${itemQty}</td>
                             <td class="num">${itemTotal}</td>
@@ -1491,7 +1522,7 @@
                         <td>${order.name || ""}</td>
                         <td class="center">${orderUserCount}회차</td>
                         <td>${order.address || "-"}</td>
-                        <td>${rawFruitStr}</td>
+                        <td class="text-cell">${rawFruitStr}</td>
                         <td class="num">${order.price || 0}</td>
                         <td class="num">${order.qty || 1}</td>
                         <td class="num">${(order.price || 0) * (order.qty || 1)}</td>
