@@ -20,13 +20,19 @@
         </h1>
         <div class="flex items-center gap-2">
             <button onclick="openMyOrdersModal()" class="bg-gray-100 text-gray-700 px-3.5 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 transition">
-                🔎 내 주문 조회
+                🔎 내 주문
             </button>
             <button id="toggleBtn" onclick="openAdminAuthModal()" class="bg-orange-100 text-orange-700 px-3.5 py-2 rounded-xl text-xs font-bold transition hover:bg-orange-200">
-                👨‍🌾 사장님 모드
+                👨‍🌾 사장님
             </button>
         </div>
     </header>
+
+    <!-- 🛒 장바구니 플로팅 우측하단 버튼 -->
+    <button id="cartFloatingBtn" onclick="openCartModal()" class="fixed bottom-6 right-6 z-30 bg-orange-600 text-white p-4 rounded-full shadow-2xl flex items-center gap-2 font-black hover:bg-orange-700 transition transform hover:scale-105">
+        <span class="text-xl">🛒</span>
+        <span id="cartBadgeCount" class="bg-white text-orange-600 text-xs px-2 py-0.5 rounded-full">0</span>
+    </button>
 
     <main id="mainContainer" class="max-w-md mx-auto p-4 pb-24 transition-all duration-300">
         
@@ -71,8 +77,6 @@
 
         <!-- 사장님 화면 -->
         <section id="adminView" class="hidden flex-col md:flex-row gap-6 w-full">
-            
-            <!-- 사장님 관리 패널 -->
             <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4 h-fit md:sticky md:top-24 w-full md:w-[380px] shrink-0">
                 <h2 class="text-xl font-extrabold text-gray-800 border-b pb-2 flex items-center gap-2">
                     ⚙️ 하루마켓 흑석점 관리
@@ -85,8 +89,8 @@
                     </div>
 
                     <div>
-                        <label class="block text-xs font-bold text-gray-400 mb-1">🖼️ 공지사항 이미지 업로드 (선택)</label>
-                        <input type="file" id="fileNoticeImg" accept="image/*" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100">
+                        <label class="block text-xs font-bold text-gray-400 mb-1">🖼️ 공지사항 이미지 업로드</label>
+                        <input type="file" id="fileNoticeImg" accept="image/*" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-orange-700">
                         <input type="hidden" id="inputNoticeImgUrl">
                     </div>
 
@@ -113,7 +117,6 @@
 
             <!-- 대시보드 영역 -->
             <div class="flex-1 space-y-6 w-full">
-                
                 <!-- 당일 판매 품목 편집 -->
                 <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
                     <div class="flex justify-between items-center border-b pb-3">
@@ -138,7 +141,7 @@
                                 <input type="hidden" id="newFruitImg">
                             </div>
                             <div>
-                                <label class="block text-xs font-bold text-gray-400 mb-1">📷 상세설명 다중 이미지 (여러장 선택 가능)</label>
+                                <label class="block text-xs font-bold text-gray-400 mb-1">📷 상세설명 다중 이미지 (여러장 가능)</label>
                                 <input type="file" id="fileFruitDetailImgs" accept="image/*" multiple class="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:bg-gray-200">
                             </div>
                         </div>
@@ -155,14 +158,14 @@
                     <div id="adminFruitList" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
                 </div>
 
-                <!-- 🚚 배달 전용 대시보드 -->
+                <!-- 🚚 배달 전용 대시보드 (입금확인 + 라벨 인쇄 + 배달완료) -->
                 <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-3xl shadow-sm border border-blue-100 space-y-4">
                     <div class="flex justify-between items-center border-b border-blue-200/60 pb-3">
                         <div>
                             <h2 class="text-xl font-extrabold text-blue-900 flex items-center gap-2">
                                 🚚 실시간 배달 대시보드 (<span id="deliveryOrderCount" class="text-blue-600">0</span>건)
                             </h2>
-                            <p class="text-xs text-blue-600 font-bold mt-0.5">오후 12시 이전 배달 주문건만 모아서 전표 라벨지를 인쇄할 수 있습니다.</p>
+                            <p class="text-xs text-blue-600 font-bold mt-0.5">계좌이체 입금 확인 후 라벨지를 출력하여 배달을 완료해 주세요.</p>
                         </div>
                     </div>
                     <div id="deliveryOrderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4"></div>
@@ -183,7 +186,6 @@
                             <h2 class="text-xl font-extrabold text-gray-800 flex items-center gap-2">
                                 ✅ 판매완료 장부 (<span id="completedCount" class="text-green-600">0</span>건)
                             </h2>
-                            <p class="text-xs text-gray-400 font-bold mt-0.5">고객이 수령/배달 완료하여 누적된 매출 데이터입니다.</p>
                         </div>
                         <button onclick="downloadExcel()" class="bg-green-600 hover:bg-green-700 text-white font-bold text-xs px-3 py-2 rounded-xl flex items-center gap-1 shadow-xs transition self-start lg:self-auto">
                             📊 매출 엑셀 다운로드
@@ -198,66 +200,32 @@
                             <select id="searchSortOrder" onchange="filterAndRenderCompletedOrders()" class="w-full p-2.5 bg-white border border-gray-300 rounded-xl text-sm font-bold text-gray-700 focus:outline-orange-500">
                                 <option value="latest">🕒 최신 수령순</option>
                                 <option value="oldest">⏳ 과거 수령순</option>
-                                <option value="nameAsc">👤 고객명 순 (ㄱ-ㅎ)</option>
-                                <option value="fruitGroup">🍎 품목명 순 분류</option>
                             </select>
                         </div>
                     </div>
 
                     <div id="completedOrderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4"></div>
                 </div>
-
             </div>
         </section>
     </main>
 
-    <!-- 🖼️ 썸네일 전용 대형 뷰어 모달 -->
-    <div id="thumbModal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center hidden p-4" onclick="closeThumbModal()">
-        <div class="max-w-md w-full relative bg-transparent flex flex-col items-center">
-            <button onclick="closeThumbModal()" class="absolute -top-10 right-0 text-white text-3xl font-black">✕</button>
-            <img id="thumbModalImg" src="" class="w-full max-h-[80vh] object-contain rounded-2xl shadow-2xl">
-        </div>
-    </div>
-
-    <!-- 📝 상세설명 모달 (여러장 사진 세로 나열) -->
-    <div id="detailModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center hidden p-4" onclick="if(event.target == this) closeDetailModal()">
-        <div class="bg-white w-full max-w-md rounded-3xl p-6 space-y-4 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
-            <div class="flex justify-between items-center border-b pb-3">
-                <h3 id="detailFruitName" class="text-2xl font-black text-gray-800">상품 상세 정보</h3>
-                <button onclick="closeDetailModal()" class="text-gray-400 text-2xl font-bold px-2">✕</button>
-            </div>
-            <div class="overflow-y-auto space-y-4 flex-1 pr-1">
-                <div>
-                    <p id="detailPrice" class="text-2xl font-black text-orange-600"></p>
-                    <p id="detailStock" class="text-xs font-bold text-gray-400 mt-1"></p>
-                </div>
-                <div class="bg-gray-50 p-4 rounded-2xl border border-gray-100 space-y-3">
-                    <h4 class="text-xs font-bold text-gray-400">📝 상세 설명</h4>
-                    <p id="detailDescription" class="text-sm font-medium text-gray-700 leading-relaxed whitespace-pre-line"></p>
-                </div>
-                <!-- 상세설명 전용 이미지 목록 (세로 배열) -->
-                <div id="detailImgsContainer" class="space-y-3 pt-2"></div>
-            </div>
-            <button id="detailOrderBtn" class="w-full bg-orange-500 text-white text-lg font-black py-3.5 rounded-2xl hover:bg-orange-600 transition">
-                바로 예약하기
-            </button>
-        </div>
-    </div>
-
-    <!-- 🛍️ 주문 입력 모달 -->
-    <div id="bookingModal" class="fixed inset-0 bg-black/50 z-50 flex items-end justify-center hidden" onclick="if(event.target == this) closeModal()">
+    <!-- 🛒 장바구니 결제 모달 -->
+    <div id="cartModal" class="fixed inset-0 bg-black/50 z-50 flex items-end justify-center hidden" onclick="if(event.target == this) closeCartModal()">
         <div class="bg-white w-full max-w-md rounded-t-3xl p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div class="flex justify-between items-center">
-                <h3 id="modalFruitTitle" class="text-2xl font-black text-gray-800">과일 주문하기</h3>
-                <button onclick="closeModal()" class="text-gray-400 text-2xl font-bold px-2">✕</button>
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-2xl font-black text-gray-800">🛒 장바구니 주문하기</h3>
+                <button onclick="closeCartModal()" class="text-gray-400 text-2xl font-bold px-2">✕</button>
             </div>
-            
+
+            <!-- 장바구니 품목 목록 -->
+            <div id="cartItemsList" class="space-y-2 max-h-48 overflow-y-auto pr-1"></div>
+
             <div class="space-y-2">
                 <label class="block text-xs font-bold text-gray-400">💡 수령 방식을 선택하세요</label>
                 <div class="grid grid-cols-2 gap-2">
                     <button type="button" id="btnTypePickup" onclick="selectOrderType('픽업')" class="p-3 border-2 border-orange-500 bg-orange-50 text-orange-900 rounded-xl font-black text-sm flex flex-col items-center gap-1">
                         <span>🏢 매장 픽업</span>
-                        <span class="text-[10px] font-normal text-orange-700">직접 방문 수령</span>
                     </button>
                     <button type="button" id="btnTypeDelivery" onclick="selectOrderType('배달')" class="p-3 border-2 border-gray-200 bg-white text-gray-500 rounded-xl font-black text-sm flex flex-col items-center gap-1">
                         <span>🚚 배달 주문</span>
@@ -283,15 +251,13 @@
                     <p id="modalAccountOwner"></p>
                 </div>
                 <div id="modalCardBox" class="mt-1 text-xs text-gray-600 font-bold border-t border-orange-200/60 pt-2 hidden">
-                    📌 현장에서 수령하실 때 카드로 결제하시면 됩니다. 물건은 안전하게 보관해둘게요!
+                    📌 현장에서 수령하실 때 카드로 결제하시면 됩니다!
                 </div>
             </div>
 
-            <input type="hidden" id="modalFruitId">
-            
             <div class="space-y-3">
                 <div>
-                    <label class="block text-xs font-bold text-gray-400 mb-1">💬 카톡 오픈채팅 닉네임 (아파트+휴대폰뒷자리)</label>
+                    <label class="block text-xs font-bold text-gray-400 mb-1">💬 카톡 닉네임 (아파트+휴대폰뒷자리)</label>
                     <input type="text" id="buyerKakao" placeholder="예: 래미안1234" class="w-full p-3.5 border-2 border-gray-200 rounded-2xl text-base font-bold focus:outline-orange-500">
                 </div>
                 <div>
@@ -313,15 +279,6 @@
                         <input type="text" id="buyerDoorPassword" placeholder="예: #1234* 또는 자유출입" class="w-full p-3.5 border-2 border-orange-300 bg-orange-50/50 rounded-2xl text-base font-bold focus:outline-orange-500">
                     </div>
                 </div>
-                
-                <div class="flex items-center justify-between p-2 border-t border-gray-100 pt-4">
-                    <span class="text-base font-bold text-gray-700">수량</span>
-                    <div class="flex items-center space-x-4">
-                        <button onclick="updateQty(-1)" class="w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-full text-xl font-bold transition">-</button>
-                        <span id="bookingQty" class="text-2xl font-black">1</span>
-                        <button onclick="updateQty(1)" class="w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-full text-xl font-bold transition">+</button>
-                    </div>
-                </div>
 
                 <div class="bg-gray-900 text-white p-4 rounded-2xl flex justify-between items-center">
                     <div>
@@ -333,12 +290,44 @@
             </div>
 
             <button onclick="submitOrder()" class="w-full bg-orange-500 hover:bg-orange-600 text-white text-xl font-black py-4 rounded-2xl shadow-lg transition">
-                주문 완료하기
+                일괄 주문 완료하기
             </button>
         </div>
     </div>
 
-    <!-- 🔎 손님 내 주문 조회 모달 -->
+    <!-- 🖼️ 썸네일 대형 뷰어 모달 -->
+    <div id="thumbModal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center hidden p-4" onclick="closeThumbModal()">
+        <div class="max-w-md w-full relative bg-transparent flex flex-col items-center">
+            <button onclick="closeThumbModal()" class="absolute -top-10 right-0 text-white text-3xl font-black">✕</button>
+            <img id="thumbModalImg" src="" class="w-full max-h-[80vh] object-contain rounded-2xl shadow-2xl">
+        </div>
+    </div>
+
+    <!-- 📝 상세설명 모달 -->
+    <div id="detailModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center hidden p-4" onclick="if(event.target == this) closeDetailModal()">
+        <div class="bg-white w-full max-w-md rounded-3xl p-6 space-y-4 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 id="detailFruitName" class="text-2xl font-black text-gray-800">상품 상세 정보</h3>
+                <button onclick="closeDetailModal()" class="text-gray-400 text-2xl font-bold px-2">✕</button>
+            </div>
+            <div class="overflow-y-auto space-y-4 flex-1 pr-1">
+                <div>
+                    <p id="detailPrice" class="text-2xl font-black text-orange-600"></p>
+                    <p id="detailStock" class="text-xs font-bold text-gray-400 mt-1"></p>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-2xl border border-gray-100 space-y-3">
+                    <h4 class="text-xs font-bold text-gray-400">📝 상세 설명</h4>
+                    <p id="detailDescription" class="text-sm font-medium text-gray-700 leading-relaxed whitespace-pre-line"></p>
+                </div>
+                <div id="detailImgsContainer" class="space-y-3 pt-2"></div>
+            </div>
+            <div class="flex gap-2">
+                <button id="detailAddToCartBtn" class="flex-1 bg-gray-900 text-white font-bold py-3.5 rounded-2xl text-sm">🛒 장바구니 담기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🔎 내 주문 조회 모달 -->
     <div id="myOrdersModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center hidden p-4" onclick="if(event.target == this) closeMyOrdersModal()">
         <div class="bg-white w-full max-w-md rounded-3xl p-6 space-y-4 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
             <div class="flex justify-between items-center border-b pb-3">
@@ -373,25 +362,25 @@
         </div>
     </div>
 
-    <!-- 🖨️ PDF 라벨 템플릿 -->
-    <div id="printLabelTemplate" class="hidden">
-        <div id="labelContent" style="padding: 20px; width: 100%; font-family: sans-serif; box-sizing: border-box;">
+    <!-- 🖨️ PDF 라벨지 인쇄 전용 영역 -->
+    <div id="printLabelTemplate" style="position: absolute; left: -9999px; top: -9999px;">
+        <div id="labelContent" style="padding: 20px; width: 450px; font-family: sans-serif; background: #fff;">
             <div style="border: 3px solid #1d4ed8; padding: 20px; border-radius: 15px; background: #fff;">
-                <h2 style="font-size: 24px; font-weight: 900; color: #1d4ed8; text-align: center; margin-bottom: 15px; border-bottom: 2px solid #93c5fd; padding-bottom: 10px;">
+                <h2 style="font-size: 22px; font-weight: 900; color: #1d4ed8; text-align: center; margin-bottom: 15px; border-bottom: 2px solid #93c5fd; padding-bottom: 10px;">
                     🚚 하루마켓 흑석점 배달전표
                 </h2>
-                <div style="font-size: 16px; line-height: 1.8; color: #1e293b;">
-                    <p style="margin: 5px 0;"><strong>💬 카톡 닉네임:</strong> <span id="pdfKakao" style="font-size: 20px; font-weight: bold; color: #000;"></span></p>
-                    <p style="margin: 5px 0;"><strong>👤 성 함:</strong> <span id="pdfName" style="font-size: 20px; font-weight: bold; color: #000;"></span></p>
+                <div style="font-size: 15px; line-height: 1.8; color: #1e293b;">
+                    <p style="margin: 5px 0;"><strong>💬 카톡 닉네임:</strong> <span id="pdfKakao" style="font-size: 18px; font-weight: bold;"></span></p>
+                    <p style="margin: 5px 0;"><strong>👤 성 함:</strong> <span id="pdfName" style="font-size: 18px; font-weight: bold;"></span></p>
                     <p style="margin: 5px 0;"><strong>📞 연 락 처:</strong> <span id="pdfPhone"></span></p>
-                    <p style="margin: 10px 0; padding: 10px; background: #eff6ff; border-radius: 8px; border: 1px solid #bfdbfe;">
+                    <div style="margin: 10px 0; padding: 10px; background: #eff6ff; border-radius: 8px; border: 1px solid #bfdbfe;">
                         <strong>🏠 배달 주소:</strong><br>
-                        <span id="pdfAddress" style="font-size: 22px; font-weight: 900; color: #1e40af; display: block; margin-top: 5px;"></span>
-                        <strong style="margin-top: 8px; display: block; color: #dc2626;">🔑 공동현관 비번: <span id="pdfDoorPass" style="font-size: 18px; font-weight: bold; color: #dc2626;"></span></strong>
-                    </p>
-                    <p style="margin: 5px 0;"><strong>📦 주문 품목:</strong> <span id="pdfFruit" style="font-weight: bold;"></span></p>
+                        <span id="pdfAddress" style="font-size: 18px; font-weight: 900; color: #1e40af; display: block; margin-top: 3px;"></span>
+                        <strong style="margin-top: 6px; display: block; color: #dc2626;">🔑 공동현관 비번: <span id="pdfDoorPass" style="font-size: 16px;"></span></strong>
+                    </div>
+                    <p style="margin: 5px 0;"><strong>📦 주문 품목:</strong> <span id="pdfFruit" style="font-weight: bold; color: #d97706;"></span></p>
                     <p style="margin: 5px 0;"><strong>💰 총 결제금액:</strong> <span id="pdfPrice" style="font-size: 18px; font-weight: bold; color: #dc2626;"></span> (배달비 포함)</p>
-                    <p style="margin: 5px 0; font-size: 12px; color: #64748b; text-align: right; margin-top: 15px;" id="pdfTime"></p>
+                    <p style="margin: 5px 0; font-size: 11px; color: #64748b; text-align: right; margin-top: 15px;" id="pdfTime"></p>
                 </div>
             </div>
         </div>
@@ -408,7 +397,8 @@
         let rawCompletedOrders = []; 
         let selectedOrderType = '픽업'; 
         let isDeliveryAvailable = true;
-        let uploadedDetailImgs = []; // 다중 상세설명 이미지 배열
+        let uploadedDetailImgs = []; 
+        let cart = []; // 🛒 장바구니 배열 [{ fruit_id, fruit_name, price, qty }]
 
         window.onload = function() {
             loadStoreData();
@@ -425,7 +415,6 @@
                 }
             });
 
-            // 1장 썸네일 전용
             document.getElementById('fileFruitImg').addEventListener('change', function(e) {
                 const file = e.target.files[0];
                 if (file) {
@@ -435,16 +424,13 @@
                 }
             });
 
-            // 다중 상세설명 이미지 전용
             document.getElementById('fileFruitDetailImgs').addEventListener('change', function(e) {
                 const files = e.target.files;
                 uploadedDetailImgs = [];
                 if (files && files.length > 0) {
                     Array.from(files).forEach(file => {
                         const reader = new FileReader();
-                        reader.onload = function(event) {
-                            uploadedDetailImgs.push(event.target.result);
-                        };
+                        reader.onload = function(event) { uploadedDetailImgs.push(event.target.result); };
                         reader.readAsDataURL(file);
                     });
                 }
@@ -508,13 +494,11 @@
                 let badge = isUrgent ? `<span class="bg-red-500 text-white text-[11px] font-black px-2 py-0.5 rounded-md animate-bounce">🔥 품절 임박!</span>` : '';
                 if(item.stock <= 0) badge = `<span class="bg-gray-500 text-white text-[11px] font-black px-2 py-0.5 rounded-md">완판(품절)</span>`;
 
-                // 썸네일 전용 클릭 뷰어
                 let imgHtmlContainer = '';
                 if (item.img && item.img.trim() !== "") {
                     imgHtmlContainer = `<div class="w-full h-48 bg-gray-100 rounded-2xl overflow-hidden flex items-center justify-center cursor-pointer" onclick="openThumbModal('${item.img}')"><img src="${item.img}" class="w-full h-full object-cover"></div>`;
                 }
 
-                // 개별 품목 재고 숨김 설정
                 let stockDisplayHtml = item.hide_stock 
                     ? `<p class="text-gray-400 text-xs mt-0.5">상태: <span class="font-bold text-green-600">구매 가능</span></p>`
                     : `<p class="text-gray-400 text-xs mt-0.5">남은 재고: <span class="font-bold text-gray-700">${item.stock}</span>개</p>`;
@@ -531,14 +515,13 @@
                                 <p class="text-orange-600 text-xl font-black">${Number(item.price).toLocaleString()}원</p>
                                 ${stockDisplayHtml}
                             </div>
-                            <div class="flex gap-1.5">
-                                <button onclick="openDetailModal(${index})" class="px-3 py-3.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-extrabold rounded-2xl text-xs transition">🔍 상세</button>
-                                <button onclick="openModal(${index})" ${item.stock <= 0 ? 'disabled class="w-20 h-12 bg-gray-300 text-white font-black rounded-2xl text-xs cursor-not-allowed"' : 'class="w-20 h-12 bg-orange-500 hover:bg-orange-600 text-white font-black rounded-2xl text-xs shadow-xs transition"'}>예약</button>
+                            <div class="flex flex-col gap-1.5">
+                                <button onclick="openDetailModal(${index})" class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl text-xs transition">🔍 상세</button>
+                                <button onclick="addToCart(${item.id}, '${item.name}', ${item.price})" ${item.stock <= 0 ? 'disabled class="px-3 py-2 bg-gray-300 text-white font-bold rounded-xl text-xs cursor-not-allowed"' : 'class="px-3 py-2 bg-gray-900 hover:bg-black text-white font-bold rounded-xl text-xs shadow-xs transition"'}>🛒 담기</button>
                             </div>
                         </div>
                     </div>`;
 
-                // 사장님 모드 개별 재고 숨기기 토글 버튼
                 let hideBtnText = item.hide_stock ? "재고 숨김 중 🙈" : "재고 노출 중 👁️";
                 let hideBtnClass = item.hide_stock ? "bg-gray-600 text-white font-bold text-xs px-2.5 py-1 rounded-xl" : "bg-orange-500 text-white font-bold text-xs px-2.5 py-1 rounded-xl";
 
@@ -563,16 +546,75 @@
                         </div>
                     </div>`;
             });
+            updateCartUI();
         }
 
-        // 🖼️ 썸네일 전용 대형 뷰어
+        // 🛒 장바구니 로직
+        function addToCart(fruitId, fruitName, price) {
+            const existing = cart.find(c => c.fruit_id === fruitId);
+            if(existing) {
+                existing.qty += 1;
+            } else {
+                cart.push({ fruit_id: fruitId, fruit_name: fruitName, price: price, qty: 1 });
+            }
+            alert(`🛒 '${fruitName}'이(가) 장바구니에 담겼습니다!`);
+            updateCartUI();
+        }
+
+        function updateCartQty(fruitId, change) {
+            const item = cart.find(c => c.fruit_id === fruitId);
+            if(item) {
+                item.qty += change;
+                if(item.qty <= 0) {
+                    cart = cart.filter(c => c.fruit_id !== fruitId);
+                }
+            }
+            renderCartItems();
+            calculateTotalPrice();
+            updateCartUI();
+        }
+
+        function updateCartUI() {
+            const count = cart.reduce((sum, item) => sum + item.qty, 0);
+            document.getElementById('cartBadgeCount').innerText = count;
+        }
+
+        function openCartModal() {
+            if(cart.length === 0) {
+                alert("🛒 장바구니가 비어있습니다! 과일을 담아주세요.");
+                return;
+            }
+            renderCartItems();
+            selectOrderType('픽업');
+            document.getElementById('cartModal').classList.remove('hidden');
+        }
+        function closeCartModal() { document.getElementById('cartModal').classList.add('hidden'); }
+
+        function renderCartItems() {
+            const container = document.getElementById('cartItemsList');
+            container.innerHTML = '';
+            cart.forEach(item => {
+                container.innerHTML += `
+                    <div class="flex justify-between items-center bg-gray-50 p-3 rounded-2xl border border-gray-200">
+                        <div>
+                            <p class="font-black text-sm text-gray-800">${item.fruit_name}</p>
+                            <p class="text-xs text-orange-600 font-bold">${(item.price * item.qty).toLocaleString()}원</p>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button onclick="updateCartQty(${item.fruit_id}, -1)" class="w-7 h-7 bg-white border border-gray-300 rounded-lg font-black text-sm">-</button>
+                            <span class="font-black text-sm">${item.qty}</span>
+                            <button onclick="updateCartQty(${item.fruit_id}, 1)" class="w-7 h-7 bg-white border border-gray-300 rounded-lg font-black text-sm">+</button>
+                        </div>
+                    </div>`;
+            });
+        }
+
         function openThumbModal(imgUrl) {
             document.getElementById('thumbModalImg').src = imgUrl;
             document.getElementById('thumbModal').classList.remove('hidden');
         }
         function closeThumbModal() { document.getElementById('thumbModal').classList.add('hidden'); }
 
-        // 📝 상세설명 모달 (다중 이미지 세로 나열)
         function openDetailModal(index) {
             const item = fruitItems[index];
             document.getElementById('detailFruitName').innerText = item.name;
@@ -596,36 +638,15 @@
                 });
             }
 
-            const btn = document.getElementById('detailOrderBtn');
-            if(item.stock <= 0) {
-                btn.disabled = true;
-                btn.innerText = "완판 (품절되었습니다)";
-                btn.className = "w-full bg-gray-300 text-white text-lg font-black py-3.5 rounded-2xl cursor-not-allowed";
-            } else {
-                btn.disabled = false;
-                btn.innerText = "바로 예약하기 🍊";
-                btn.className = "w-full bg-orange-500 hover:bg-orange-600 text-white text-lg font-black py-3.5 rounded-2xl transition cursor-pointer";
-                btn.onclick = function() { closeDetailModal(); openModal(index); };
-            }
+            const btn = document.getElementById('detailAddToCartBtn');
+            btn.onclick = function() {
+                addToCart(item.id, item.name, item.price);
+                closeDetailModal();
+            };
 
             document.getElementById('detailModal').classList.remove('hidden');
         }
         function closeDetailModal() { document.getElementById('detailModal').classList.add('hidden'); }
-
-        // 🔄 개별 품목 재고 숨김 토글 API
-        async function toggleItemHideStock(fruitId, newHideState) {
-            try {
-                const res = await fetch(`${API_URL}/api/admin/fruits/${fruitId}?password=${PASS}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ hide_stock: newHideState })
-                });
-                if(res.ok) {
-                    alert(newHideState ? '🙈 해당 품목의 재고를 손님 화면에서 숨깁니다.' : '👁️ 해당 품목의 재고를 손님 화면에 보여줍니다.');
-                    loadStoreData();
-                }
-            } catch(e) { alert('설정 변경 실패!'); }
-        }
 
         function selectOrderType(type) {
             if (type === '배달' && !isDeliveryAvailable) {
@@ -658,42 +679,8 @@
             calculateTotalPrice();
         }
 
-        function openModal(index) {
-            const item = fruitItems[index];
-            document.getElementById('modalFruitTitle').innerText = item.name;
-            document.getElementById('modalFruitId').value = index; 
-            document.getElementById('bookingQty').innerText = '1';
-            document.getElementById('buyerKakao').value = '';
-            document.getElementById('buyerName').value = '';
-            document.getElementById('buyerPhone').value = '';
-            document.getElementById('buyerAddress').value = '';
-            document.getElementById('buyerDoorPassword').value = '';
-
-            const badgeText = document.getElementById('deliveryBadgeText');
-            if(!isDeliveryAvailable) {
-                badgeText.innerText = "금일 배달 마감 ⏰";
-                badgeText.className = "text-[10px] font-bold text-red-500";
-            } else {
-                badgeText.innerText = "배달비 3,000원 (12시 마감)";
-                badgeText.className = "text-[10px] font-normal text-gray-400";
-            }
-
-            selectOrderType('픽업');
-            document.getElementById('bookingModal').classList.remove('hidden');
-        }
-        function closeModal() { document.getElementById('bookingModal').classList.add('hidden'); }
-
-        function updateQty(change) {
-            let qtyEl = document.getElementById('bookingQty');
-            let current = parseInt(qtyEl.innerText) + change;
-            if(current >= 1) { qtyEl.innerText = current; calculateTotalPrice(); }
-        }
-
         function calculateTotalPrice() {
-            const idx = document.getElementById('modalFruitId').value;
-            const item = fruitItems[idx];
-            const qty = parseInt(document.getElementById('bookingQty').innerText);
-            let total = item.price * qty;
+            let total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
             if(selectedOrderType === '배달') total += 3000;
             document.getElementById('bookingTotalPrice').innerText = total.toLocaleString() + "원";
         }
@@ -714,17 +701,15 @@
             }
         }
 
-        // 🚨 주문 접수 시 예외 메시지 [object Object] 수정 적용
         async function submitOrder() {
             const kakao = document.getElementById('buyerKakao').value;
             const name = document.getElementById('buyerName').value;
             const phone = document.getElementById('buyerPhone').value;
             const address = document.getElementById('buyerAddress').value;
             const doorPassword = document.getElementById('buyerDoorPassword').value;
-            const fruit_idx = parseInt(document.getElementById('modalFruitId').value);
-            const qty = parseInt(document.getElementById('bookingQty').innerText);
             const method = document.querySelector('input[name="payMethod"]:checked').value;
 
+            if(cart.length === 0) { alert('장바구니가 비어있습니다!'); return; }
             if(!kakao || !name || !phone) { alert('카톡 닉네임, 성함, 연락처를 꼭 입력해주세요!'); return; }
             if(selectedOrderType === '배달' && !address) { alert('배달 상세 주소를 적어주세요!'); return; }
 
@@ -739,8 +724,7 @@
                         phone: phone,
                         address: address,
                         door_password: doorPassword,
-                        fruit_index: fruit_idx,
-                        qty: qty,
+                        items: cart,
                         method: method
                     })
                 });
@@ -748,10 +732,13 @@
                 const resData = await res.json();
 
                 if(res.ok) {
-                    alert(selectedOrderType === '배달' ? '🚚 배달 주문 접수 성공!' : '🎉 매장 픽업 예약 성공!');
-                    closeModal(); loadStoreData();
+                    alert(selectedOrderType === '배달' ? '🚚 배달 일괄 주문 성공!' : '🎉 매장 픽업 일괄 예약 성공!');
+                    cart = [];
+                    updateCartUI();
+                    closeCartModal(); 
+                    loadStoreData();
                 } else {
-                    alert(resData.detail || '주문 실패! 서버 응답을 확인하세요.');
+                    alert(resData.detail || '주문 실패!');
                 }
             } catch(e) {
                 alert('예약 서버 통신 실패!');
@@ -794,7 +781,7 @@
                         <div class="flex justify-between items-start">
                             <div>
                                 <span class="bg-orange-100 text-orange-800 text-[10px] font-black px-2 py-0.5 rounded-md">${o.order_type || '픽업'}</span>
-                                <h4 class="font-black text-gray-800 text-base mt-1">${o.fruit} x ${o.qty}개</h4>
+                                <h4 class="font-black text-gray-800 text-base mt-1">${o.fruit}</h4>
                             </div>
                             <span class="bg-blue-100 text-blue-800 text-xs font-black px-2 py-0.5 rounded-md">${o.status}</span>
                         </div>
@@ -802,7 +789,7 @@
                         ${o.address ? `<p class="text-xs text-blue-700 font-bold">주소: ${o.address}</p>` : ''}
                         ${o.door_password ? `<p class="text-xs text-red-600 font-bold">공동현관 비번: ${o.door_password}</p>` : ''}
                         <div class="flex justify-between items-center pt-2 border-t border-gray-200/60">
-                            <span class="text-[10px] text-gray-400">${o.time_str || ''}</span>
+                            <span class="text-[10px] text-gray-400">접수일시: ${o.time_str || ''}</span>
                             ${cancelBtnHtml}
                         </div>
                     </div>`;
@@ -858,6 +845,20 @@
                 toggleBtn.innerText = '👨‍🌾 사장님 모드';
                 loadStoreData();
             }
+        }
+
+        async function toggleItemHideStock(fruitId, newHideState) {
+            try {
+                const res = await fetch(`${API_URL}/api/admin/fruits/${fruitId}?password=${PASS}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ hide_stock: newHideState })
+                });
+                if(res.ok) {
+                    alert(newHideState ? '🙈 재고를 숨깁니다.' : '👁️ 재고를 노출합니다.');
+                    loadStoreData();
+                }
+            } catch(e) { alert('설정 변경 실패!'); }
         }
 
         async function saveAdminSettings() {
@@ -930,6 +931,7 @@
             }
         }
 
+        // 사장님 대시보드 (입금확인 + 라벨출력 + 완료)
         async function renderAdminOrders() {
             try {
                 const res = await fetch(`${API_URL}/api/admin/orders?password=${PASS}`);
@@ -943,26 +945,36 @@
                 const waitList = document.getElementById('orderList');
                 waitList.innerHTML = '';
                 pendingPickup.forEach(order => {
+                    let actionBtn = order.status === '입금대기'
+                        ? `<button onclick="triggerUpdateStatus(${order.id}, '접수완료')" class="flex-1 bg-blue-600 text-white py-2 rounded-xl text-xs font-black">💵 입금확인</button>`
+                        : `<button onclick="triggerCompleteOrder(${order.id})" class="flex-1 bg-green-600 text-white py-2 rounded-xl text-xs font-black">✅ 수령 완료</button>`;
+
                     waitList.innerHTML += `
                         <div class="bg-white p-5 rounded-3xl border border-gray-100 space-y-3 shadow-2xs">
                             <h4 class="text-lg font-black">${order.name} (${order.kakao_nickname || '닉네임없음'}) - ${order.phone}</h4>
-                            <p class="text-orange-600 font-bold">📦 과일: ${order.fruit} | 수량: ${order.qty}개 | 결제: ${order.method}</p>
+                            <p class="text-orange-600 font-bold">📦 과일: ${order.fruit} | 결제: ${order.method}</p>
+                            <p class="text-xs text-gray-400">🕒 접수일시: ${order.time_str || ''} [상태: ${order.status}]</p>
                             <div class="flex gap-2 pt-2 border-t border-gray-100">
-                                <button onclick="triggerCompleteOrder(${order.id})" class="flex-1 bg-green-600 text-white py-2 rounded-xl text-xs font-black hover:bg-green-700">✅ 수령 완료</button>
+                                ${actionBtn}
                                 <button onclick="cancelAdminOrder(${order.id})" class="bg-gray-100 text-gray-500 px-3 py-2 rounded-xl text-xs font-bold">취소</button>
                             </div>
                         </div>`;
                 });
                 document.getElementById('orderCount').innerText = pendingPickup.length;
 
+                // 배달 목록 (입금확인 ➡️ 라벨인쇄 ➡️ 배달완료)
                 const deliveryList = document.getElementById('deliveryOrderList');
                 deliveryList.innerHTML = '';
                 deliveryOrders.forEach(order => {
+                    let deliveryActionBtn = order.status === '입금대기'
+                        ? `<button onclick="triggerUpdateStatus(${order.id}, '접수완료')" class="flex-1 bg-blue-600 text-white py-2 rounded-xl text-xs font-black hover:bg-blue-700">💵 입금확인</button>`
+                        : `<button onclick="triggerCompleteOrder(${order.id})" class="flex-1 bg-indigo-600 text-white py-2 rounded-xl text-xs font-black hover:bg-indigo-700">🚚 배달 완료 처리</button>`;
+
                     deliveryList.innerHTML += `
                         <div class="bg-white p-5 rounded-3xl border border-blue-200 space-y-3 shadow-sm">
                             <div class="flex justify-between items-start">
-                                <span class="bg-blue-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md">🚚 배달요청</span>
-                                <button onclick="downloadDeliveryPDF(${JSON.stringify(order).replace(/"/g, '&quot;')})" class="bg-indigo-600 text-white font-bold text-xs px-3 py-1.5 rounded-xl hover:bg-indigo-700">
+                                <span class="bg-blue-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md">🚚 배달 [${order.status}]</span>
+                                <button onclick="downloadDeliveryPDF(${JSON.stringify(order).replace(/"/g, '&quot;')})" class="bg-gray-900 text-white font-bold text-xs px-3 py-1.5 rounded-xl hover:bg-black">
                                     🖨️ 라벨지 PDF 출력
                                 </button>
                             </div>
@@ -972,9 +984,10 @@
                                 <p class="text-xs font-black text-red-600 mt-0.5">🔑 공동현관 비번: ${order.door_password || '없음/자유출입'}</p>
                                 <p class="text-xs text-gray-500 font-bold mt-0.5">📞 연락처: ${order.phone}</p>
                             </div>
-                            <p class="text-orange-600 font-bold text-sm">📦 ${order.fruit} x ${order.qty}개 (총 ${Number(order.total_price).toLocaleString()}원)</p>
+                            <p class="text-orange-600 font-bold text-sm">📦 ${order.fruit} (총 ${Number(order.total_price).toLocaleString()}원)</p>
+                            <p class="text-[11px] text-gray-400 font-bold">🕒 주문 접수일시: ${order.time_str || ''}</p>
                             <div class="flex gap-2 pt-2 border-t border-gray-100">
-                                <button onclick="triggerCompleteOrder(${order.id})" class="flex-1 bg-blue-600 text-white py-2 rounded-xl text-xs font-black hover:bg-blue-700">🚚 배달 완료 처리</button>
+                                ${deliveryActionBtn}
                                 <button onclick="cancelAdminOrder(${order.id})" class="bg-gray-100 text-gray-500 px-3 py-2 rounded-xl text-xs font-bold">취소</button>
                             </div>
                         </div>`;
@@ -985,25 +998,34 @@
             } catch(e) { console.error("장부 조회 에러", e); }
         }
 
+        // 🖨️ PDF 라벨지 생성 함수 수정 적용
         function downloadDeliveryPDF(order) {
             document.getElementById('pdfKakao').innerText = order.kakao_nickname || '';
             document.getElementById('pdfName').innerText = order.name || '';
             document.getElementById('pdfPhone').innerText = order.phone || '';
             document.getElementById('pdfAddress').innerText = order.address || '';
             document.getElementById('pdfDoorPass').innerText = order.door_password || '없음';
-            document.getElementById('pdfFruit').innerText = `${order.fruit} (${order.qty}개)`;
+            document.getElementById('pdfFruit').innerText = order.fruit || '';
             document.getElementById('pdfPrice').innerText = Number(order.total_price).toLocaleString() + "원";
             document.getElementById('pdfTime').innerText = "접수일시: " + (order.time_str || '');
 
             const element = document.getElementById('labelContent');
             const opt = {
-                margin: 5,
-                filename: `배달라벨_${order.name}_${order.kakao_nickname}.pdf`,
+                margin: 0,
+                filename: `배달전표_${order.name}_${order.kakao_nickname}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2 },
-                jsPDF: { unit: 'mm', format: 'a5', orientation: 'portrait' }
+                html2canvas: { scale: 2, logging: false },
+                jsPDF: { unit: 'pt', format: 'a5', orientation: 'portrait' }
             };
+
             html2pdf().set(opt).from(element).save();
+        }
+
+        async function triggerUpdateStatus(id, status) {
+            try {
+                const res = await fetch(`${API_URL}/api/admin/orders/${id}?status=${status}&password=${PASS}`, { method: 'PUT' });
+                if(res.ok) { alert('💵 입금 확인 처리되었습니다!'); renderAdminOrders(); }
+            } catch(e) { alert('처리 실패!'); }
         }
 
         async function triggerCompleteOrder(id) {
@@ -1047,13 +1069,12 @@
                         <div>
                             <span class="text-xs font-bold px-2 py-0.5 rounded-md bg-green-100 text-green-800">${order.order_type || '픽업'} 완료</span>
                             <h4 class="text-lg font-black mt-1">${order.name} (${order.kakao_nickname || ''}) - ${order.phone}</h4>
-                            <p class="text-orange-600 font-bold text-sm">📦 ${order.fruit} x ${order.qty}개 | ${Number(order.total_price).toLocaleString()}원</p>
+                            <p class="text-orange-600 font-bold text-sm">📦 ${order.fruit} | ${Number(order.total_price).toLocaleString()}원</p>
                             ${order.address ? `<p class="text-xs text-gray-500 font-bold mt-1">🏠 ${order.address}</p>` : ''}
-                            ${order.door_password ? `<p class="text-xs text-red-600 font-bold mt-0.5">🔑 비번: ${order.door_password}</p>` : ''}
+                            <p class="text-[11px] text-gray-400 mt-1">🕒 접수: ${order.time_str || ''} / 완료: ${order.status_changed_time || ''}</p>
                         </div>
                         <div class="flex items-center justify-between pt-2 border-t border-gray-100 mt-2">
-                            <span class="text-[10px] text-gray-400">완료일시: ${order.status_changed_time || ''}</span>
-                            <button onclick="cancelAdminOrder(${order.id})" class="bg-red-50 text-red-600 font-extrabold text-[11px] px-2.5 py-1.5 rounded-xl hover:bg-red-100">
+                            <button onclick="cancelAdminOrder(${order.id})" class="bg-red-50 text-red-600 font-extrabold text-[11px] px-2.5 py-1.5 rounded-xl hover:bg-red-100 ml-auto">
                                 🗑️ 영구 삭제
                             </button>
                         </div>
@@ -1073,7 +1094,6 @@
                 "배달주소": order.address || "-",
                 "공동현관 비번": order.door_password || "-",
                 "판매 품목": order.fruit,
-                "주문 수량": order.qty + "개",
                 "총 결제금액": order.total_price,
                 "결제 방식": order.method,
                 "접수 시간": order.time_str,
