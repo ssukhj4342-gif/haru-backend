@@ -53,54 +53,54 @@
         }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-900 min-h-screen selection:bg-orange-500 selection:text-white">
+<body class="bg-gray-50 text-gray-900 min-h-screen">
+
+    <!-- 상단 토스트 알림 (원클릭 복사 안내용) -->
+    <div id="toastNotification" class="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-gray-900/90 text-white text-xs font-bold px-4 py-2.5 rounded-full shadow-2xl transition-all duration-300 opacity-0 pointer-events-none flex items-center gap-1.5">
+        <span id="toastMsg">📋 클립보드에 복사되었습니다!</span>
+    </div>
 
     <!-- 상단 헤더 -->
-    <header class="bg-white/90 backdrop-blur-md sticky top-0 z-40 border-b border-gray-200 px-6 py-3.5 flex justify-between items-center shadow-2xs">
-        <h1 class="text-2xl font-black text-orange-600 tracking-tight cursor-pointer flex items-center gap-2 active:scale-95 transition transform" onclick="switchView('customer')">
+    <header class="bg-white sticky top-0 z-40 border-b border-gray-200 px-6 py-4 flex justify-between items-center shadow-xs">
+        <h1 class="text-2xl font-black text-orange-600 tracking-tight cursor-pointer flex items-center gap-2 active:scale-95 transition" onclick="switchView('customer')">
             하루마켓 흑석점 🍊
         </h1>
         <div class="flex items-center gap-2">
-            <button onclick="openMyOrdersModal()" class="bg-gray-100 active:bg-gray-200 text-gray-700 px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-2xs">
+            <button onclick="openMyOrdersModal()" class="bg-gray-100 text-gray-700 px-3.5 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 active:scale-95 transition">
                 🔎 내 주문
             </button>
-            <button id="toggleBtn" onclick="openAdminAuthModal()" class="bg-orange-100 active:bg-orange-200 text-orange-800 px-3.5 py-2 rounded-xl text-xs font-bold transition">
+            <button id="toggleBtn" onclick="openAdminAuthModal()" class="bg-orange-100 text-orange-700 px-3.5 py-2 rounded-xl text-xs font-bold transition hover:bg-orange-200 active:scale-95">
                 👨‍🌾 사장님
             </button>
         </div>
     </header>
 
-    <main id="mainContainer" class="max-w-md mx-auto p-4 pb-36 transition-all duration-300">
+    <main id="mainContainer" class="max-w-md mx-auto p-4 pb-32 transition-all duration-300 ease-in-out">
         
         <!-- 손님 원페이지 주문서 화면 -->
-        <section id="customerView" class="space-y-5">
+        <section id="customerView" class="space-y-6 transition-all duration-300">
             
-            <!-- 🎨 공지사항 디자인 개선 (눈 안 아픈 부드러운 오렌지 톤) -->
-            <div class="bg-amber-50/90 border border-amber-200 p-6 rounded-3xl shadow-2xs space-y-3 relative overflow-hidden">
-                <div class="flex items-center justify-between">
-                    <span class="bg-orange-500 text-white text-xs font-black px-2.5 py-1 rounded-lg">📢 데일리 공지</span>
-                    <span class="text-xs text-amber-800 font-bold">당일 신선 과일 입고</span>
+            <!-- 공지 및 매장 안내 카드 -->
+            <div class="bg-gradient-to-br from-orange-50/80 to-white p-6 rounded-3xl shadow-xs border border-orange-100/80 space-y-3">
+                <div class="flex items-center space-x-2">
+                    <span class="bg-orange-500 text-white text-xs font-black px-2.5 py-1 rounded-md shadow-xs">📢 데일리 공지</span>
                 </div>
-                <div id="displayNoticeImgContainer" class="w-full max-h-60 bg-black/5 rounded-2xl overflow-hidden hidden flex items-center justify-center">
+                <div id="displayNoticeImgContainer" class="w-full max-h-60 bg-gray-50 rounded-2xl overflow-hidden hidden flex items-center justify-center border border-gray-100 shadow-inner">
                     <img id="displayNoticeImg" src="" class="w-full h-full object-cover">
                 </div>
-                <p id="displayDailyNotice" class="text-lg font-extrabold text-amber-950 leading-snug whitespace-pre-line">로딩 중...</p>
+                <p id="displayDailyNotice" class="text-xl font-black text-gray-800 leading-snug whitespace-pre-line">로딩 중...</p>
             </div>
 
-            <!-- 계좌안내 (원클릭 복사 적용) -->
-            <div class="bg-orange-50 p-5 rounded-3xl border border-orange-200/80 space-y-1 relative cursor-pointer active:scale-98 transition" onclick="copyTextToClipboard(storeMeta.account, '계좌번호가 복사되었습니다!')">
-                <div class="flex justify-between items-center">
-                    <span class="bg-orange-600 text-white text-[11px] font-black px-2.5 py-0.5 rounded-md">💰 입금 계좌안내 (터치 시 복사)</span>
-                    <span class="text-xs text-orange-700 font-bold">📋 복사</span>
-                </div>
-                <p id="displayAccount" class="text-lg font-black text-orange-950 pt-1 tracking-wide">로딩 중...</p>
-                <p id="displayAccountOwner" class="text-xs text-orange-800 font-bold">로딩 중...</p>
+            <div class="bg-orange-50 p-5 rounded-3xl border border-orange-100 space-y-1">
+                <span class="bg-orange-600 text-white text-xs font-bold px-2.5 py-1 rounded-md">💰 입금 계좌안내</span>
+                <p id="displayAccount" onclick="copyToClipboard(this.innerText.replace('(클릭시 복사)', '').trim(), '입금 계좌번호가 복사되었습니다!')" class="text-lg font-black text-orange-900 pt-1 cursor-pointer hover:underline flex items-center gap-1.5" title="클릭하여 복사">로딩 중...</p>
+                <p id="displayAccountOwner" class="text-sm text-orange-700 font-bold">로딩 중...</p>
             </div>
 
             <div class="bg-white p-5 rounded-3xl shadow-xs border border-gray-100 flex items-center justify-between">
                 <div>
-                    <span class="bg-gray-100 text-gray-700 text-xs font-bold px-2.5 py-1 rounded-md">⏰ 오늘 영업 시간</span>
-                    <p id="displayHours" class="text-lg font-black text-gray-800 mt-2">로딩 중...</p>
+                    <span class="bg-amber-100 text-amber-800 text-xs font-bold px-2.5 py-1 rounded-md">⏰ 오늘 영업 시간</span>
+                    <p id="displayHours" class="text-lg font-extrabold text-gray-800 mt-2">로딩 중...</p>
                 </div>
                 <span class="text-3xl">🏪</span>
             </div>
@@ -127,11 +127,11 @@
                 <div class="space-y-2">
                     <label class="block text-xs font-bold text-gray-400">💡 수령 방식 선택</label>
                     <div class="grid grid-cols-2 gap-2">
-                        <button type="button" id="btnTypePickup" onclick="selectOrderType('픽업')" class="h-16 p-2 border-2 border-orange-500 bg-orange-50 text-orange-900 rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-0.5 transition active:scale-95">
+                        <button type="button" id="btnTypePickup" onclick="selectOrderType('픽업')" class="h-16 p-2 border-2 border-orange-500 bg-orange-50 text-orange-900 rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-0.5 active:scale-95 transition">
                             <span>🏢 매장 픽업</span>
                             <span class="text-[10px] font-normal text-orange-700">직접 방문 수령</span>
                         </button>
-                        <button type="button" id="btnTypeDelivery" onclick="selectOrderType('배달')" class="h-16 p-2 border-2 border-gray-200 bg-white text-gray-500 rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-0.5 transition active:scale-95">
+                        <button type="button" id="btnTypeDelivery" onclick="selectOrderType('배달')" class="h-16 p-2 border-2 border-gray-200 bg-white text-gray-500 rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-0.5 active:scale-95 transition">
                             <span>🚚 배달 주문</span>
                             <span id="deliveryBadgeText" class="text-[10px] font-normal text-gray-400">배달비 3,000원 (12시 마감)</span>
                         </button>
@@ -142,17 +142,17 @@
                 <div class="bg-orange-50/70 p-4 rounded-2xl border border-orange-200 space-y-3">
                     <p class="text-xs font-black text-orange-800">💳 결제 수단 선택</p>
                     <div class="grid grid-cols-2 gap-2" id="payMethodGroup">
-                        <label class="flex items-center justify-center gap-1.5 p-3 bg-white border-2 border-orange-500 rounded-xl cursor-pointer font-bold text-xs text-orange-900 shadow-2xs" id="labelPayBank">
+                        <label class="flex items-center justify-center gap-1.5 p-3 bg-white border-2 border-orange-500 rounded-xl cursor-pointer font-bold text-xs text-orange-900 active:scale-95 transition" id="labelPayBank">
                             <input type="radio" name="payMethod" value="계좌이체" checked onchange="togglePayMethodView('계좌이체')" class="accent-orange-500">
                             계좌이체
                         </label>
-                        <label class="flex items-center justify-center gap-1.5 p-3 bg-white border-2 border-gray-200 rounded-xl cursor-pointer font-bold text-xs text-gray-500 shadow-2xs" id="labelPayCard">
+                        <label class="flex items-center justify-center gap-1.5 p-3 bg-white border-2 border-gray-200 rounded-xl cursor-pointer font-bold text-xs text-gray-500 active:scale-95 transition" id="labelPayCard">
                             <input type="radio" name="payMethod" value="현장결제" onchange="togglePayMethodView('현장결제')" class="accent-orange-500">
                             현장 결제
                         </label>
                     </div>
                     <div id="modalAccountBox" class="mt-1 text-xs text-gray-700 font-bold border-t border-orange-200/60 pt-2">
-                        <p id="modalAccount"></p>
+                        <p id="modalAccount" onclick="copyToClipboard(storeMeta.account, '계좌번호가 복사되었습니다!')" class="cursor-pointer hover:underline flex items-center gap-1" title="클릭하여 복사"></p>
                         <p id="modalAccountOwner"></p>
                     </div>
                     <div id="modalCardBox" class="mt-1 text-xs text-gray-600 font-bold border-t border-orange-200/60 pt-2 hidden">
@@ -164,34 +164,34 @@
                 <div class="space-y-3">
                     <div>
                         <label class="block text-xs font-bold text-gray-400 mb-1">💬 카톡 닉네임 (아파트+휴대폰뒷자리)</label>
-                        <input type="text" id="buyerKakao" placeholder="예: 래미안1234" class="w-full p-3.5 border-2 border-gray-200 rounded-2xl text-base font-bold focus:border-orange-500 focus:outline-none transition">
+                        <input type="text" id="buyerKakao" placeholder="예: 래미안1234" class="w-full p-3.5 border-2 border-gray-200 rounded-2xl text-base font-bold focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-gray-400 mb-1">👤 주문자 성함</label>
-                        <input type="text" id="buyerName" placeholder="예: 박명숙" class="w-full p-3.5 border-2 border-gray-200 rounded-2xl text-base font-bold focus:border-orange-500 focus:outline-none transition">
+                        <input type="text" id="buyerName" placeholder="예: 박명숙" class="w-full p-3.5 border-2 border-gray-200 rounded-2xl text-base font-bold focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition">
                     </div>
                     
                     <div id="addressInputBox" class="hidden space-y-3 border-t border-orange-200 pt-3">
                         <div>
                             <label class="block text-xs font-bold text-orange-900 mb-1">🏠 배달 상세 주소</label>
-                            <input type="text" id="buyerAddress" placeholder="예: 흑석동 센트레빌 101동 1202호" class="w-full p-3.5 border-2 border-orange-300 bg-orange-50/50 rounded-2xl text-base font-bold focus:border-orange-500 focus:outline-none transition">
+                            <input type="text" id="buyerAddress" placeholder="예: 흑석동 센트레빌 101동 1202호" class="w-full p-3.5 border-2 border-orange-300 bg-orange-50/50 rounded-2xl text-base font-bold focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-orange-900 mb-1">🔑 공동현관 비밀번호</label>
-                            <input type="text" id="buyerDoorPassword" placeholder="예: #1234* 또는 자유출입" class="w-full p-3.5 border-2 border-orange-300 bg-orange-50/50 rounded-2xl text-base font-bold focus:border-orange-500 focus:outline-none transition">
+                            <input type="text" id="buyerDoorPassword" placeholder="예: #1234* 또는 자유출입" class="w-full p-3.5 border-2 border-orange-300 bg-orange-50/50 rounded-2xl text-base font-bold focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition">
                         </div>
                     </div>
                 </div>
 
                 <!-- 최종 주문하기 버튼 -->
-                <button id="btnSubmitOrder" onclick="submitOrder()" class="w-full bg-orange-500 hover:bg-orange-600 active:scale-98 text-white text-xl font-black py-4 rounded-2xl shadow-xl transition disabled:bg-gray-400 disabled:cursor-not-allowed">
+                <button id="btnSubmitOrder" onclick="submitOrder()" class="w-full bg-orange-500 hover:bg-orange-600 text-white text-xl font-black py-4 rounded-2xl shadow-xl transition disabled:bg-gray-400 disabled:cursor-not-allowed transform active:scale-95">
                     🍊 일괄 주문 완료하기
                 </button>
             </div>
         </section>
 
         <!-- 사장님 화면 -->
-        <section id="adminView" class="hidden flex-col md:flex-row gap-6 w-full">
+        <section id="adminView" class="hidden flex-col md:flex-row gap-6 w-full transition-all duration-300">
             <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4 h-fit md:sticky md:top-24 w-full md:w-[380px] shrink-0">
                 <h2 class="text-xl font-extrabold text-gray-800 border-b pb-2 flex items-center gap-2">
                     ⚙️ 하루마켓 흑석점 관리
@@ -200,7 +200,7 @@
                 <div class="space-y-3">
                     <div>
                         <label class="block text-xs font-bold text-gray-400 mb-1">📋 데일리 공지 수정</label>
-                        <textarea id="inputDailyNotice" rows="3" class="w-full p-3 border border-gray-200 rounded-xl text-base font-medium focus:outline-orange-500"></textarea>
+                        <textarea id="inputDailyNotice" rows="3" class="w-full p-3 border border-gray-200 rounded-xl text-base font-medium focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition"></textarea>
                     </div>
 
                     <div>
@@ -211,21 +211,21 @@
 
                     <div>
                         <label class="block text-xs font-bold text-gray-400 mb-1">💰 계좌 번호 수정</label>
-                        <input type="text" id="inputAccount" class="w-full p-3 border border-gray-200 rounded-xl text-base font-bold focus:outline-orange-500">
+                        <input type="text" id="inputAccount" class="w-full p-3 border border-gray-200 rounded-xl text-base font-bold focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition">
                     </div>
 
                     <div>
                         <label class="block text-xs font-bold text-gray-400 mb-1">👤 예금주 명 수정</label>
-                        <input type="text" id="inputAccountOwner" class="w-full p-3 border border-gray-200 rounded-xl text-base font-bold focus:outline-orange-500">
+                        <input type="text" id="inputAccountOwner" class="w-full p-3 border border-gray-200 rounded-xl text-base font-bold focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition">
                     </div>
 
                     <div>
                         <label class="block text-xs font-bold text-gray-400 mb-1">⏰ 영업 시간 수정</label>
-                        <input type="text" id="inputHours" class="w-full p-3 border border-gray-200 rounded-xl text-base font-bold focus:outline-orange-500">
+                        <input type="text" id="inputHours" class="w-full p-3 border border-gray-200 rounded-xl text-base font-bold focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition">
                     </div>
                 </div>
 
-                <button id="btnSaveAdminSettings" onclick="saveAdminSettings()" class="w-full bg-orange-500 text-white font-black py-3.5 rounded-2xl text-base shadow-md hover:bg-orange-600 transition">
+                <button id="btnSaveAdminSettings" onclick="saveAdminSettings()" class="w-full bg-orange-500 text-white font-black py-3.5 rounded-2xl text-base shadow-md hover:bg-orange-600 active:scale-95 transition">
                     기본 정보 저장하기
                 </button>
             </div>
@@ -236,18 +236,18 @@
                 <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
                     <div class="flex justify-between items-center border-b pb-3">
                         <h2 class="text-xl font-extrabold text-gray-800">🍎 당일 판매 품목 편집</h2>
-                        <button onclick="toggleAddForm()" id="addFormBtn" class="bg-orange-500 text-white font-bold text-sm px-3 py-1.5 rounded-xl hover:bg-orange-600 transition">
+                        <button onclick="toggleAddForm()" id="addFormBtn" class="bg-orange-500 text-white font-bold text-sm px-3 py-1.5 rounded-xl hover:bg-orange-600 active:scale-95 transition">
                             + 새 품목 추가하기
                         </button>
                     </div>
 
                     <div id="itemAddForm" class="hidden bg-gray-50 p-4 rounded-2xl border border-gray-200 space-y-3">
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
-                            <input type="text" id="newFruitName" placeholder="과일 품목명" class="p-3 border border-gray-300 rounded-xl text-sm bg-white">
-                            <input type="number" id="newFruitPrice" placeholder="판매 가격 (숫자만)" class="p-3 border border-gray-300 rounded-xl text-sm bg-white">
-                            <input type="number" id="newFruitStock" placeholder="초기 재고량" class="p-3 border border-gray-300 rounded-xl text-sm bg-white">
+                            <input type="text" id="newFruitName" placeholder="과일 품목명" class="p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition">
+                            <input type="number" id="newFruitPrice" placeholder="판매 가격 (숫자만)" class="p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition">
+                            <input type="number" id="newFruitStock" placeholder="초기 재고량" class="p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition">
                         </div>
-                        <textarea id="newFruitDesc" rows="2" placeholder="상품 상세 설명을 입력하세요 (선택)" class="w-full p-3 border border-gray-300 rounded-xl text-sm bg-white"></textarea>
+                        <textarea id="newFruitDesc" rows="2" placeholder="상품 상세 설명을 입력하세요 (선택)" class="w-full p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition"></textarea>
                         
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
                             <div>
@@ -266,7 +266,7 @@
                                 <input type="checkbox" id="newFruitHideStock" class="accent-orange-500 w-4 h-4">
                                 이 품목의 손님 화면 재고 수량 숨기기
                             </label>
-                            <button id="btnAddNewFruit" onclick="addNewFruitItem()" class="bg-gray-900 text-white font-black px-8 py-3 rounded-xl text-sm">진짜 추가</button>
+                            <button id="btnAddNewFruit" onclick="addNewFruitItem()" class="bg-gray-900 text-white font-black px-8 py-3 rounded-xl text-sm active:scale-95 transition">진짜 추가</button>
                         </div>
                     </div>
 
@@ -290,7 +290,7 @@
                             </h2>
                             <p class="text-xs text-blue-600 font-bold mt-0.5">입금 확인 후 배달 전표 라벨지를 A4 용지 규격에 일괄 출력하세요.</p>
                         </div>
-                        <button onclick="printAllDeliveryLabels()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow-md transition self-stretch sm:self-auto justify-center">
+                        <button onclick="printAllDeliveryLabels()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow-md transition active:scale-95 self-stretch sm:self-auto justify-center">
                             🖨️ 전체 배달 라벨 일괄 인쇄 (A4 10칸)
                         </button>
                     </div>
@@ -306,12 +306,12 @@
                             </h2>
                         </div>
                         <div class="flex flex-wrap gap-2">
-                            <button onclick="downloadExcel('all')" class="bg-green-700 hover:bg-green-800 text-white font-bold text-xs px-3 py-2.5 rounded-xl flex items-center gap-1 shadow-xs transition">
+                            <button onclick="downloadExcel('all')" class="bg-green-700 hover:bg-green-800 text-white font-bold text-xs px-3 py-2.5 rounded-xl flex items-center gap-1 shadow-xs transition active:scale-95">
                                 📊 전체 기간 장부 엑셀
                             </button>
                             <div class="flex items-center gap-1 bg-green-50 p-1 border border-green-200 rounded-xl">
                                 <input type="month" id="excelMonthPicker" class="p-1 text-xs font-bold bg-white border border-green-300 rounded-lg">
-                                <button onclick="downloadExcel('month')" class="bg-green-600 hover:bg-green-700 text-white font-bold text-xs px-2.5 py-1.5 rounded-lg transition">
+                                <button onclick="downloadExcel('month')" class="bg-green-600 hover:bg-green-700 text-white font-bold text-xs px-2.5 py-1.5 rounded-lg transition active:scale-95">
                                     📅 월별 엑셀
                                 </button>
                             </div>
@@ -320,13 +320,14 @@
 
                     <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-gray-50 p-3 rounded-2xl border border-gray-200">
                         <div class="sm:col-span-2 relative">
-                            <input type="text" id="searchKeyword" oninput="filterAndRenderCompletedOrders()" placeholder="🔍 이름, 닉네임, 품목명 검색..." class="w-full p-2.5 bg-white border border-gray-300 rounded-xl text-sm font-bold focus:outline-orange-500">
+                            <input type="text" id="searchKeyword" oninput="filterAndRenderCompletedOrders()" placeholder="🔍 이름, 닉네임, 품목명 검색..." class="w-full p-2.5 pr-8 bg-white border border-gray-300 rounded-xl text-sm font-bold focus:outline-none focus:border-orange-500 transition">
+                            <button onclick="clearSearchInput('searchKeyword')" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-bold bg-gray-100 hover:bg-gray-200 rounded-full w-5 h-5 flex items-center justify-center">✕</button>
                         </div>
                         <div>
-                            <input type="date" id="searchDate" onchange="filterAndRenderCompletedOrders()" class="w-full p-2.5 bg-white border border-gray-300 rounded-xl text-sm font-bold text-gray-700 focus:outline-orange-500">
+                            <input type="date" id="searchDate" onchange="filterAndRenderCompletedOrders()" class="w-full p-2.5 bg-white border border-gray-300 rounded-xl text-sm font-bold text-gray-700 focus:outline-none focus:border-orange-500 transition">
                         </div>
                         <div>
-                            <button onclick="resetDateFilter()" class="w-full p-2.5 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded-xl text-sm transition">
+                            <button onclick="resetDateFilter()" class="w-full p-2.5 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded-xl text-sm transition active:scale-95">
                                 🔄 전체 날짜 보기
                             </button>
                         </div>
@@ -338,22 +339,23 @@
         </section>
     </main>
 
-    <!-- 📌 스크롤 시 화면 하단 항시 고정 결제바 (수량별 시각적 반응 가이드 개선) -->
-    <div id="stickyCheckoutBar" class="fixed bottom-0 left-0 right-0 z-30 bg-gray-900/95 backdrop-blur-md text-white border-t border-gray-800 shadow-2xl p-4 transition-all duration-300">
+    <!-- 📌 스크롤 시 화면 하단 항시 고정 결제바 -->
+    <div id="stickyCheckoutBar" class="fixed bottom-0 left-0 right-0 z-30 bg-gray-900 text-white border-t border-gray-800 shadow-2xl p-4 transition-all duration-300">
         <div class="max-w-md mx-auto flex items-center justify-between">
             <div>
                 <p class="text-xs text-gray-400 font-bold">선택 품목: <span id="stickyTotalCount" class="text-orange-400 font-black">0</span>개</p>
                 <p class="text-2xl font-black text-orange-400 tracking-tight" id="stickyTotalPrice">0원</p>
             </div>
-            <button id="btnBarCheckout" onclick="scrollToOrderForm()" class="bg-gray-700 text-gray-300 px-5 py-3 rounded-2xl font-black text-sm transition transform active:scale-95 flex items-center gap-1">
-                <span id="btnBarText">과일을 선택해 주세요 🍎</span>
+            <button id="btnStickyCheckout" onclick="scrollToOrderForm()" class="bg-gray-700 text-gray-300 px-5 py-3 rounded-2xl font-black text-sm shadow-lg transition transform active:scale-95 flex items-center gap-1">
+                <span id="stickyBtnText">과일을 선택해 주세요 🍎</span>
+                <span id="stickyBtnArrow" class="hidden">👇</span>
             </button>
         </div>
     </div>
 
-    <!-- 📢 계좌이체 주문 완료 후 입금 안내 모달 팝업 (원클릭 복사 내장) -->
-    <div id="bankModal" class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center hidden p-4">
-        <div class="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 text-center shadow-2xl transform transition-all animate-in fade-in zoom-in-95">
+    <!-- 📢 계좌이체 주문 완료 후 입금 안내 모달 팝업 -->
+    <div id="bankModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 text-center shadow-2xl transform transition-all">
             <div class="w-16 h-16 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-3xl mx-auto font-black">
                 💰
             </div>
@@ -362,23 +364,25 @@
                 <p class="text-xs text-orange-600 font-bold">📢 입금 확인 후 과일 수령 및 배달이 시작됩니다.</p>
             </div>
 
-            <div class="bg-orange-50 p-4 rounded-2xl border border-orange-200 text-left space-y-2 cursor-pointer active:scale-98 transition" onclick="copyTextToClipboard(storeMeta.account, '계좌번호가 복사되었습니다!')">
-                <div class="flex justify-between items-center">
-                    <span class="text-[11px] font-bold text-gray-400 block">입금 계좌번호 (터치 시 복사)</span>
-                    <span class="text-[11px] font-bold text-orange-600">📋 복사</span>
+            <div class="bg-orange-50 p-4 rounded-2xl border border-orange-200 text-left space-y-2">
+                <div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-[11px] font-bold text-gray-400">입금 은행 및 계좌번호</span>
+                        <span class="text-[10px] font-bold text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded cursor-pointer" onclick="copyToClipboard(document.getElementById('bankModalAccount').innerText, '계좌번호가 복사되었습니다!')">📋 터치하여 복사</span>
+                    </div>
+                    <span id="bankModalAccount" onclick="copyToClipboard(this.innerText, '계좌번호가 복사되었습니다!')" class="text-base font-black text-orange-900 select-all block cursor-pointer hover:underline mt-0.5" title="클릭하여 복사"></span>
                 </div>
-                <span id="bankModalAccount" class="text-base font-black text-orange-900 block tracking-wide select-all"></span>
                 <div>
                     <span class="text-[11px] font-bold text-gray-400 block">예금주</span>
                     <span id="bankModalOwner" class="text-sm font-bold text-gray-800 block"></span>
                 </div>
-                <div class="border-t border-orange-200/80 pt-2">
+                <div class="border-t border-orange-200 pt-2">
                     <span class="text-[11px] font-bold text-gray-400 block">총 입금 금액</span>
                     <span id="bankModalAmount" class="text-xl font-black text-red-600 block"></span>
                 </div>
             </div>
 
-            <button onclick="closeBankModal()" class="w-full bg-orange-500 hover:bg-orange-600 active:scale-95 text-white font-black py-3.5 rounded-2xl text-base shadow-md transition">
+            <button onclick="closeBankModal()" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-3.5 rounded-2xl text-base shadow-md active:scale-95 transition">
                 확인했습니다! (입금 진행)
             </button>
         </div>
@@ -397,7 +401,7 @@
         <div class="bg-white w-full max-w-md rounded-3xl p-6 space-y-4 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
             <div class="flex justify-between items-center border-b pb-3">
                 <h3 id="detailFruitName" class="text-2xl font-black text-gray-800">상품 상세 정보</h3>
-                <button onclick="closeDetailModal()" class="text-gray-400 text-2xl font-bold px-2">✕</button>
+                <button onclick="closeDetailModal()" class="text-gray-400 text-2xl font-bold px-2 hover:text-gray-600">✕</button>
             </div>
             <div class="overflow-y-auto space-y-4 flex-1 pr-1">
                 <div>
@@ -410,7 +414,7 @@
                 </div>
                 <div id="detailImgsContainer" class="space-y-3 pt-2"></div>
             </div>
-            <button onclick="closeDetailModal()" class="w-full bg-gray-900 text-white font-bold py-3.5 rounded-2xl text-sm">확인 완료</button>
+            <button onclick="closeDetailModal()" class="w-full bg-gray-900 text-white font-bold py-3.5 rounded-2xl text-sm active:scale-95 transition">확인 완료</button>
         </div>
     </div>
 
@@ -419,14 +423,14 @@
         <div class="bg-white w-full max-w-md rounded-3xl p-6 space-y-4 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
             <div class="flex justify-between items-center border-b pb-3">
                 <h3 class="text-xl font-black text-gray-800">🔎 내 주문 내역 조회</h3>
-                <button onclick="closeMyOrdersModal()" class="text-gray-400 text-2xl font-bold px-2">✕</button>
+                <button onclick="closeMyOrdersModal()" class="text-gray-400 text-2xl font-bold px-2 hover:text-gray-600">✕</button>
             </div>
             <div class="space-y-2">
                 <div class="grid grid-cols-2 gap-2">
-                    <input type="text" id="searchMyKakao" placeholder="카톡 닉네임" class="p-3 border border-gray-300 rounded-xl text-sm focus:outline-orange-500">
-                    <input type="text" id="searchMyName" placeholder="성함" class="p-3 border border-gray-300 rounded-xl text-sm focus:outline-orange-500">
+                    <input type="text" id="searchMyKakao" placeholder="카톡 닉네임" class="p-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:border-orange-500 transition">
+                    <input type="text" id="searchMyName" placeholder="성함" class="p-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:border-orange-500 transition">
                 </div>
-                <button id="btnFetchMyOrders" onclick="fetchMyOrders()" class="w-full bg-orange-500 text-white font-bold py-2.5 rounded-xl text-sm active:scale-95 transition disabled:bg-gray-400">조회하기</button>
+                <button id="btnFetchMyOrders" onclick="fetchMyOrders()" class="w-full bg-orange-500 text-white font-bold py-2.5 rounded-xl text-sm disabled:bg-gray-400 active:scale-95 transition">조회하기</button>
             </div>
             <div id="myOrdersResult" class="overflow-y-auto space-y-3 flex-1 pr-1 border-t pt-3">
                 <p class="text-center text-gray-400 text-xs py-8 font-bold">성함과 카톡 닉네임을 모두 일치하게 입력해 주세요.</p>
@@ -441,10 +445,10 @@
                 <span class="text-4xl">🔐</span>
                 <h3 class="text-xl font-black mt-2">사장님 인증입니다</h3>
             </div>
-            <input type="password" id="adminPassword" placeholder="비밀번호 입력" class="w-full p-4 border-2 border-gray-200 rounded-2xl text-center text-2xl font-black tracking-widest focus:outline-orange-500">
+            <input type="password" id="adminPassword" placeholder="비밀번호 입력" class="w-full p-4 border-2 border-gray-200 rounded-2xl text-center text-2xl font-black tracking-widest focus:outline-none focus:border-orange-500 transition">
             <div class="flex space-x-2">
-                <button onclick="closeAdminAuthModal()" class="flex-1 bg-gray-100 font-bold py-3 rounded-xl text-gray-500">취소</button>
-                <button onclick="checkAdminPassword()" class="flex-1 bg-orange-500 text-white font-black py-3 rounded-xl hover:bg-orange-600">확인</button>
+                <button onclick="closeAdminAuthModal()" class="flex-1 bg-gray-100 font-bold py-3 rounded-xl text-gray-500 active:scale-95 transition">취소</button>
+                <button onclick="checkAdminPassword()" class="flex-1 bg-orange-500 text-white font-black py-3 rounded-xl hover:bg-orange-600 active:scale-95 transition">확인</button>
             </div>
         </div>
     </div>
@@ -467,6 +471,44 @@
 
         let selectedItems = {};
 
+        // 🎨 UI/UX 마이크로 개선 헬퍼 함수
+        function copyToClipboard(text, message = '클립보드에 복사되었습니다!') {
+            if (!text) return;
+            navigator.clipboard.writeText(text).then(() => {
+                showToast(message);
+            }).catch(() => {
+                const tempInput = document.createElement("textarea");
+                tempInput.value = text;
+                document.body.appendChild(tempInput);
+                tempInput.select();
+                document.execCommand("copy");
+                document.body.removeChild(tempInput);
+                showToast(message);
+            });
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toastNotification');
+            const toastMsg = document.getElementById('toastMsg');
+            if (toast && toastMsg) {
+                toastMsg.innerText = "📋 " + msg;
+                toast.classList.remove('opacity-0', 'pointer-events-none');
+                toast.classList.add('opacity-100');
+                setTimeout(() => {
+                    toast.classList.remove('opacity-100');
+                    toast.classList.add('opacity-0', 'pointer-events-none');
+                }, 2000);
+            }
+        }
+
+        function clearSearchInput(inputId) {
+            const input = document.getElementById(inputId);
+            if (input) {
+                input.value = '';
+                filterAndRenderCompletedOrders();
+            }
+        }
+
         window.onload = function() {
             loadStoreData();
             setupFileListeners();
@@ -475,22 +517,6 @@
             const mm = String(today.getMonth() + 1).padStart(2, '0');
             document.getElementById('excelMonthPicker').value = `${yyyy}-${mm}`;
         };
-
-        // 📋 클립보드 원클릭 복사
-        function copyTextToClipboard(text, successMsg) {
-            if(!text) return;
-            navigator.clipboard.writeText(text).then(() => {
-                alert(successMsg || '복사되었습니다!');
-            }).catch(() => {
-                const tempInput = document.createElement("input");
-                tempInput.value = text;
-                document.body.appendChild(tempInput);
-                tempInput.select();
-                document.execCommand("copy");
-                document.body.removeChild(tempInput);
-                alert(successMsg || '복사되었습니다!');
-            });
-        }
 
         function setupFileListeners() {
             document.getElementById('fileNoticeImg').addEventListener('change', function(e) {
@@ -562,7 +588,7 @@
 
         function refreshMainDisplay() {
             document.getElementById('displayDailyNotice').innerText = storeMeta.notice || '공지사항이 없습니다.';
-            document.getElementById('displayAccount').innerText = storeMeta.account || '등록된 계좌가 없습니다.';
+            document.getElementById('displayAccount').innerText = (storeMeta.account || '등록된 계좌가 없습니다.') + " (클릭시 복사)";
             document.getElementById('displayAccountOwner').innerText = storeMeta.owner ? `(예금주: ${storeMeta.owner})` : '';
             document.getElementById('displayHours').innerText = storeMeta.hours || '영업시간 정보가 없습니다.';
 
@@ -572,7 +598,7 @@
             document.getElementById('inputAccountOwner').value = storeMeta.owner || '';
             document.getElementById('inputHours').value = storeMeta.hours || '';
 
-            document.getElementById('modalAccount').innerText = "계좌: " + (storeMeta.account || '');
+            document.getElementById('modalAccount').innerText = "계좌: " + (storeMeta.account || '') + " (복사)";
             document.getElementById('modalAccountOwner').innerText = storeMeta.owner ? `예금주: ${storeMeta.owner}` : '';
 
             const imgBox = document.getElementById('displayNoticeImgContainer');
@@ -610,7 +636,7 @@
                 let currentQty = selectedItems[item.id] ? selectedItems[item.id].qty : 0;
 
                 userListEl.innerHTML += `
-                    <div class="bg-gray-50/80 p-4 rounded-2xl border border-gray-200 space-y-3 hover:border-orange-300 transition">
+                    <div class="bg-gray-50/80 p-4 rounded-2xl border border-gray-200 space-y-3">
                         ${imgHtmlContainer}
                         <div class="flex justify-between items-start gap-3">
                             <div class="space-y-1 min-w-0 flex-1">
@@ -624,7 +650,7 @@
                             </div>
 
                             <div class="flex flex-col items-end gap-2 shrink-0">
-                                <button onclick="openDetailModal(${index})" class="px-2.5 py-1 bg-white border border-gray-200 text-gray-600 font-bold rounded-xl text-xs shadow-2xs hover:bg-gray-100 transition">🔍 상세사진</button>
+                                <button onclick="openDetailModal(${index})" class="px-2.5 py-1 bg-white border border-gray-200 text-gray-600 font-bold rounded-xl text-xs shadow-2xs hover:bg-gray-100 active:scale-95 transition">🔍 상세사진</button>
                                 
                                 <div class="flex items-center space-x-1.5 border-2 border-orange-300 rounded-xl p-1 bg-white shadow-2xs">
                                     <button onclick="adjustOrderFormQty(${item.id}, '${item.name}', ${item.price}, -1)" class="w-7 h-7 bg-orange-50 border border-orange-200 rounded-lg text-sm font-black text-orange-900 active:scale-90 transition">-</button>
@@ -636,7 +662,7 @@
                     </div>`;
 
                 let hideBtnText = item.hide_stock ? "재고 숨김 중 🙈" : "재고 노출 중 👁️";
-                let hideBtnClass = item.hide_stock ? "bg-gray-600 text-white font-bold text-xs px-2.5 py-1 rounded-xl" : "bg-orange-500 text-white font-bold text-xs px-2.5 py-1 rounded-xl";
+                let hideBtnClass = item.hide_stock ? "bg-gray-600 text-white font-bold text-xs px-2.5 py-1 rounded-xl active:scale-95 transition" : "bg-orange-500 text-white font-bold text-xs px-2.5 py-1 rounded-xl active:scale-95 transition";
 
                 adminListEl.innerHTML += `
                     <div class="bg-gray-50 p-5 rounded-2xl border border-gray-200 flex flex-col justify-between space-y-3">
@@ -645,7 +671,7 @@
                                 <h4 class="font-black text-gray-800 text-base leading-snug">${item.name}</h4>
                                 <p class="text-sm font-bold text-orange-600 mt-0.5">${Number(item.price).toLocaleString()}원</p>
                             </div>
-                            <button onclick="deleteFruitItem(${item.id}, this)" class="bg-red-50 text-red-600 font-bold text-xs px-2.5 py-1.5 rounded-xl ml-2 hover:bg-red-100 transition">품목 삭제</button>
+                            <button onclick="deleteFruitItem(${item.id}, this)" class="bg-red-50 text-red-600 font-bold text-xs px-2.5 py-1.5 rounded-xl ml-2 hover:bg-red-100 active:scale-95 transition">품목 삭제</button>
                         </div>
                         <div class="pt-2 border-t border-gray-200/60 flex items-center justify-between text-xs gap-2">
                             <button onclick="toggleItemHideStock(${item.id}, ${!item.hide_stock}, this)" class="${hideBtnClass}">
@@ -653,8 +679,8 @@
                             </button>
                             <div class="flex items-center gap-1 ml-auto">
                                 <span class="font-bold text-gray-400">재고:</span>
-                                <input type="number" id="stock-input-${item.id}" value="${item.stock}" class="w-12 text-right font-black bg-white text-gray-700 border border-gray-300 rounded px-1 py-0.5">
-                                <button onclick="updateStock(${item.id}, this)" class="bg-gray-800 text-white font-bold px-2 py-0.5 rounded">변경</button>
+                                <input type="number" id="stock-input-${item.id}" value="${item.stock}" class="w-12 text-right font-black bg-white text-gray-700 border border-gray-300 rounded px-1 py-0.5 focus:outline-none focus:border-orange-500">
+                                <button onclick="updateStock(${item.id}, this)" class="bg-gray-800 text-white font-bold px-2 py-0.5 rounded active:scale-95 transition">변경</button>
                             </div>
                         </div>
                     </div>`;
@@ -662,7 +688,6 @@
             updateStickyCheckoutBar();
         }
 
-        // 수량 조절 및 결제바 실시간 갱신
         function adjustOrderFormQty(fruitId, fruitName, price, change) {
             if (!selectedItems[fruitId]) {
                 selectedItems[fruitId] = { fruit_id: fruitId, fruit_name: fruitName, price: price, qty: 0 };
@@ -679,7 +704,6 @@
             updateStickyCheckoutBar();
         }
 
-        // 결제바 수량/금액/문구 동적 연동
         function updateStickyCheckoutBar() {
             let totalQty = 0;
             let totalFruitPrice = 0;
@@ -694,17 +718,19 @@
 
             document.getElementById('stickyTotalCount').innerText = totalQty;
             document.getElementById('stickyTotalPrice').innerText = finalPrice.toLocaleString() + "원";
-            document.getElementById('bookingTotalPrice').innerText = finalPrice.toLocaleString() + "원";
-
-            const btnBar = document.getElementById('btnBarCheckout');
-            const btnBarText = document.getElementById('btnBarText');
+            
+            const btnSticky = document.getElementById('btnStickyCheckout');
+            const btnText = document.getElementById('stickyBtnText');
+            const btnArrow = document.getElementById('stickyBtnArrow');
 
             if (totalQty > 0) {
-                btnBar.className = "bg-orange-500 hover:bg-orange-600 text-white px-5 py-3 rounded-2xl font-black text-sm shadow-lg transition transform active:scale-95 flex items-center gap-1 animate-pulse";
-                btnBarText.innerText = "주문서 작성하기 👇";
+                btnSticky.className = "bg-orange-500 hover:bg-orange-600 text-white px-5 py-3 rounded-2xl font-black text-sm shadow-lg transition transform active:scale-95 flex items-center gap-1";
+                btnText.innerText = "주문서 작성하기";
+                btnArrow.classList.remove('hidden');
             } else {
-                btnBar.className = "bg-gray-700 text-gray-300 px-5 py-3 rounded-2xl font-black text-sm transition transform active:scale-95 flex items-center gap-1";
-                btnBarText.innerText = "과일을 선택해 주세요 🍎";
+                btnSticky.className = "bg-gray-700 text-gray-300 px-5 py-3 rounded-2xl font-black text-sm shadow-lg transition transform active:scale-95 flex items-center gap-1";
+                btnText.innerText = "과일을 선택해 주세요 🍎";
+                btnArrow.classList.add('hidden');
             }
         }
 
@@ -758,20 +784,17 @@
             const btnPickup = document.getElementById('btnTypePickup');
             const btnDelivery = document.getElementById('btnTypeDelivery');
             const addrBox = document.getElementById('addressInputBox');
-            const feeNotice = document.getElementById('deliveryFeeNotice');
             const payCardLabel = document.getElementById('labelPayCard');
 
             if(type === '픽업') {
-                btnPickup.className = "h-16 p-2 border-2 border-orange-500 bg-orange-50 text-orange-900 rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-0.5 transition active:scale-95";
-                btnDelivery.className = "h-16 p-2 border-2 border-gray-200 bg-white text-gray-500 rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-0.5 transition active:scale-95";
+                btnPickup.className = "h-16 p-2 border-2 border-orange-500 bg-orange-50 text-orange-900 rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-0.5 active:scale-95 transition";
+                btnDelivery.className = "h-16 p-2 border-2 border-gray-200 bg-white text-gray-500 rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-0.5 active:scale-95 transition";
                 addrBox.classList.add('hidden');
-                feeNotice.classList.add('hidden');
                 payCardLabel.classList.remove('hidden');
             } else {
-                btnDelivery.className = "h-16 p-2 border-2 border-blue-500 bg-blue-50 text-blue-900 rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-0.5 transition active:scale-95";
-                btnPickup.className = "h-16 p-2 border-2 border-gray-200 bg-white text-gray-500 rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-0.5 transition active:scale-95";
+                btnDelivery.className = "h-16 p-2 border-2 border-blue-500 bg-blue-50 text-blue-900 rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-0.5 active:scale-95 transition";
+                btnPickup.className = "h-16 p-2 border-2 border-gray-200 bg-white text-gray-500 rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-0.5 active:scale-95 transition";
                 addrBox.classList.remove('hidden');
-                feeNotice.classList.remove('hidden');
                 
                 document.querySelector('input[name="payMethod"][value="계좌이체"]').checked = true;
                 togglePayMethodView('계좌이체');
@@ -784,13 +807,13 @@
             const bankLabel = document.getElementById('labelPayBank');
             const cardLabel = document.getElementById('labelPayCard');
             if(method === '계좌이체') {
-                bankLabel.className = "flex items-center justify-center gap-1.5 p-3 bg-white border-2 border-orange-500 rounded-xl cursor-pointer font-bold text-xs text-orange-900 shadow-2xs";
-                cardLabel.className = "flex items-center justify-center gap-1.5 p-3 bg-white border-2 border-gray-200 rounded-xl cursor-pointer font-bold text-xs text-gray-500 shadow-2xs";
+                bankLabel.className = "flex items-center justify-center gap-1.5 p-3 bg-white border-2 border-orange-500 rounded-xl cursor-pointer font-bold text-xs text-orange-900 active:scale-95 transition";
+                cardLabel.className = "flex items-center justify-center gap-1.5 p-3 bg-white border-2 border-gray-200 rounded-xl cursor-pointer font-bold text-xs text-gray-500 active:scale-95 transition";
                 document.getElementById('modalAccountBox').classList.remove('hidden');
                 document.getElementById('modalCardBox').classList.add('hidden');
             } else {
-                bankLabel.className = "flex items-center justify-center gap-1.5 p-3 bg-white border-2 border-gray-200 rounded-xl cursor-pointer font-bold text-xs text-gray-500 shadow-2xs";
-                cardLabel.className = "flex items-center justify-center gap-1.5 p-3 bg-white border-2 border-orange-500 rounded-xl cursor-pointer font-bold text-xs text-orange-900 shadow-2xs";
+                bankLabel.className = "flex items-center justify-center gap-1.5 p-3 bg-white border-2 border-gray-200 rounded-xl cursor-pointer font-bold text-xs text-gray-500 active:scale-95 transition";
+                cardLabel.className = "flex items-center justify-center gap-1.5 p-3 bg-white border-2 border-orange-500 rounded-xl cursor-pointer font-bold text-xs text-orange-900 active:scale-95 transition";
                 document.getElementById('modalAccountBox').classList.add('hidden');
                 document.getElementById('modalCardBox').classList.remove('hidden');
             }
@@ -914,7 +937,7 @@
             strictlyMatched.forEach(o => {
                 let canCancel = o.status === '입금대기' || o.status === '접수완료';
                 let cancelBtnHtml = canCancel 
-                    ? `<button onclick="cancelMyOrder(${o.id}, '${kakao}', '${name}', this)" class="bg-red-50 text-red-600 font-bold text-xs px-2.5 py-1.5 rounded-xl hover:bg-red-100">주문 취소</button>`
+                    ? `<button onclick="cancelMyOrder(${o.id}, '${kakao}', '${name}', this)" class="bg-red-50 text-red-600 font-bold text-xs px-2.5 py-1.5 rounded-xl hover:bg-red-100 active:scale-95 transition">주문 취소</button>`
                     : `<span class="text-xs text-gray-400 font-bold">취소 불가</span>`;
 
                 box.innerHTML += `
@@ -975,6 +998,8 @@
             const container = document.getElementById('mainContainer');
             const toggleBtn = document.getElementById('toggleBtn');
             const stickyBar = document.getElementById('stickyCheckoutBar');
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
 
             if (view === 'admin') {
                 document.getElementById('customerView').classList.add('hidden');
@@ -1137,22 +1162,27 @@
 
                     let actionBtn = '';
                     if(order.method === '현장결제') {
-                        actionBtn = `<button onclick="triggerCompleteOrder(${order.id}, this)" class="flex-1 bg-green-600 text-white py-2 rounded-xl text-xs font-black">✅ 결제 및 수령 완료</button>`;
+                        actionBtn = `<button onclick="triggerCompleteOrder(${order.id}, this)" class="flex-1 bg-green-600 text-white py-2 rounded-xl text-xs font-black active:scale-95 transition">✅ 결제 및 수령 완료</button>`;
                     } else if(order.status === '입금대기') {
-                        actionBtn = `<button onclick="triggerUpdateStatus(${order.id}, '접수완료', this)" class="flex-1 bg-blue-600 text-white py-2 rounded-xl text-xs font-black">💵 입금확인</button>`;
+                        actionBtn = `<button onclick="triggerUpdateStatus(${order.id}, '접수완료', this)" class="flex-1 bg-blue-600 text-white py-2 rounded-xl text-xs font-black active:scale-95 transition">💵 입금확인</button>`;
                     } else {
-                        actionBtn = `<button onclick="triggerCompleteOrder(${order.id}, this)" class="flex-1 bg-green-600 text-white py-2 rounded-xl text-xs font-black">✅ 수령 완료</button>`;
+                        actionBtn = `<button onclick="triggerCompleteOrder(${order.id}, this)" class="flex-1 bg-green-600 text-white py-2 rounded-xl text-xs font-black active:scale-95 transition">✅ 수령 완료</button>`;
                     }
 
                     waitList.innerHTML += `
                         <div class="bg-white p-5 rounded-3xl border border-gray-100 space-y-3 shadow-2xs relative">
                             <span class="absolute right-5 top-5 text-xs font-black px-2 py-1 rounded-md ${badgeStyle.classes}">${badgeStyle.text}</span>
-                            <h4 class="text-lg font-black text-gray-900 cursor-pointer active:text-orange-600" onclick="copyTextToClipboard('${order.kakao_nickname}', '카톡 닉네임 복사완료!')">${order.name} (<span class="underline underline-offset-2">${order.kakao_nickname || '닉네임없음'}</span> 📋)</h4>
+                            <h4 class="text-lg font-black flex items-center gap-1.5">
+                                ${order.name} 
+                                <span onclick="copyToClipboard('${order.kakao_nickname}', '카톡 닉네임이 복사되었습니다!')" class="text-sm font-extrabold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-lg border border-orange-200 cursor-pointer hover:bg-orange-100 active:scale-95 transition" title="클릭하여 복사">
+                                    💬 ${order.kakao_nickname || '닉네임없음'}
+                                </span>
+                            </h4>
                             <p class="text-orange-600 font-bold">📦 과일: ${order.fruit} | 결제: ${order.method}</p>
                             <p class="text-xs text-gray-400">🕒 접수일시: ${order.time_str || ''} [상태: ${order.status}]</p>
                             <div class="flex gap-2 pt-2 border-t border-gray-100">
                                 ${actionBtn}
-                                <button onclick="cancelAdminOrder(${order.id}, this)" class="bg-gray-100 text-gray-500 px-3 py-2 rounded-xl text-xs font-bold">취소</button>
+                                <button onclick="cancelAdminOrder(${order.id}, this)" class="bg-gray-100 text-gray-500 px-3 py-2 rounded-xl text-xs font-bold active:scale-95 transition">취소</button>
                             </div>
                         </div>`;
                 });
@@ -1165,8 +1195,8 @@
                     const badgeStyle = getBadgeStyleByCount(historyCount);
 
                     let deliveryActionBtn = order.status === '입금대기'
-                        ? `<button onclick="triggerUpdateStatus(${order.id}, '접수완료', this)" class="flex-1 bg-blue-600 text-white py-2 rounded-xl text-xs font-black hover:bg-blue-700">💵 입금확인</button>`
-                        : `<button onclick="triggerCompleteOrder(${order.id}, this)" class="flex-1 bg-indigo-600 text-white py-2 rounded-xl text-xs font-black hover:bg-indigo-700">🚚 배달 완료 처리</button>`;
+                        ? `<button onclick="triggerUpdateStatus(${order.id}, '접수완료', this)" class="flex-1 bg-blue-600 text-white py-2 rounded-xl text-xs font-black hover:bg-blue-700 active:scale-95 transition">💵 입금확인</button>`
+                        : `<button onclick="triggerCompleteOrder(${order.id}, this)" class="flex-1 bg-indigo-600 text-white py-2 rounded-xl text-xs font-black hover:bg-indigo-700 active:scale-95 transition">🚚 배달 완료 처리</button>`;
 
                     deliveryList.innerHTML += `
                         <div class="bg-white p-5 rounded-3xl border border-blue-200 space-y-3 shadow-sm relative">
@@ -1175,7 +1205,12 @@
                                 <span class="bg-blue-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md">🚚 배달 [${order.status}]</span>
                             </div>
                             <div>
-                                <h4 class="text-lg font-black text-gray-900 cursor-pointer active:text-blue-600" onclick="copyTextToClipboard('${order.kakao_nickname}', '카톡 닉네임 복사완료!')">${order.name} (<span class="underline underline-offset-2">${order.kakao_nickname}</span> 📋)</h4>
+                                <h4 class="text-lg font-black text-gray-900 flex items-center gap-1.5">
+                                    ${order.name} 
+                                    <span onclick="copyToClipboard('${order.kakao_nickname}', '카톡 닉네임이 복사되었습니다!')" class="text-sm font-extrabold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-200 cursor-pointer hover:bg-blue-100 active:scale-95 transition" title="클릭하여 복사">
+                                        💬 ${order.kakao_nickname || '닉네임없음'}
+                                    </span>
+                                </h4>
                                 <p class="text-sm font-extrabold text-blue-700 mt-0.5">🏠 주소: ${order.address}</p>
                                 <p class="text-xs font-black text-red-600 mt-0.5">🔑 공동현관 비번: ${order.door_password || '없음/자유출입'}</p>
                             </div>
@@ -1183,7 +1218,7 @@
                             <p class="text-[11px] text-gray-400 font-bold">🕒 주문 접수일시: ${order.time_str || ''}</p>
                             <div class="flex gap-2 pt-2 border-t border-gray-100">
                                 ${deliveryActionBtn}
-                                <button onclick="cancelAdminOrder(${order.id}, this)" class="bg-gray-100 text-gray-500 px-3 py-2 rounded-xl text-xs font-bold">취소</button>
+                                <button onclick="cancelAdminOrder(${order.id}, this)" class="bg-gray-100 text-gray-500 px-3 py-2 rounded-xl text-xs font-bold active:scale-95 transition">취소</button>
                             </div>
                         </div>`;
                 });
@@ -1307,13 +1342,18 @@
                         <span class="absolute right-5 top-5 text-xs font-black px-2 py-1 rounded-md ${badgeStyle.classes}">${badgeStyle.text}</span>
                         <div>
                             <span class="text-xs font-bold px-2 py-0.5 rounded-md bg-green-100 text-green-800">${order.order_type || '픽업'} 완료</span>
-                            <h4 class="text-lg font-black mt-1 text-gray-900 cursor-pointer active:text-orange-600" onclick="copyTextToClipboard('${order.kakao_nickname}', '카톡 닉네임 복사완료!')">${order.name} (<span class="underline underline-offset-2">${order.kakao_nickname || ''}</span> 📋)</h4>
+                            <h4 class="text-lg font-black mt-1 flex items-center gap-1.5">
+                                ${order.name} 
+                                <span onclick="copyToClipboard('${order.kakao_nickname}', '카톡 닉네임이 복사되었습니다!')" class="text-xs font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded cursor-pointer hover:bg-gray-200 active:scale-95 transition" title="클릭하여 복사">
+                                    💬 ${order.kakao_nickname || ''}
+                                </span>
+                            </h4>
                             <p class="text-orange-600 font-bold text-sm">📦 ${order.fruit} | ${Number(order.total_price).toLocaleString()}원</p>
                             ${order.address ? `<p class="text-xs text-gray-500 font-bold mt-1">🏠 ${order.address}</p>` : ''}
                             <p class="text-[11px] text-gray-400 mt-1">🕒 접수: ${order.time_str || ''} / 완료: ${order.status_changed_time || ''}</p>
                         </div>
                         <div class="flex items-center justify-between pt-2 border-t border-gray-100 mt-2">
-                            <button onclick="cancelAdminOrder(${order.id}, this)" class="bg-red-50 text-red-600 font-extrabold text-[11px] px-2.5 py-1.5 rounded-xl hover:bg-red-100 ml-auto">
+                            <button onclick="cancelAdminOrder(${order.id}, this)" class="bg-red-50 text-red-600 font-extrabold text-[11px] px-2.5 py-1.5 rounded-xl hover:bg-red-100 active:scale-95 transition ml-auto">
                                 🗑️ 영구 삭제
                             </button>
                         </div>
@@ -1326,7 +1366,7 @@
             filterAndRenderCompletedOrders();
         }
 
-        // 📊 [총원가 수식 원천 보장] HTML 변환 시 수식을 엑셀 직관적 태그 <td>=D4*C4</td>로 정밀 주입
+        // 📊 [수식 완전 유지]
         function downloadExcel(mode = 'all') {
             let targetOrders = [...rawCompletedOrders];
 
@@ -1421,7 +1461,6 @@
                 </tr>
             `;
 
-            // F열(총원가)에 =D4*C4 직접 주입
             availableFruits.forEach((fName, idx) => {
                 const r = 4 + idx;
                 const defaultSellingPrice = fruitPriceMap[fName] || 0;
@@ -1462,7 +1501,6 @@
 
             html += `<tr><td colspan="16"></td></tr>`;
 
-            // 데이터 헤더 (9행)
             html += `
                 <tr>
                     <th class="data-header">연번</th>
