@@ -1313,7 +1313,7 @@
             filterAndRenderCompletedOrders();
         }
 
-        // 📊 [수정 완벽 반영] 무제한 행 범위 수식($65536) + 개별 주문 고유 묶음 ID 및 수량/원가 올바른 수식 처리
+        // 📊 [수정 반영] 마진계산기 수식 정확도 보장 + 동일 주문 내 2번째 품목부터 공란(빈칸) 처리
         function downloadExcel(mode = 'all') {
             let targetOrders = [...rawCompletedOrders];
 
@@ -1380,8 +1380,7 @@
                 </tr>
             `;
 
-            // 💡 [수식 무제한 범위 수정] $F$10:$F$65536 무제한 참조 범위 적용!
-            // F열: 판매품목명, H열: 주문수량, I열: 품목합계금액
+            // 💡 [수식 정확도 보장] G열: 판매품목명, I열: 주문수량, J열: 품목합계금액
             availableFruits.forEach((fName, idx) => {
                 const r = 4 + idx;
                 const defaultSellingPrice = fruitPriceMap[fName] || 0;
@@ -1395,7 +1394,6 @@
                     <th class="sum-header">평균 마진율</th>
                     `;
                 } else if (idx === 1) {
-                    // 우측 종합 대시보드 #VALUE! 에러 방지용 수식 적용
                     sumColHtml = `
                     <td></td>
                     <td class="num" style="font-weight:bold; color:#1e40af;">=SUM(E4:E${calcEndRow})</td>
@@ -1411,8 +1409,8 @@
                     <td>${fName}</td>
                     <td class="num">${defaultSellingPrice}</td>
                     <td class="num">0</td>
-                    <td class="num">=SUMIF($F$10:$F$65536, A${r}, $H$10:$H$65536)</td>
-                    <td class="num">=SUMIF($F$10:$F$65536, A${r}, $I$10:$I$65536)</td>
+                    <td class="num">=SUMIF($G$10:$G$65536, A${r}, $I$10:$I$65536)</td>
+                    <td class="num">=SUMIF($G$10:$G$65536, A${r}, $J$10:$J$65536)</td>
                     <td class="num">=D${r}*C${r}</td>
                     <td class="num">=E${r}-F${r}</td>
                     <td class="rate">=IF(E${r}>0, G${r}/E${r}, 0)</td>
@@ -1421,13 +1419,12 @@
                 `;
             });
 
-            html += `<tr><td colspan="17"></td></tr>`;
+            html += `<tr><td colspan="16"></td></tr>`;
 
             // 데이터 헤더 (9행)
             html += `
                 <tr>
-                    <th class="data-header">주문번호(그룹)</th>
-                    <th class="data-header">주문 구분</th>
+                    <th class="data-header">연번</th>
                     <th class="data-header">구분(수령방식)</th>
                     <th class="data-header">카톡 닉네임</th>
                     <th class="data-header">고객 성함</th>
@@ -1446,13 +1443,12 @@
                 </tr>
             `;
 
-            // 데이터 채우기 (동일 주문번호로 묶고 품목별로 열렬 분류 표기)
-            let orderGroupSeq = 1;
+            // 💡 [요구사항 반영] 동일 주문 내 2번째 품목부터는 공통 정보 완전 빈칸(공란) 처리
+            let rowSeq = 1;
             targetOrders.forEach(order => {
                 const orderUserCount = getStrictCustomerOrderCount(order.kakao_nickname);
                 let rawFruitStr = order.fruit_name || order.fruit || "";
                 let fruitItemsList = rawFruitStr.split(',').map(s => s.trim()).filter(s => s);
-                const orderGroupId = `ORD-${String(orderGroupSeq++).padStart(4, '0')}`;
 
                 if (fruitItemsList.length > 0) {
                     fruitItemsList.forEach((itemStr, itemIdx) => {
@@ -1462,38 +1458,33 @@
                         let itemPrice = fruitPriceMap[pureName] || order.price || 0;
                         let itemTotal = itemPrice * itemQty;
 
-                        // 첫 품목 행에만 배달비 및 총결제금액 포함
                         let isFirst = itemIdx === 0;
-                        let deliveryFee = isFirst ? (order.delivery_fee || 0) : 0;
-                        let subTotal = isFirst ? (order.total_price || (itemTotal + deliveryFee)) : itemTotal;
 
                         html += `
                         <tr>
-                            <td class="center" style="font-weight:bold; color:#1d4ed8;">${orderGroupId}</td>
-                            <td class="center">${isFirst ? '주문 대표' : '추가 품목'}</td>
-                            <td class="center">${order.order_type || "픽업"}</td>
-                            <td>${order.kakao_nickname || ""}</td>
-                            <td>${order.name || ""}</td>
-                            <td class="center">${orderUserCount}회차</td>
+                            <td class="center">${isFirst ? rowSeq++ : ''}</td>
+                            <td class="center">${isFirst ? (order.order_type || "픽업") : ''}</td>
+                            <td>${isFirst ? (order.kakao_nickname || "") : ''}</td>
+                            <td>${isFirst ? (order.name || "") : ''}</td>
+                            <td class="center">${isFirst ? (orderUserCount + '회차') : ''}</td>
                             <td>${pureName}</td>
                             <td class="num">${itemPrice}</td>
                             <td class="num">${itemQty}</td>
                             <td class="num">${itemTotal}</td>
-                            <td class="num">${deliveryFee}</td>
-                            <td class="num" style="${isFirst ? 'font-weight:bold; color:#dc2626;' : ''}">${subTotal}</td>
-                            <td class="center">${order.method || "계좌이체"}</td>
-                            <td>${order.address || "-"}</td>
-                            <td class="center">${order.door_password || "-"}</td>
-                            <td class="center">${order.time_str || ""}</td>
-                            <td class="center">${order.status_changed_time || ""}</td>
+                            <td class="num">${isFirst ? (order.delivery_fee || 0) : ''}</td>
+                            <td class="num" style="${isFirst ? 'font-weight:bold; color:#dc2626;' : ''}">${isFirst ? (order.total_price || 0) : ''}</td>
+                            <td class="center">${isFirst ? (order.method || "계좌이체") : ''}</td>
+                            <td>${isFirst ? (order.address || "-") : ''}</td>
+                            <td class="center">${isFirst ? (order.door_password || "-") : ''}</td>
+                            <td class="center">${isFirst ? (order.time_str || "") : ''}</td>
+                            <td class="center">${isFirst ? (order.status_changed_time || "") : ''}</td>
                         </tr>
                         `;
                     });
                 } else {
                     html += `
                     <tr>
-                        <td class="center" style="font-weight:bold; color:#1d4ed8;">${orderGroupId}</td>
-                        <td class="center">주문 대표</td>
+                        <td class="center">${rowSeq++}</td>
                         <td class="center">${order.order_type || "픽업"}</td>
                         <td>${order.kakao_nickname || ""}</td>
                         <td>${order.name || ""}</td>
