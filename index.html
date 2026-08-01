@@ -347,7 +347,7 @@
         </div>
     </div>
 
-    <!-- 📢 [요구사항] 계좌이체 주문 완료 후 입금 안내 모달 팝업 -->
+    <!-- 📢 계좌이체 주문 완료 후 입금 안내 모달 팝업 -->
     <div id="bankModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden p-4">
         <div class="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 text-center shadow-2xl transform transition-all">
             <div class="w-16 h-16 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-3xl mx-auto font-black">
@@ -762,7 +762,6 @@
             }
         }
 
-        // 📢 [수정] 계좌이체 결제 시 계좌번호 강조 안내 모달 팝업 추가
         async function submitOrder() {
             if(isSubmitting) return;
 
@@ -806,11 +805,9 @@
                 const resData = await res.json();
 
                 if(res.ok) {
-                    // 계산 총액
                     let totalFruitPrice = itemsToOrder.reduce((sum, i) => sum + (i.price * i.qty), 0);
                     let finalAmount = totalFruitPrice + ((selectedOrderType === '배달') ? 3000 : 0);
 
-                    // 계좌이체 선택 시 입금 안내 팝업 출력
                     if(method === '계좌이체') {
                         document.getElementById('bankModalAccount').innerText = storeMeta.account || '등록된 계좌 없음';
                         document.getElementById('bankModalOwner').innerText = storeMeta.owner ? `(예금주: ${storeMeta.owner})` : '';
@@ -1295,7 +1292,7 @@
             filterAndRenderCompletedOrders();
         }
 
-        // 📊 [수정] 총원가 수식 x:f="=D4*C4" 속성 완벽 연동으로 수식 고장 100% 해결
+        // 📊 [수식 완전 수정] 직접 엑셀 수식 주입 `<td>=D4*C4</td>` 방식으로 엑셀 엔진 수식 동적 개입 보장
         function downloadExcel(mode = 'all') {
             let targetOrders = [...rawCompletedOrders];
 
@@ -1390,12 +1387,14 @@
                 </tr>
             `;
 
-            // 💡 [핵심] 총 원가 F열에 x:f="=D{r}*C{r}" 수식을 명확히 심음
+            // 💡 [핵심 수식 수술] 
+            // C4: 원가, D4: 수량, E4: 매출액
+            // F4: 총 원가 = `=D4*C4`
+            // G4: 총 순이익 = `=E4-F4`
+            // H4: 마진율 = `=IF(E4>0, G4/E4, 0)`
             availableFruits.forEach((fName, idx) => {
                 const r = 4 + idx;
                 const defaultSellingPrice = fruitPriceMap[fName] || 0;
-                const preQty = salesQtyMap[fName] || 0;
-                const preTotal = salesTotalMap[fName] || 0;
 
                 let sumColHtml = "";
                 if (idx === 0) {
@@ -1421,11 +1420,11 @@
                     <td class="text-cell">${fName}</td>
                     <td class="num">${defaultSellingPrice}</td>
                     <td class="num">0</td>
-                    <td class="num" x:f="=SUMIF($G$10:$G$65536, &quot;*&quot;&amp;A${r}&amp;&quot;*&quot;, $I$10:$I$65536)">${preQty}</td>
-                    <td class="num" x:f="=SUMIF($G$10:$G$65536, &quot;*&quot;&amp;A${r}&amp;&quot;*&quot;, $J$10:$J$65536)">${preTotal}</td>
-                    <td class="num" x:f="=D${r}*C${r}">0</td>
-                    <td class="num" x:f="=E${r}-F${r}">${preTotal}</td>
-                    <td class="rate" x:f="=IF(E${r}>0, G${r}/E${r}, 0)">100.00%</td>
+                    <td class="num">=SUMIF($G$10:$G$65536, A${r}, $I$10:$I$65536)</td>
+                    <td class="num">=SUMIF($G$10:$G$65536, A${r}, $J$10:$J$65536)</td>
+                    <td class="num">=D${r}*C${r}</td>
+                    <td class="num">=E${r}-F${r}</td>
+                    <td class="rate">=IF(E${r}>0, G${r}/E${r}, 0)</td>
                     ${sumColHtml}
                 </tr>
                 `;
