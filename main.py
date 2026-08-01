@@ -66,10 +66,9 @@ class OrderCreate(BaseModel):
     order_type: str
     kakao_nickname: str
     name: str
-    phone: str
     address: Optional[str] = ""
     door_password: Optional[str] = ""
-    items: List[CartItem] # 장바구니 품목 배열
+    items: List[CartItem]
     method: str
 
 # --- Endpoints ---
@@ -146,7 +145,6 @@ def delete_fruit(fruit_id: int, password: str = Query(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# 🛒 장바구니 통합 주문 생성 API
 @app.post("/api/orders")
 def create_order(order: OrderCreate):
     try:
@@ -157,7 +155,6 @@ def create_order(order: OrderCreate):
         if not order.items:
             raise HTTPException(status_code=400, detail="주문할 품목이 선택되지 않았습니다.")
 
-        # DB 전체 과일 조회하여 재고 차감 및 품목 텍스트 구성
         fruits_res = supabase.table("fruit_items").select("*").execute()
         db_fruits = {f["id"]: f for f in (fruits_res.data or [])}
 
@@ -179,7 +176,6 @@ def create_order(order: OrderCreate):
             total_qty += cart_item.qty
             fruit_summary_list.append(f"{db_f['name']} x{cart_item.qty}개")
 
-            # 재고 즉시 차감
             supabase.table("fruit_items").update({"stock": db_f["stock"] - cart_item.qty}).eq("id", f_id).execute()
 
         delivery_fee = 3000 if order.order_type == "배달" else 0
@@ -191,7 +187,7 @@ def create_order(order: OrderCreate):
             "order_type": order.order_type,
             "kakao_nickname": order.kakao_nickname.strip(),
             "name": order.name.strip(),
-            "phone": order.phone.strip(),
+            "phone": "",
             "address": order.address.strip() if order.address else "",
             "door_password": order.door_password.strip() if order.door_password else "",
             "fruit": fruit_summary_str,
