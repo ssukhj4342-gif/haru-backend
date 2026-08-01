@@ -206,7 +206,7 @@
                     <div id="adminFruitList" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
                 </div>
 
-                <!-- 🔄 [요구사항 반영] 1순위: 📥 매장픽업 예약 현황 -->
+                <!-- 1순위: 📥 매장픽업 예약 현황 -->
                 <div class="space-y-3">
                     <div class="bg-white p-4 rounded-2xl border border-gray-100">
                         <h2 class="text-xl font-extrabold text-gray-800">🏢 매장 픽업 예약 현황 (<span id="orderCount" class="text-orange-500">0</span>건)</h2>
@@ -214,7 +214,7 @@
                     <div id="orderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4"></div>
                 </div>
 
-                <!-- 🔄 [요구사항 반영] 2순위: 🚚 실시간 배달 대시보드 -->
+                <!-- 2순위: 🚚 실시간 배달 대시보드 -->
                 <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-3xl shadow-sm border border-blue-100 space-y-4">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-blue-200/60 pb-3 gap-3">
                         <div>
@@ -1313,7 +1313,7 @@
             filterAndRenderCompletedOrders();
         }
 
-        // 📊 [요구사항 반영] 컬럼 재배치 + 우측 종합 대시보드 표 내장 고급 엑셀 생성기
+        // 📊 [수정] SUMIF 수식 열 참조 위치 교정 (F열: 품목명, H열: 수량, I열: 금액) 및 우측 대시보드
         function downloadExcel(mode = 'all') {
             let targetOrders = [...rawCompletedOrders];
 
@@ -1348,7 +1348,6 @@
             const availableFruits = (fruitItems && fruitItems.length > 0) ? fruitItems.map(f => f.name) : ["기본 품목"];
             const calcEndRow = 3 + availableFruits.length;
 
-            // HTML 기반 엑셀 템플릿
             let html = `
             <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
             <head><meta charset="utf-8">
@@ -1366,7 +1365,7 @@
             <body>
             <table>
                 <tr><td colspan="12" class="title">💡 하루마켓 흑석점 - 품목별 원가/마진 정산 분석기</td></tr>
-                <tr><td colspan="12" style="color: #6b7280; font-size: 9pt;">📌 '품목별 원가(C열)'에 원가를 입력하면 총 원가, 순이익, 마진율이 자동 산출됩니다.</td></tr>
+                <tr><td colspan="12" style="color: #6b7280; font-size: 9pt;">📌 '품목별 원가(C열)'에 원가를 입력하시면 총 원가, 순이익, 마진율이 자동 산출됩니다.</td></tr>
                 <tr>
                     <th class="calc-header">품목명</th>
                     <th class="calc-header">품목별 판매가(원)</th>
@@ -1381,13 +1380,13 @@
                 </tr>
             `;
 
-            // 마진 계산기 행 작성
+            // 💡 [수식 핵심 수정] 하단 장부 데이터열 위치에 완벽하게 일치시킨 SUMIF 수식 주소 적용!
+            // F열: 판매품목명, H열: 주문수량, I열: 품목합계금액
             availableFruits.forEach((fName, idx) => {
                 const r = 4 + idx;
                 const defaultSellingPrice = fruitPriceMap[fName] || 0;
 
                 let sumColHtml = "";
-                // 첫번째 행에 우측 종합 대시보드 표 내장
                 if (idx === 0) {
                     sumColHtml = `
                     <th></th>
@@ -1411,8 +1410,8 @@
                     <td>${fName}</td>
                     <td class="num">${defaultSellingPrice}</td>
                     <td class="num">0</td>
-                    <td class="num">=SUMIF($G$9:$G$1000, A${r}, $I$9:$I$1000)</td>
-                    <td class="num">=SUMIF($G$9:$G$1000, A${r}, $J$9:$J$1000)</td>
+                    <td class="num">=SUMIF($F$9:$F$1000, A${r}, $H$9:$H$1000)</td>
+                    <td class="num">=SUMIF($F$9:$F$1000, A${r}, $I$9:$I$1000)</td>
                     <td class="num">=D${r}*C${r}</td>
                     <td class="num">=E${r}-F${r}</td>
                     <td class="rate">=IF(E${r}>0, G${r}/E${r}, 0)</td>
@@ -1423,7 +1422,7 @@
 
             html += `<tr><td colspan="15"></td></tr>`;
 
-            // 💡 [요구사항 반영] 순서 연결 연관성 재배치된 장부 데이터 헤더 (8행)
+            // 연관성 순서로 재배치된 데이터 헤더 (8행)
             html += `
                 <tr>
                     <th class="data-header">연번</th>
@@ -1445,7 +1444,6 @@
                 </tr>
             `;
 
-            // 데이터 채우기 (품목별 1행 분리)
             let rowSeq = 1;
             targetOrders.forEach(order => {
                 const orderUserCount = getStrictCustomerOrderCount(order.kakao_nickname);
