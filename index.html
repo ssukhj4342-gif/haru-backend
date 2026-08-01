@@ -9,20 +9,23 @@
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         
-        /* 🖨️ A4 용지 2x5 스티커 라벨 인쇄 (빈 페이지 생성 방지) */
+        /* 🖨️ A4 용지 2x5 스티커 라벨 전용 고품질 인쇄 CSS (4장 나오는 빈페이지 완벽 차단) */
         @page {
             size: A4 portrait;
             margin: 5mm;
         }
         @media print {
+            /* 인쇄 시 기존 화면 전체 박멸 */
             html, body {
                 height: auto !important;
-                overflow: visible !important;
+                overflow: hidden !important;
                 background: white !important;
             }
-            body * { visibility: hidden !important; }
-            #labelPrintArea, #labelPrintArea * { visibility: visible !important; }
+            header, main, #cartFloatingBtn, #cartModal, #thumbModal, #detailModal, #myOrdersModal, #authModal {
+                display: none !important;
+            }
             #labelPrintArea {
+                display: block !important;
                 position: absolute !important;
                 left: 0 !important;
                 top: 0 !important;
@@ -34,7 +37,7 @@
                 grid-template-columns: repeat(2, 1fr) !important;
                 gap: 4mm !important;
                 width: 100% !important;
-                page-break-after: auto !important;
+                page-break-after: avoid !important;
                 page-break-inside: avoid !important;
             }
             .label-card {
@@ -47,7 +50,7 @@
                 flex-direction: column !important;
                 justify-content: space-between !important;
                 page-break-inside: avoid !important;
-                min-height: 50mm !important;
+                min-height: 48mm !important;
             }
         }
     </style>
@@ -158,6 +161,7 @@
 
             <!-- 대시보드 영역 -->
             <div class="flex-1 space-y-6 w-full">
+                <!-- 당일 판매 품목 편집 -->
                 <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
                     <div class="flex justify-between items-center border-b pb-3">
                         <h2 class="text-xl font-extrabold text-gray-800">🍎 당일 판매 품목 편집</h2>
@@ -198,6 +202,7 @@
                     <div id="adminFruitList" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
                 </div>
 
+                <!-- 🚚 배달 전용 대시보드 -->
                 <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-3xl shadow-sm border border-blue-100 space-y-4">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-blue-200/60 pb-3 gap-3">
                         <div>
@@ -213,6 +218,7 @@
                     <div id="deliveryOrderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4"></div>
                 </div>
 
+                <!-- 📥 매장픽업 예약 현황 -->
                 <div class="space-y-3">
                     <div class="bg-white p-4 rounded-2xl border border-gray-100">
                         <h2 class="text-xl font-extrabold text-gray-800">🏢 매장 픽업 예약 현황 (<span id="orderCount" class="text-orange-500">0</span>건)</h2>
@@ -220,6 +226,7 @@
                     <div id="orderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4"></div>
                 </div>
 
+                <!-- 📅 판매완료 장부 (날짜 피커 필터 기능 추가!) -->
                 <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
                     <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b pb-4">
                         <div>
@@ -232,15 +239,18 @@
                         </button>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-gray-50 p-3 rounded-2xl border border-gray-200">
+                    <!-- 📅 일자별 날짜 선택 달력 피커 구역 -->
+                    <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-gray-50 p-3 rounded-2xl border border-gray-200">
                         <div class="sm:col-span-2 relative">
                             <input type="text" id="searchKeyword" oninput="filterAndRenderCompletedOrders()" placeholder="🔍 이름, 닉네임, 품목명 검색..." class="w-full p-2.5 bg-white border border-gray-300 rounded-xl text-sm font-bold focus:outline-orange-500">
                         </div>
                         <div>
-                            <select id="searchSortOrder" onchange="filterAndRenderCompletedOrders()" class="w-full p-2.5 bg-white border border-gray-300 rounded-xl text-sm font-bold text-gray-700 focus:outline-orange-500">
-                                <option value="latest">🕒 최신 수령순</option>
-                                <option value="oldest">⏳ 과거 수령순</option>
-                            </select>
+                            <input type="date" id="searchDate" onchange="filterAndRenderCompletedOrders()" class="w-full p-2.5 bg-white border border-gray-300 rounded-xl text-sm font-bold text-gray-700 focus:outline-orange-500">
+                        </div>
+                        <div>
+                            <button onclick="resetDateFilter()" class="w-full p-2.5 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded-xl text-sm transition">
+                                🔄 전체 날짜 보기
+                            </button>
                         </div>
                     </div>
 
@@ -262,7 +272,6 @@
 
             <div class="space-y-2">
                 <label class="block text-xs font-bold text-gray-400">💡 수령 방식을 선택하세요</label>
-                <!-- 🎨 매장픽업/배달주소 버튼 정렬 및 도형 높이 통일 (h-16 flex-col) -->
                 <div class="grid grid-cols-2 gap-2">
                     <button type="button" id="btnTypePickup" onclick="selectOrderType('픽업')" class="h-16 p-2 border-2 border-orange-500 bg-orange-50 text-orange-900 rounded-xl font-black text-sm flex flex-col items-center justify-center gap-0.5">
                         <span>🏢 매장 픽업</span>
@@ -536,7 +545,6 @@
                     ? `<p class="text-gray-400 text-xs mt-0.5">상태: <span class="font-bold text-green-600">구매 가능</span></p>`
                     : `<p class="text-gray-400 text-xs mt-0.5">남은 재고: <span class="font-bold text-gray-700">${item.stock}</span>개</p>`;
 
-                // 🛒 [수정] 과일 카드 내 사전 수량 조절 조작 컨트롤 (+/-)
                 userListEl.innerHTML += `
                     <div class="bg-white p-5 rounded-3xl shadow-xs border border-gray-100 space-y-4">
                         ${imgHtmlContainer}
@@ -590,7 +598,6 @@
             updateCartUI();
         }
 
-        // 과일 카드 자체 사전 수량 조절
         function adjustCardQty(fruitId, change) {
             const qtyEl = document.getElementById(`cardQty-${fruitId}`);
             if(!qtyEl) return;
@@ -609,7 +616,7 @@
                 cart.push({ fruit_id: fruitId, fruit_name: fruitName, price: price, qty: qty });
             }
             alert(`🛒 '${fruitName}' ${qty}개가 장바구니에 담겼습니다!`);
-            if(qtyEl) qtyEl.innerText = "1"; // 수량 1로 초기화
+            if(qtyEl) qtyEl.innerText = "1";
             updateCartUI();
         }
 
@@ -1032,7 +1039,6 @@
             }
         }
 
-        // 💳 [수정] 현장결제 vs 계좌이체 처리 버튼 분기
         async function renderAdminOrders() {
             try {
                 const res = await fetch(`${API_URL}/api/admin/orders?password=${PASS}`);
@@ -1107,7 +1113,7 @@
             } catch(e) { console.error("장부 조회 에러", e); }
         }
 
-        // 🖨️ A4 용지 규격 2x5 스티커 라벨 정밀 인쇄 (빈 페이지 방지 보장)
+        // 🖨️ A4 용지 2x5 규격 깔끔 일괄 인쇄
         function printAllDeliveryLabels() {
             const deliveryOrders = (globalOrders || []).filter(o => o.order_type === '배달' && o.status !== '판매완료');
             
@@ -1185,15 +1191,27 @@
             }
         }
 
+        // 📅 [수정] 키워드 + 날짜(달력) 필터링 조합 처리
         function filterAndRenderCompletedOrders() {
             const keyword = document.getElementById('searchKeyword').value.trim().toLowerCase();
+            const selectedDate = document.getElementById('searchDate').value; // 'YYYY-MM-DD'
             const doneList = document.getElementById('completedOrderList');
             doneList.innerHTML = '';
 
             let filtered = rawCompletedOrders.filter(o => {
-                return (o.name && o.name.toLowerCase().includes(keyword)) ||
-                       (o.kakao_nickname && o.kakao_nickname.toLowerCase().includes(keyword)) ||
-                       (o.fruit && o.fruit.toLowerCase().includes(keyword));
+                const matchesKeyword = (o.name && o.name.toLowerCase().includes(keyword)) ||
+                                       (o.kakao_nickname && o.kakao_nickname.toLowerCase().includes(keyword)) ||
+                                       (o.fruit && o.fruit.toLowerCase().includes(keyword));
+                
+                // 날짜 필터링 (time_str 또는 status_changed_time에서 날짜 비교)
+                let matchesDate = true;
+                if(selectedDate) {
+                    const targetFormattedDate = selectedDate.replace(/-/g, '. '); // YYYY. MM. DD
+                    const orderTimeStr = o.status_changed_time || o.time_str || '';
+                    matchesDate = orderTimeStr.includes(targetFormattedDate) || orderTimeStr.startsWith(selectedDate);
+                }
+
+                return matchesKeyword && matchesDate;
             });
 
             document.getElementById('completedCount').innerText = filtered.length;
@@ -1224,6 +1242,11 @@
                         </div>
                     </div>`;
             });
+        }
+
+        function resetDateFilter() {
+            document.getElementById('searchDate').value = '';
+            filterAndRenderCompletedOrders();
         }
 
         function downloadExcel() {
