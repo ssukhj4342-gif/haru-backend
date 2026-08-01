@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 import os
 from datetime import datetime
-import pytz
+from zoneinfo import ZoneInfo # 외부 패키지(pytz) 없이 파이썬 내장 모듈 사용
 from supabase import create_client, Client
 
 app = FastAPI(title="Haru Market API")
@@ -23,9 +23,9 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 ADMIN_PASS = "13157"
 
+# 한국 시간 구하기 (zoneinfo 내장 모듈 사용)
 def get_kST_time():
-    tz = pytz.timezone('Asia/Seoul')
-    return datetime.now(tz)
+    return datetime.now(ZoneInfo("Asia/Seoul"))
 
 def get_kST_time_str():
     now = get_kST_time()
@@ -44,7 +44,7 @@ class FruitCreate(BaseModel):
     price: int
     stock: int
     img: Optional[str] = ""
-    detail_imgs: Optional[List[str]] = [] # 다중 상세 이미지
+    detail_imgs: Optional[List[str]] = []
     description: Optional[str] = ""
     hide_stock: Optional[bool] = False
 
