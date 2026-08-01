@@ -75,26 +75,26 @@
         <!-- 손님 원페이지 주문서 화면 -->
         <section id="customerView" class="space-y-5">
             
-            <!-- 공지 및 매장 안내 카드 -->
-            <div class="bg-gradient-to-br from-orange-500 to-amber-500 text-white p-6 rounded-3xl shadow-md space-y-3 relative overflow-hidden">
+            <!-- 🎨 공지사항 배경톤 눈 피로 방지 교정 (차분한 부드러운 오렌지 톤) -->
+            <div class="bg-amber-50/90 border border-amber-200 p-6 rounded-3xl shadow-2xs space-y-3 relative overflow-hidden">
                 <div class="flex items-center justify-between">
-                    <span class="bg-white/20 backdrop-blur-md text-white text-xs font-black px-2.5 py-1 rounded-lg">📢 데일리 공지</span>
-                    <span class="text-xs text-orange-100 font-bold">당일 신선 과일 입고</span>
+                    <span class="bg-orange-500 text-white text-xs font-black px-2.5 py-1 rounded-lg">📢 데일리 공지</span>
+                    <span class="text-xs text-amber-800 font-bold">당일 신선 과일 입고</span>
                 </div>
-                <div id="displayNoticeImgContainer" class="w-full max-h-60 bg-black/10 rounded-2xl overflow-hidden hidden flex items-center justify-center">
+                <div id="displayNoticeImgContainer" class="w-full max-h-60 bg-black/5 rounded-2xl overflow-hidden hidden flex items-center justify-center">
                     <img id="displayNoticeImg" src="" class="w-full h-full object-cover">
                 </div>
-                <p id="displayDailyNotice" class="text-xl font-black leading-snug whitespace-pre-line drop-shadow-xs">로딩 중...</p>
+                <p id="displayDailyNotice" class="text-lg font-extrabold text-amber-950 leading-snug whitespace-pre-line">로딩 중...</p>
             </div>
 
-            <!-- 계좌안내 카피 팁 내장 -->
-            <div class="bg-amber-50 p-5 rounded-3xl border border-amber-200/80 space-y-1 relative group cursor-pointer active:scale-98 transition" onclick="copyTextToClipboard(storeMeta.account, '계좌번호가 복사되었습니다!')">
+            <!-- 계좌안내 -->
+            <div class="bg-orange-50 p-5 rounded-3xl border border-orange-200/80 space-y-1 relative cursor-pointer active:scale-98 transition" onclick="copyTextToClipboard(storeMeta.account, '계좌번호가 복사되었습니다!')">
                 <div class="flex justify-between items-center">
-                    <span class="bg-amber-600 text-white text-[11px] font-black px-2.5 py-0.5 rounded-md">💰 입금 계좌안내 (터치 시 복사)</span>
-                    <span class="text-xs text-amber-700 font-bold">📋 복사</span>
+                    <span class="bg-orange-600 text-white text-[11px] font-black px-2.5 py-0.5 rounded-md">💰 입금 계좌안내 (터치 시 복사)</span>
+                    <span class="text-xs text-orange-700 font-bold">📋 복사</span>
                 </div>
-                <p id="displayAccount" class="text-lg font-black text-amber-950 pt-1 tracking-wide">로딩 중...</p>
-                <p id="displayAccountOwner" class="text-xs text-amber-800 font-bold">로딩 중...</p>
+                <p id="displayAccount" class="text-lg font-black text-orange-950 pt-1 tracking-wide">로딩 중...</p>
+                <p id="displayAccountOwner" class="text-xs text-orange-800 font-bold">로딩 중...</p>
             </div>
 
             <div class="bg-white p-5 rounded-3xl shadow-xs border border-gray-100 flex items-center justify-between">
@@ -338,7 +338,7 @@
         </section>
     </main>
 
-    <!-- 📌 스크롤 시 화면 하단 항시 고정 결제바 (시각적 상태 반응 가이드 적용) -->
+    <!-- 📌 스크롤 시 화면 하단 항시 고정 결제바 -->
     <div id="stickyCheckoutBar" class="fixed bottom-0 left-0 right-0 z-30 bg-gray-900/95 backdrop-blur-md text-white border-t border-gray-800 shadow-2xl p-4 transition-all duration-300">
         <div class="max-w-md mx-auto flex items-center justify-between">
             <div>
@@ -351,9 +351,9 @@
         </div>
     </div>
 
-    <!-- 📢 계좌이체 주문 완료 후 입금 안내 모달 팝업 (원클릭 복사 기능 내장) -->
+    <!-- 📢 계좌이체 입금 안내 모달 팝업 -->
     <div id="bankModal" class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center hidden p-4">
-        <div class="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 text-center shadow-2xl transform transition-all animate-in fade-in zoom-in-95">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 text-center shadow-2xl transform transition-all">
             <div class="w-16 h-16 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-3xl mx-auto font-black">
                 💰
             </div>
@@ -476,7 +476,6 @@
             document.getElementById('excelMonthPicker').value = `${yyyy}-${mm}`;
         };
 
-        // 📋 클립보드 원클릭 복사 도우미
         function copyTextToClipboard(text, successMsg) {
             if(!text) return;
             navigator.clipboard.writeText(text).then(() => {
@@ -662,6 +661,7 @@
             updateStickyCheckoutBar();
         }
 
+        // 수량 조절 시 수량 실시간 데이터 동기화 
         function adjustOrderFormQty(fruitId, fruitName, price, change) {
             if (!selectedItems[fruitId]) {
                 selectedItems[fruitId] = { fruit_id: fruitId, fruit_name: fruitName, price: price, qty: 0 };
@@ -678,7 +678,7 @@
             updateStickyCheckoutBar();
         }
 
-        // 스크롤 결제바 상태 시각화 가이드 적용
+        // 🐛 [버그 해결] 하단 결제바 수량/금액/버튼 가이드 상태 실시간 즉각 변경
         function updateStickyCheckoutBar() {
             let totalQty = 0;
             let totalFruitPrice = 0;
@@ -1118,7 +1118,6 @@
             }
         }
 
-        // 사장님 닉네임 클릭 시 원클릭 복사
         async function renderAdminOrders() {
             try {
                 const res = await fetch(`${API_URL}/api/admin/orders?password=${PASS}`);
@@ -1423,8 +1422,6 @@
             availableFruits.forEach((fName, idx) => {
                 const r = 4 + idx;
                 const defaultSellingPrice = fruitPriceMap[fName] || 0;
-                const preQty = salesQtyMap[fName] || 0;
-                const preTotal = salesTotalMap[fName] || 0;
 
                 let sumColHtml = "";
                 if (idx === 0) {
@@ -1450,11 +1447,11 @@
                     <td class="text-cell">${fName}</td>
                     <td class="num">${defaultSellingPrice}</td>
                     <td class="num">0</td>
-                    <td class="num" x:f="=SUMIF($G$10:$G$65536, &quot;*&quot;&amp;A${r}&amp;&quot;*&quot;, $I$10:$I$65536)">${preQty}</td>
-                    <td class="num" x:f="=SUMIF($G$10:$G$65536, &quot;*&quot;&amp;A${r}&amp;&quot;*&quot;, $J$10:$J$65536)">${preTotal}</td>
-                    <td class="num" x:f="=D${r}*C${r}">0</td>
-                    <td class="num" x:f="=E${r}-F${r}">${preTotal}</td>
-                    <td class="rate" x:f="=IF(E${r}>0, G${r}/E${r}, 0)">100.00%</td>
+                    <td class="num">=SUMIF($G$10:$G$65536, A${r}, $I$10:$I$65536)</td>
+                    <td class="num">=SUMIF($G$10:$G$65536, A${r}, $J$10:$J$65536)</td>
+                    <td class="num">=D${r}*C${r}</td>
+                    <td class="num">=E${r}-F${r}</td>
+                    <td class="rate">=IF(E${r}>0, G${r}/E${r}, 0)</td>
                     ${sumColHtml}
                 </tr>
                 `;
