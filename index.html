@@ -351,9 +351,9 @@
         </div>
     </div>
 
-    <!-- 📢 계좌이체 입금 안내 모달 팝업 -->
+    <!-- 📢 계좌이체 주문 완료 후 입금 안내 모달 팝업 -->
     <div id="bankModal" class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center hidden p-4">
-        <div class="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 text-center shadow-2xl transform transition-all">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 text-center shadow-2xl transform transition-all animate-in fade-in zoom-in-95">
             <div class="w-16 h-16 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-3xl mx-auto font-black">
                 💰
             </div>
@@ -661,7 +661,6 @@
             updateStickyCheckoutBar();
         }
 
-        // 수량 조절 시 수량 실시간 데이터 동기화 
         function adjustOrderFormQty(fruitId, fruitName, price, change) {
             if (!selectedItems[fruitId]) {
                 selectedItems[fruitId] = { fruit_id: fruitId, fruit_name: fruitName, price: price, qty: 0 };
@@ -678,7 +677,7 @@
             updateStickyCheckoutBar();
         }
 
-        // 🐛 [버그 해결] 하단 결제바 수량/금액/버튼 가이드 상태 실시간 즉각 변경
+        // 🐛 [버그 완벽 수정] 하단 결제바 수량/금액/버튼 가이드 상태 실시간 연동
         function updateStickyCheckoutBar() {
             let totalQty = 0;
             let totalFruitPrice = 0;
@@ -1325,6 +1324,7 @@
             filterAndRenderCompletedOrders();
         }
 
+        // 📊 [총원가 수식 완벽 주입] `<td>=D${r}*C${r}</td>` 주입 방식으로 수식 작동 보장
         function downloadExcel(mode = 'all') {
             let targetOrders = [...rawCompletedOrders];
 
@@ -1419,6 +1419,7 @@
                 </tr>
             `;
 
+            // 💡 [원가 수식 직접 주입 수정] <td>=D${r}*C${r}</td>
             availableFruits.forEach((fName, idx) => {
                 const r = 4 + idx;
                 const defaultSellingPrice = fruitPriceMap[fName] || 0;
