@@ -6,6 +6,7 @@
     <title>하루마켓 흑석점 - 싱싱 과일 예약 & 배달</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- PDF 출력 라이브러리 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -28,7 +29,7 @@
         </div>
     </header>
 
-    <!-- 🛒 장바구니 플로팅 버튼 (손님 화면에서만 노출) -->
+    <!-- 🛒 장바구니 플로팅 버튼 -->
     <button id="cartFloatingBtn" onclick="openCartModal()" class="fixed bottom-6 right-6 z-30 bg-orange-600 text-white p-4 rounded-full shadow-2xl flex items-center gap-2 font-black hover:bg-orange-700 transition transform hover:scale-105">
         <span class="text-xl">🛒</span>
         <span id="cartBadgeCount" class="bg-white text-orange-600 text-xs px-2 py-0.5 rounded-full font-bold">0</span>
@@ -210,7 +211,7 @@
         </section>
     </main>
 
-    <!-- 🛒 장바구니 결제 모달 -->
+    <!-- 🛒 장바구니 모달 -->
     <div id="cartModal" class="fixed inset-0 bg-black/50 z-50 flex items-end justify-center hidden" onclick="if(event.target == this) closeCartModal()">
         <div class="bg-white w-full max-w-md rounded-t-3xl p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center border-b pb-3">
@@ -361,27 +362,28 @@
         </div>
     </div>
 
-    <!-- 🖨️ PDF 라벨지 인쇄 전용 영역 (수정: html2pdf 호환 가능한 안보이는 위치로 보장) -->
-    <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 0; overflow: hidden; pointer-events: none; opacity: 0.01; z-index: -1;">
-        <div id="pdfPrintContainer" style="width: 450px; padding: 20px; font-family: sans-serif; background: #ffffff;">
-            <div style="border: 3px solid #1d4ed8; padding: 20px; border-radius: 15px; background: #ffffff;">
-                <h2 style="font-size: 22px; font-weight: 900; color: #1d4ed8; text-align: center; margin-bottom: 15px; border-bottom: 2px solid #93c5fd; padding-bottom: 10px;">
+    <!-- 🖨️ PDF 라벨지 실시간 모달 팝업 (100% 동작 정석 캡처 방식) -->
+    <div id="pdfModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white p-4 rounded-3xl max-w-sm w-full space-y-3">
+            <div id="pdfCaptureArea" class="bg-white p-5 rounded-2xl border-4 border-blue-600 text-slate-800 space-y-2">
+                <h2 class="text-xl font-black text-blue-700 text-center pb-2 border-b-2 border-blue-200">
                     🚚 하루마켓 흑석점 배달전표
                 </h2>
-                <div style="font-size: 15px; line-height: 1.8; color: #1e293b;">
-                    <p style="margin: 5px 0;"><strong>💬 카톡 닉네임:</strong> <span id="pdfKakao" style="font-size: 18px; font-weight: bold; color: #000000;"></span></p>
-                    <p style="margin: 5px 0;"><strong>👤 성 함:</strong> <span id="pdfName" style="font-size: 18px; font-weight: bold; color: #000000;"></span></p>
-                    <p style="margin: 5px 0;"><strong>📞 연 락 처:</strong> <span id="pdfPhone" style="color: #000000;"></span></p>
-                    <div style="margin: 10px 0; padding: 10px; background: #eff6ff; border-radius: 8px; border: 1px solid #bfdbfe;">
-                        <strong>🏠 배달 주소:</strong><br>
-                        <span id="pdfAddress" style="font-size: 18px; font-weight: 900; color: #1e40af; display: block; margin-top: 3px;"></span>
-                        <strong style="margin-top: 6px; display: block; color: #dc2626;">🔑 공동현관 비번: <span id="pdfDoorPass" style="font-size: 16px;"></span></strong>
+                <div class="text-sm space-y-1.5 pt-1">
+                    <p><strong>💬 카톡 닉네임:</strong> <span id="pdfKakao" class="font-black text-base text-black"></span></p>
+                    <p><strong>👤 성 함:</strong> <span id="pdfName" class="font-black text-base text-black"></span></p>
+                    <p><strong>📞 연 락 처:</strong> <span id="pdfPhone" class="font-bold"></span></p>
+                    <div class="bg-blue-50 p-2.5 rounded-xl border border-blue-200 my-2 space-y-1">
+                        <strong class="text-xs text-blue-900 block">🏠 배달 상세 주소:</strong>
+                        <span id="pdfAddress" class="font-black text-blue-800 text-base block leading-tight"></span>
+                        <strong class="text-xs text-red-600 block mt-1">🔑 공동현관 비번: <span id="pdfDoorPass" class="text-sm font-bold text-red-600"></span></strong>
                     </div>
-                    <p style="margin: 5px 0;"><strong>📦 주문 품목:</strong> <span id="pdfFruit" style="font-weight: bold; color: #d97706;"></span></p>
-                    <p style="margin: 5px 0;"><strong>💰 총 결제금액:</strong> <span id="pdfPrice" style="font-size: 18px; font-weight: bold; color: #dc2626;"></span> (배달비 포함)</p>
-                    <p style="margin: 5px 0; font-size: 11px; color: #64748b; text-align: right; margin-top: 15px;" id="pdfTime"></p>
+                    <p><strong>📦 주문 품목:</strong> <span id="pdfFruit" class="font-black text-amber-700"></span></p>
+                    <p><strong>💰 결제 금액:</strong> <span id="pdfPrice" class="font-black text-red-600 text-base"></span> (배달비 포함)</p>
+                    <p id="pdfTime" class="text-[10px] text-gray-400 text-right pt-2 border-t border-gray-100"></p>
                 </div>
             </div>
+            <p class="text-center text-xs font-bold text-gray-400">PDF 파일을 생성하고 있습니다...</p>
         </div>
     </div>
 
@@ -453,6 +455,24 @@
                     rawCompletedOrders = oData.completed || [];
                 }
             } catch (e) { console.error("네트워크 통신 오류:", e); }
+        }
+
+        // 👑 단골 고객 뱃지 및 회차 로직
+        function getBadgeStyleByCount(count) {
+            if (count === 0 || count === 1) {
+                return { text: `🌱 최초 주문`, classes: "bg-emerald-100 text-emerald-800 border border-emerald-200" };
+            } else if (count >= 2 && count <= 5) {
+                return { text: `✨ ${count}회차`, classes: "bg-blue-100 text-blue-800 border border-blue-200" };
+            } else if (count >= 6 && count <= 10) {
+                return { text: `🔥 ${count}회차`, classes: "bg-purple-100 text-purple-800 border border-purple-200" };
+            } else {
+                return { text: `👑 ${count}회차`, classes: "bg-amber-100 text-amber-700 border border-amber-300 font-black ring-2 ring-amber-400" };
+            }
+        }
+
+        function getStrictCustomerOrderCount(name, phone) {
+            if(!name || !phone || globalOrders.length === 0) return 0;
+            return globalOrders.filter(o => o.name && o.phone && o.name.trim() === name.trim() && o.phone.trim() === phone.trim()).length;
         }
 
         function refreshMainDisplay() {
@@ -825,7 +845,6 @@
             } else { alert('비밀번호가 틀렸습니다!'); }
         }
 
-        // 💡 [수정 1] 사장님 모드 스위치 시 손님 장바구니 버튼 숨김 처리
         function switchView(view) {
             currentView = view;
             const container = document.getElementById('mainContainer');
@@ -836,14 +855,14 @@
                 document.getElementById('customerView').classList.add('hidden');
                 document.getElementById('adminView').classList.remove('hidden');
                 document.getElementById('adminView').classList.add('flex');
-                if (cartBtn) cartBtn.classList.add('hidden'); // 사장님 모드에서는 장바구니 버튼 숨김!
+                if (cartBtn) cartBtn.classList.add('hidden');
                 container.classList.replace('max-w-md', 'md:max-w-7xl');
                 toggleBtn.innerText = '📱 손님 화면 보기';
                 renderAdminOrders();
             } else {
                 document.getElementById('customerView').classList.remove('hidden');
                 document.getElementById('adminView').classList.add('hidden');
-                if (cartBtn) cartBtn.classList.remove('hidden'); // 손님 모드에서 다시 노출
+                if (cartBtn) cartBtn.classList.remove('hidden');
                 container.classList.replace('md:max-w-7xl', 'max-w-md');
                 toggleBtn.innerText = '👨‍🌾 사장님 모드';
                 loadStoreData();
@@ -934,6 +953,7 @@
             }
         }
 
+        // 사장님 모드 주문 목록 (👑 단골 뱃지 포함)
         async function renderAdminOrders() {
             try {
                 const res = await fetch(`${API_URL}/api/admin/orders?password=${PASS}`);
@@ -947,12 +967,16 @@
                 const waitList = document.getElementById('orderList');
                 waitList.innerHTML = '';
                 pendingPickup.forEach(order => {
+                    const historyCount = getStrictCustomerOrderCount(order.name, order.phone);
+                    const badgeStyle = getBadgeStyleByCount(historyCount);
+
                     let actionBtn = order.status === '입금대기'
                         ? `<button onclick="triggerUpdateStatus(${order.id}, '접수완료')" class="flex-1 bg-blue-600 text-white py-2 rounded-xl text-xs font-black">💵 입금확인</button>`
                         : `<button onclick="triggerCompleteOrder(${order.id})" class="flex-1 bg-green-600 text-white py-2 rounded-xl text-xs font-black">✅ 수령 완료</button>`;
 
                     waitList.innerHTML += `
-                        <div class="bg-white p-5 rounded-3xl border border-gray-100 space-y-3 shadow-2xs">
+                        <div class="bg-white p-5 rounded-3xl border border-gray-100 space-y-3 shadow-2xs relative">
+                            <span class="absolute right-5 top-5 text-xs font-black px-2 py-1 rounded-md ${badgeStyle.classes}">${badgeStyle.text}</span>
                             <h4 class="text-lg font-black">${order.name} (${order.kakao_nickname || '닉네임없음'}) - ${order.phone}</h4>
                             <p class="text-orange-600 font-bold">📦 과일: ${order.fruit} | 결제: ${order.method}</p>
                             <p class="text-xs text-gray-400">🕒 접수일시: ${order.time_str || ''} [상태: ${order.status}]</p>
@@ -967,17 +991,18 @@
                 const deliveryList = document.getElementById('deliveryOrderList');
                 deliveryList.innerHTML = '';
                 deliveryOrders.forEach(order => {
+                    const historyCount = getStrictCustomerOrderCount(order.name, order.phone);
+                    const badgeStyle = getBadgeStyleByCount(historyCount);
+
                     let deliveryActionBtn = order.status === '입금대기'
                         ? `<button onclick="triggerUpdateStatus(${order.id}, '접수완료')" class="flex-1 bg-blue-600 text-white py-2 rounded-xl text-xs font-black hover:bg-blue-700">💵 입금확인</button>`
                         : `<button onclick="triggerCompleteOrder(${order.id})" class="flex-1 bg-indigo-600 text-white py-2 rounded-xl text-xs font-black hover:bg-indigo-700">🚚 배달 완료 처리</button>`;
 
                     deliveryList.innerHTML += `
-                        <div class="bg-white p-5 rounded-3xl border border-blue-200 space-y-3 shadow-sm">
-                            <div class="flex justify-between items-start">
+                        <div class="bg-white p-5 rounded-3xl border border-blue-200 space-y-3 shadow-sm relative">
+                            <span class="absolute right-5 top-5 text-xs font-black px-2 py-1 rounded-md ${badgeStyle.classes}">${badgeStyle.text}</span>
+                            <div class="flex justify-between items-start pr-20">
                                 <span class="bg-blue-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md">🚚 배달 [${order.status}]</span>
-                                <button onclick="downloadDeliveryPDF(${JSON.stringify(order).replace(/"/g, '&quot;')})" class="bg-gray-900 text-white font-bold text-xs px-3 py-1.5 rounded-xl hover:bg-black">
-                                    🖨️ 라벨지 PDF 출력
-                                </button>
                             </div>
                             <div>
                                 <h4 class="text-lg font-black text-gray-900">${order.name} (${order.kakao_nickname})</h4>
@@ -988,6 +1013,9 @@
                             <p class="text-orange-600 font-bold text-sm">📦 ${order.fruit} (총 ${Number(order.total_price).toLocaleString()}원)</p>
                             <p class="text-[11px] text-gray-400 font-bold">🕒 주문 접수일시: ${order.time_str || ''}</p>
                             <div class="flex gap-2 pt-2 border-t border-gray-100">
+                                <button onclick="printDeliveryPDF(${JSON.stringify(order).replace(/"/g, '&quot;')})" class="bg-gray-900 text-white font-bold text-xs px-3 py-2 rounded-xl hover:bg-black">
+                                    🖨️ 라벨지 PDF 출력
+                                </button>
                                 ${deliveryActionBtn}
                                 <button onclick="cancelAdminOrder(${order.id})" class="bg-gray-100 text-gray-500 px-3 py-2 rounded-xl text-xs font-bold">취소</button>
                             </div>
@@ -999,8 +1027,8 @@
             } catch(e) { console.error("장부 조회 에러", e); }
         }
 
-        // 💡 [수정 2] PDF 다운로드 호환성 수정 완료
-        function downloadDeliveryPDF(order) {
+        // 🖨️ PDF 라벨 출력 기능 (모달 가시 캡처 후 100% 저장 방식)
+        function printDeliveryPDF(order) {
             document.getElementById('pdfKakao').innerText = order.kakao_nickname || '';
             document.getElementById('pdfName').innerText = order.name || '';
             document.getElementById('pdfPhone').innerText = order.phone || '';
@@ -1010,17 +1038,26 @@
             document.getElementById('pdfPrice').innerText = Number(order.total_price).toLocaleString() + "원";
             document.getElementById('pdfTime').innerText = "접수일시: " + (order.time_str || '');
 
-            const element = document.getElementById('pdfPrintContainer');
-            
-            const opt = {
-                margin: 10,
-                filename: `배달전표_${order.name}_${order.kakao_nickname}.pdf`,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
-                jsPDF: { unit: 'mm', format: 'a5', orientation: 'portrait' }
-            };
+            const modal = document.getElementById('pdfModal');
+            const captureArea = document.getElementById('pdfCaptureArea');
+            modal.classList.remove('hidden');
 
-            html2pdf().set(opt).from(element).save();
+            setTimeout(() => {
+                const opt = {
+                    margin: 5,
+                    filename: `배달라벨_${order.name}_${order.kakao_nickname}.pdf`,
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2 },
+                    jsPDF: { unit: 'mm', format: 'a5', orientation: 'portrait' }
+                };
+
+                html2pdf().set(opt).from(captureArea).save().then(() => {
+                    modal.classList.add('hidden');
+                }).catch(err => {
+                    alert("PDF 생성 중 오류가 발생했습니다.");
+                    modal.classList.add('hidden');
+                });
+            }, 300);
         }
 
         async function triggerUpdateStatus(id, status) {
@@ -1066,8 +1103,12 @@
             }
 
             filtered.forEach(order => {
+                const historyCount = getStrictCustomerOrderCount(order.name, order.phone);
+                const badgeStyle = getBadgeStyleByCount(historyCount);
+
                 doneList.innerHTML += `
-                    <div class="bg-white p-5 rounded-3xl border border-gray-100 space-y-2 flex flex-col justify-between">
+                    <div class="bg-white p-5 rounded-3xl border border-gray-100 space-y-2 flex flex-col justify-between relative">
+                        <span class="absolute right-5 top-5 text-xs font-black px-2 py-1 rounded-md ${badgeStyle.classes}">${badgeStyle.text}</span>
                         <div>
                             <span class="text-xs font-bold px-2 py-0.5 rounded-md bg-green-100 text-green-800">${order.order_type || '픽업'} 완료</span>
                             <h4 class="text-lg font-black mt-1">${order.name} (${order.kakao_nickname || ''}) - ${order.phone}</h4>
