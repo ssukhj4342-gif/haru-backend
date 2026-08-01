@@ -1313,7 +1313,7 @@
             filterAndRenderCompletedOrders();
         }
 
-        // 📊 [마스터 해결] JS 사전 집계값 직접 주입 + 정확한 SUMIF 엑셀 수식 이중 완벽 적용
+        // 📊 [마스터 최종 완성] 사전집계값 + 100% 매칭 SUMIF 수식 + 정확한 총원가/순이익 계산
         function downloadExcel(mode = 'all') {
             let targetOrders = [...rawCompletedOrders];
 
@@ -1348,12 +1348,11 @@
             const availableFruits = (fruitItems && fruitItems.length > 0) ? fruitItems.map(f => f.name) : ["기본 품목"];
             const calcEndRow = 3 + availableFruits.length;
 
-            // JS 사전 데이터 집계 (백업 보장용)
+            // JS 사전 데이터 집계 (초기값 보장)
             const salesQtyMap = {};
             const salesTotalMap = {};
             availableFruits.forEach(fn => { salesQtyMap[fn] = 0; salesTotalMap[fn] = 0; });
 
-            // 하단 데이터 미리 정제하며 수량/매출 사전 누적
             targetOrders.forEach(order => {
                 let rawFruitStr = order.fruit_name || order.fruit || "";
                 let fruitItemsList = rawFruitStr.split(',').map(s => s.trim()).filter(s => s);
@@ -1410,7 +1409,9 @@
                 </tr>
             `;
 
-            // 마진 계산기 행 작성 (사전 집계값 초기 주입 + SUMIF 수식 연동)
+            // 💡 [수식 정밀 주소 교정]
+            // G열: 판매 품목명 | I열: 주문 수량(개) | J열: 품목 합계금액(원)
+            // 총원가 수식: D열(수량) * C열(원가) = D{r}*C{r}
             availableFruits.forEach((fName, idx) => {
                 const r = 4 + idx;
                 const defaultSellingPrice = fruitPriceMap[fName] || 0;
@@ -1441,8 +1442,8 @@
                     <td class="text-cell">${fName}</td>
                     <td class="num">${defaultSellingPrice}</td>
                     <td class="num">0</td>
-                    <td class="num" x:f="=SUMIF($G$10:$G$65536, A${r}, $I$10:$I$65536)">${preQty}</td>
-                    <td class="num" x:f="=SUMIF($G$10:$G$65536, A${r}, $J$10:$J$65536)">${preTotal}</td>
+                    <td class="num" x:f="=SUMIF($G$10:$G$65536, &quot;*&quot;&amp;A${r}&amp;&quot;*&quot;, $I$10:$I$65536)">${preQty}</td>
+                    <td class="num" x:f="=SUMIF($G$10:$G$65536, &quot;*&quot;&amp;A${r}&amp;&quot;*&quot;, $J$10:$J$65536)">${preTotal}</td>
                     <td class="num" x:f="=D${r}*C${r}">0</td>
                     <td class="num" x:f="=E${r}-F${r}">${preTotal}</td>
                     <td class="rate" x:f="=IF(E${r}>0, G${r}/E${r}, 0)">100.00%</td>
@@ -1475,7 +1476,6 @@
                 </tr>
             `;
 
-            // 하단 장부 데이터 채우기 (동일 주문 내 2번째 품목부터 공란 처리)
             let rowSeq = 1;
             targetOrders.forEach(order => {
                 const orderUserCount = getStrictCustomerOrderCount(order.kakao_nickname);
