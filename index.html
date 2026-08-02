@@ -426,6 +426,7 @@
         let storeMeta = {};
         let globalOrders = []; 
         let rawCompletedOrders = []; 
+        let currentAdminDeliveryOrders = []; // 실시간 배달 대시보드 인쇄용 전역 보관함
         let selectedOrderType = '픽업'; 
         let isDeliveryAvailable = true;
         let uploadedDetailImgs = []; 
@@ -542,7 +543,8 @@
                 const orderRes = await fetch(`${API_URL}/api/admin/orders?password=${PASS}`);
                 if(orderRes.ok) {
                     const oData = await orderRes.json();
-                    globalOrders = [...(oData.pending || []), ...(oData.completed || [])];
+                    globalOrders = [...(oData.pending || []), ...(oData.delivery_orders || []), ...(oData.completed || [])];
+                    currentAdminDeliveryOrders = oData.delivery_orders || [];
                     rawCompletedOrders = oData.completed || [];
                     updateAdminDashboardSummary();
                 }
@@ -1144,6 +1146,7 @@
 
                 const pendingPickup = (data.pending || []).filter(o => o.order_type !== '배달');
                 const deliveryOrders = data.delivery_orders || [];
+                currentAdminDeliveryOrders = deliveryOrders; // 인쇄용 최신 배달 목록 동기화
                 rawCompletedOrders = data.completed || [];
 
                 updateAdminDashboardSummary();
@@ -1221,13 +1224,17 @@
             } catch(e) { console.error("장부 조회 에러", e); }
         }
 
-        // 📦 배달 전표 포장 체크리스트 구체화 인쇄 로직 (2x5 규격 출력 - 미완료 배달 주문 보정)
+        // 📦 배달 전표 포장 체크리스트 인쇄 로직 (실시간 배달 대시보드 직접 연결 완벽 보정)
         function printAllDeliveryLabels() {
-            // 현재 대시보드에 나와 있는 미완료 배달 주문 전체 추출
-            const deliveryOrders = (globalOrders || []).filter(o => o.order_type === '배달' && o.status !== '판매완료');
+            let deliveryOrders = [...currentAdminDeliveryOrders];
+            
+            // 혹시 몰라 전체 리스트에서도 배달 미완료 건 한 번 더 필터링
+            if (deliveryOrders.length === 0) {
+                deliveryOrders = (globalOrders || []).filter(o => o.order_type === '배달' && o.status !== '판매완료');
+            }
             
             if (deliveryOrders.length === 0) { 
-                alert("🚚 현재 인쇄할 미완료 배달 주문건이 없습니다!"); 
+                alert("🚚 현재 인쇄할 배달 주문건이 없습니다!"); 
                 return; 
             }
 
