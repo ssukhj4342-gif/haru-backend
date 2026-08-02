@@ -8,13 +8,37 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        
+        /* 🖨️ A4 용지 규격 2x5 (10칸) 절대 고정 출력 스타일 */
         @page { size: A4 portrait; margin: 5mm; }
         @media print {
-            html, body { height: auto !important; overflow: visible !important; background: white !important; }
-            header, main, #stickyCheckoutBar, #thumbModal, #detailModal, #myOrdersModal, #authModal, #bankModal { display: none !important; }
-            #labelPrintArea { display: block !important; position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; background: white !important; }
-            .label-page { display: grid !important; grid-template-columns: repeat(2, 1fr) !important; gap: 4mm !important; width: 100% !important; page-break-after: auto !important; page-break-inside: avoid !important; }
-            .label-card { border: 2px solid #1d4ed8 !important; border-radius: 8px !important; padding: 8px 10px !important; box-sizing: border-box !important; background: #ffffff !important; display: flex !important; flex-direction: column !important; justify-content: space-between !important; page-break-inside: avoid !important; min-height: 48mm !important; }
+            html, body { height: 100% !important; overflow: visible !important; background: white !important; margin: 0 !important; padding: 0 !important; }
+            header, main, #stickyCheckoutBar, #thumbModal, #detailModal, #myOrdersModal, #authModal, #bankModal, #toastNotification { display: none !important; }
+            #labelPrintArea { display: block !important; position: absolute !important; left: 0 !important; top: 0 !important; width: 200mm !important; background: white !important; }
+            .label-page { 
+                display: grid !important; 
+                grid-template-columns: repeat(2, 1fr) !important; 
+                grid-template-rows: repeat(5, 53mm) !important; 
+                gap: 3mm !important; 
+                width: 200mm !important; 
+                height: 277mm !important;
+                page-break-after: always !important; 
+                page-break-inside: avoid !important; 
+                box-sizing: border-box !important;
+            }
+            .label-card { 
+                border: 2px solid #1d4ed8 !important; 
+                border-radius: 8px !important; 
+                padding: 6px 8px !important; 
+                box-sizing: border-box !important; 
+                background: #ffffff !important; 
+                display: flex !important; 
+                flex-direction: column !important; 
+                justify-content: space-between !important; 
+                page-break-inside: avoid !important; 
+                height: 52mm !important; 
+                overflow: hidden !important;
+            }
         }
     </style>
 </head>
@@ -228,7 +252,7 @@
                     <div class="bg-white p-4 rounded-2xl border border-gray-100">
                         <h2 class="text-xl font-extrabold text-gray-800">🏢 매장 픽업 예약 현황 (<span id="orderCount" class="text-orange-500">0</span>건)</h2>
                     </div>
-                    <div id="orderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4"></div>
+                    <div id="orderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch"></div>
                 </div>
 
                 <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-3xl shadow-sm border border-blue-100 space-y-4">
@@ -239,7 +263,7 @@
                         </div>
                         <button onclick="printAllDeliveryLabels()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow-md transition active:scale-95 self-stretch sm:self-auto justify-center">🖨️ 전체 배달 라벨 일괄 인쇄 (A4 10칸)</button>
                     </div>
-                    <div id="deliveryOrderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4"></div>
+                    <div id="deliveryOrderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch"></div>
                 </div>
 
                 <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
@@ -261,7 +285,7 @@
                         <div><input type="date" id="searchDate" onchange="filterAndRenderCompletedOrders()" class="w-full p-2.5 bg-white border border-gray-300 rounded-xl text-sm font-bold text-gray-700 focus:outline-none focus:border-orange-500 transition"></div>
                         <div><button onclick="resetDateFilter()" class="w-full p-2.5 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded-xl text-sm transition active:scale-95">🔄 전체 날짜 보기</button></div>
                     </div>
-                    <div id="completedOrderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4"></div>
+                    <div id="completedOrderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch"></div>
                 </div>
             </div>
         </section>
@@ -525,15 +549,13 @@
             } catch (e) { console.error("네트워크 통신 오류:", e); }
         }
 
-        // 📊 사장님 당일 매출 간단 요약 위젯 계산 함수
+        // 📊 사장님 당일 매출 간단 요약 위젯 계산 함수 (실시간 자동 갱신)
         function updateAdminDashboardSummary() {
             const today = new Date();
             const yyyy = today.getFullYear();
             const mm = String(today.getMonth() + 1).padStart(2, '0');
             const dd = String(today.getDate()).padStart(2, '0');
-            const todayStrFormatted = `${yyyy}. ${parseInt(mm)}. ${parseInt(dd)}.`;
-            const todayStrISO = `${yyyy}-${mm}-${dd}`;
-
+            
             document.getElementById('summaryTodayDate').innerText = `${yyyy}년 ${parseInt(mm)}월 ${parseInt(dd)}일 기준`;
 
             let todayTotalSales = 0;
@@ -543,7 +565,15 @@
 
             rawCompletedOrders.forEach(o => {
                 const timeStr = o.status_changed_time || o.time_str || '';
-                if (timeStr.includes(todayStrFormatted) || timeStr.startsWith(todayStrISO)) {
+                // 2026. 08. 02 또는 2026-08-02 포맷 모두 파싱 처리
+                if (timeStr.includes(`${yyyy}.`) && (timeStr.includes(`.${mm}.`) || timeStr.includes(`. ${mm}.`))) {
+                    if (timeStr.includes(`.${dd}.`) || timeStr.includes(`. ${dd}.`)) {
+                        todayTotalSales += (o.total_price || 0);
+                        todayCount++;
+                        if (o.order_type === '배달') todayDeliveryCount++;
+                        else todayPickupCount++;
+                    }
+                } else if (timeStr.startsWith(`${yyyy}-${mm}-${dd}`)) {
                     todayTotalSales += (o.total_price || 0);
                     todayCount++;
                     if (o.order_type === '배달') todayDeliveryCount++;
@@ -1016,6 +1046,7 @@
             }
         }
 
+        // 🖼️ 사장님 카드 렌더링 균일 정렬 적용
         async function renderAdminOrders() {
             try {
                 const res = await fetch(`${API_URL}/api/admin/orders?password=${PASS}`);
@@ -1033,24 +1064,28 @@
                     const historyCount = getStrictCustomerOrderCount(order.kakao_nickname);
                     const badgeStyle = getBadgeStyleByCount(historyCount);
                     let actionBtn = '';
-                    if(order.method === '현장결제') actionBtn = `<button onclick="triggerCompleteOrder(${order.id}, this)" class="flex-1 bg-green-600 text-white py-2 rounded-xl text-xs font-black active:scale-95 transition">✅ 결제 및 수령 완료</button>`;
-                    else if(order.status === '입금대기') actionBtn = `<button onclick="triggerUpdateStatus(${order.id}, '접수완료', this)" class="flex-1 bg-blue-600 text-white py-2 rounded-xl text-xs font-black active:scale-95 transition">💵 입금확인</button>`;
-                    else actionBtn = `<button onclick="triggerCompleteOrder(${order.id}, this)" class="flex-1 bg-green-600 text-white py-2 rounded-xl text-xs font-black active:scale-95 transition">✅ 수령 완료</button>`;
+                    if(order.method === '현장결제') actionBtn = `<button onclick="triggerCompleteOrder(${order.id}, this)" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-xl text-xs font-black active:scale-95 transition">✅ 결제 및 수령 완료</button>`;
+                    else if(order.status === '입금대기') actionBtn = `<button onclick="triggerUpdateStatus(${order.id}, '접수완료', this)" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl text-xs font-black active:scale-95 transition">💵 입금확인</button>`;
+                    else actionBtn = `<button onclick="triggerCompleteOrder(${order.id}, this)" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-xl text-xs font-black active:scale-95 transition">✅ 수령 완료</button>`;
 
                     waitList.innerHTML += `
-                        <div class="bg-white p-5 rounded-3xl border border-gray-100 space-y-3 shadow-2xs relative">
-                            <span class="absolute right-5 top-5 text-xs font-black px-2 py-1 rounded-md ${badgeStyle.classes}">${badgeStyle.text}</span>
-                            <h4 class="text-lg font-black flex items-center gap-1.5">
-                                ${order.name} 
-                                <span onclick="copyToClipboard('${order.kakao_nickname}', '카톡 닉네임이 복사되었습니다!')" class="text-sm font-extrabold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-lg border border-orange-200 cursor-pointer hover:bg-orange-100 active:scale-95 transition" title="클릭하여 복사">
-                                    💬 ${order.kakao_nickname || '닉네임없음'}
-                                </span>
-                            </h4>
-                            <p class="text-orange-600 font-bold">📦 과일: ${order.fruit} | 결제: ${order.method}</p>
-                            <p class="text-xs text-gray-400">🕒 접수일시: ${order.time_str || ''} [상태: ${order.status}]</p>
-                            <div class="flex gap-2 pt-2 border-t border-gray-100">
+                        <div class="bg-white p-5 rounded-3xl border border-gray-100 shadow-2xs relative flex flex-col justify-between h-full min-h-[170px]">
+                            <div class="space-y-2">
+                                <div class="flex justify-between items-start pr-20">
+                                    <h4 class="text-lg font-black flex items-center gap-1.5">
+                                        ${order.name} 
+                                        <span onclick="copyToClipboard('${order.kakao_nickname}', '카톡 닉네임이 복사되었습니다!')" class="text-xs font-extrabold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-lg border border-orange-200 cursor-pointer hover:bg-orange-100 active:scale-95 transition" title="클릭하여 복사">
+                                            💬 ${order.kakao_nickname || '닉네임없음'}
+                                        </span>
+                                    </h4>
+                                </div>
+                                <span class="absolute right-5 top-5 text-xs font-black px-2 py-1 rounded-md ${badgeStyle.classes}">${badgeStyle.text}</span>
+                                <p class="text-orange-600 font-bold text-sm">📦 과일: ${order.fruit} | 결제: ${order.method}</p>
+                                <p class="text-xs text-gray-400">🕒 접수일시: ${order.time_str || ''} [상태: ${order.status}]</p>
+                            </div>
+                            <div class="flex gap-2 pt-3 border-t border-gray-100 mt-3">
                                 ${actionBtn}
-                                <button onclick="cancelAdminOrder(${order.id}, this)" class="bg-gray-100 text-gray-500 px-3 py-2 rounded-xl text-xs font-bold active:scale-95 transition">취소</button>
+                                <button onclick="cancelAdminOrder(${order.id}, this)" class="bg-gray-100 text-gray-500 px-3 py-2.5 rounded-xl text-xs font-bold active:scale-95 transition">취소</button>
                             </div>
                         </div>`;
                 });
@@ -1061,28 +1096,32 @@
                     const historyCount = getStrictCustomerOrderCount(order.kakao_nickname);
                     const badgeStyle = getBadgeStyleByCount(historyCount);
                     let deliveryActionBtn = order.status === '입금대기'
-                        ? `<button onclick="triggerUpdateStatus(${order.id}, '접수완료', this)" class="flex-1 bg-blue-600 text-white py-2 rounded-xl text-xs font-black hover:bg-blue-700 active:scale-95 transition">💵 입금확인</button>`
-                        : `<button onclick="triggerCompleteOrder(${order.id}, this)" class="flex-1 bg-indigo-600 text-white py-2 rounded-xl text-xs font-black hover:bg-indigo-700 active:scale-95 transition">🚚 배달 완료 처리</button>`;
+                        ? `<button onclick="triggerUpdateStatus(${order.id}, '접수완료', this)" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl text-xs font-black active:scale-95 transition">💵 입금확인</button>`
+                        : `<button onclick="triggerCompleteOrder(${order.id}, this)" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl text-xs font-black active:scale-95 transition">🚚 배달 완료 처리</button>`;
 
                     deliveryList.innerHTML += `
-                        <div class="bg-white p-5 rounded-3xl border border-blue-200 space-y-3 shadow-sm relative">
-                            <span class="absolute right-5 top-5 text-xs font-black px-2 py-1 rounded-md ${badgeStyle.classes}">${badgeStyle.text}</span>
-                            <div class="flex justify-between items-start pr-20"><span class="bg-blue-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md">🚚 배달 [${order.status}]</span></div>
-                            <div>
-                                <h4 class="text-lg font-black text-gray-900 flex items-center gap-1.5">
-                                    ${order.name} 
-                                    <span onclick="copyToClipboard('${order.kakao_nickname}', '카톡 닉네임이 복사되었습니다!')" class="text-sm font-extrabold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-200 cursor-pointer hover:bg-blue-100 active:scale-95 transition" title="클릭하여 복사">
-                                        💬 ${order.kakao_nickname || '닉네임없음'}
-                                    </span>
-                                </h4>
-                                <p class="text-sm font-extrabold text-blue-700 mt-0.5">🏠 주소: ${order.address}</p>
-                                <p class="text-xs font-black text-red-600 mt-0.5">🔑 공동현관 비번: ${order.door_password || '없음/자유출입'}</p>
+                        <div class="bg-white p-5 rounded-3xl border border-blue-200 shadow-sm relative flex flex-col justify-between h-full min-h-[200px]">
+                            <div class="space-y-2">
+                                <div class="flex justify-between items-center pr-20">
+                                    <span class="bg-blue-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md">🚚 배달 [${order.status}]</span>
+                                </div>
+                                <span class="absolute right-5 top-5 text-xs font-black px-2 py-1 rounded-md ${badgeStyle.classes}">${badgeStyle.text}</span>
+                                <div>
+                                    <h4 class="text-lg font-black text-gray-900 flex items-center gap-1.5">
+                                        ${order.name} 
+                                        <span onclick="copyToClipboard('${order.kakao_nickname}', '카톡 닉네임이 복사되었습니다!')" class="text-xs font-extrabold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-200 cursor-pointer hover:bg-blue-100 active:scale-95 transition" title="클릭하여 복사">
+                                            💬 ${order.kakao_nickname || '닉네임없음'}
+                                        </span>
+                                    </h4>
+                                    <p class="text-xs font-extrabold text-blue-700 mt-1">🏠 주소: ${order.address}</p>
+                                    <p class="text-xs font-black text-red-600 mt-0.5">🔑 공동현관 비번: ${order.door_password || '없음/자유출입'}</p>
+                                </div>
+                                <p class="text-orange-600 font-bold text-sm">📦 ${order.fruit} (총 ${Number(order.total_price).toLocaleString()}원)</p>
+                                <p class="text-[11px] text-gray-400 font-bold">🕒 주문 접수일시: ${order.time_str || ''}</p>
                             </div>
-                            <p class="text-orange-600 font-bold text-sm">📦 ${order.fruit} (총 ${Number(order.total_price).toLocaleString()}원)</p>
-                            <p class="text-[11px] text-gray-400 font-bold">🕒 주문 접수일시: ${order.time_str || ''}</p>
-                            <div class="flex gap-2 pt-2 border-t border-gray-100">
+                            <div class="flex gap-2 pt-3 border-t border-gray-100 mt-3">
                                 ${deliveryActionBtn}
-                                <button onclick="cancelAdminOrder(${order.id}, this)" class="bg-gray-100 text-gray-500 px-3 py-2 rounded-xl text-xs font-bold active:scale-95 transition">취소</button>
+                                <button onclick="cancelAdminOrder(${order.id}, this)" class="bg-gray-100 text-gray-500 px-3 py-2.5 rounded-xl text-xs font-bold active:scale-95 transition">취소</button>
                             </div>
                         </div>`;
                 });
@@ -1091,7 +1130,7 @@
             } catch(e) { console.error("장부 조회 에러", e); }
         }
 
-        // 📦 배달 전표 포장 체크리스트 구체화 인쇄 로직
+        // 📦 배달 전표 포장 체크리스트 구체화 인쇄 로직 (2x5 규격 출력)
         function printAllDeliveryLabels() {
             const deliveryOrders = (globalOrders || []).filter(o => o.order_type === '배달' && o.status !== '판매완료');
             if (deliveryOrders.length === 0) { alert("🚚 인쇄할 배달 주문건이 없습니다!"); return; }
@@ -1109,29 +1148,29 @@
                     let checklistHtml = "";
 
                     if (fruitItemsList.length > 0) {
-                        checklistHtml = fruitItemsList.map(item => `<div style="display:flex; items-center; justify-content:space-between; margin-top:1px;"><span style="color:#d97706; font-weight:bold;">▪ ${item}</span> <span style="border:1.5px solid #000; width:12px; height:12px; display:inline-block; border-radius:2px;"></span></div>`).join('');
+                        checklistHtml = fruitItemsList.map(item => `<div style="display:flex; items-center; justify-content:space-between; margin-top:1px;"><span style="color:#d97706; font-weight:bold; font-size:10px;">▪ ${item}</span> <span style="border:1.5px solid #000; width:10px; height:10px; display:inline-block; border-radius:2px;"></span></div>`).join('');
                     } else {
-                        checklistHtml = `<div style="display:flex; items-center; justify-content:space-between; margin-top:1px;"><span style="color:#d97706; font-weight:bold;">▪ ${rawFruitStr}</span> <span style="border:1.5px solid #000; width:12px; height:12px; display:inline-block; border-radius:2px;"></span></div>`;
+                        checklistHtml = `<div style="display:flex; items-center; justify-content:space-between; margin-top:1px;"><span style="color:#d97706; font-weight:bold; font-size:10px;">▪ ${rawFruitStr}</span> <span style="border:1.5px solid #000; width:10px; height:10px; display:inline-block; border-radius:2px;"></span></div>`;
                     }
 
                     pageHtml += `
                         <div class="label-card">
-                            <div style="border-bottom: 2px solid #1d4ed8; padding-bottom: 3px; text-align: center; margin-bottom: 3px;"><strong style="font-size: 13px; font-weight: 900; color: #1d4ed8;">🚚 하루마켓 흑석점 배달전표</strong></div>
-                            <div style="font-size: 11px; line-height: 1.3;">
-                                <p style="margin: 2px 0;"><strong>💬 닉네임:</strong> <span style="font-size: 12px; font-weight: bold; color: #000;">${order.kakao_nickname || ''}</span> / <strong>성함:</strong> <span style="font-size: 12px; font-weight: bold; color: #000;">${order.name || ''}</span></p>
-                                <div style="background: #eff6ff; border: 1px solid #bfdbfe; padding: 3px 5px; border-radius: 4px; margin: 3px 0;">
-                                    <strong>🏠 배달 주소:</strong><br><span style="font-size: 12px; font-weight: 900; color: #1e40af; display: block; margin-top: 1px;">${order.address || ''}</span>
+                            <div style="border-bottom: 1.5px solid #1d4ed8; padding-bottom: 2px; text-align: center; margin-bottom: 2px;"><strong style="font-size: 11px; font-weight: 900; color: #1d4ed8;">🚚 하루마켓 흑석점 배달전표</strong></div>
+                            <div style="font-size: 10px; line-height: 1.2;">
+                                <p style="margin: 1px 0;"><strong>💬 닉네임:</strong> <span style="font-size: 11px; font-weight: bold; color: #000;">${order.kakao_nickname || ''}</span> / <strong>성함:</strong> <span style="font-size: 11px; font-weight: bold; color: #000;">${order.name || ''}</span></p>
+                                <div style="background: #eff6ff; border: 1px solid #bfdbfe; padding: 2px 4px; border-radius: 4px; margin: 2px 0;">
+                                    <strong>🏠 배달 주소:</strong><br><span style="font-size: 11px; font-weight: 900; color: #1e40af; display: block; margin-top: 1px;">${order.address || ''}</span>
                                 </div>
-                                <p style="color: #dc2626; margin: 2px 0;"><strong>🔑 공동현관 비번:</strong> <span style="font-size: 11px; font-weight: bold;">${order.door_password || '없음'}</span></p>
+                                <p style="color: #dc2626; margin: 1px 0;"><strong>🔑 공동현관 비번:</strong> <span style="font-size: 10px; font-weight: bold;">${order.door_password || '없음'}</span></p>
                                 
-                                <div style="background: #fffbe2; border: 1px solid #fef08a; padding: 4px; border-radius: 4px; margin: 3px 0;">
-                                    <strong style="font-size:10px; color:#854d0e; display:block; border-bottom:1px dashed #fde047; padding-bottom:2px; margin-bottom:2px;">📦 포장 체크리스트</strong>
+                                <div style="background: #fffbe2; border: 1px solid #fef08a; padding: 3px; border-radius: 4px; margin: 2px 0;">
+                                    <strong style="font-size:9px; color:#854d0e; display:block; border-bottom:1px dashed #fde047; padding-bottom:1px; margin-bottom:1px;">📦 포장 체크리스트</strong>
                                     ${checklistHtml}
                                 </div>
 
-                                <p style="margin: 2px 0;"><strong>💰 결제금액:</strong> <span style="color: #dc2626; font-weight: bold; font-size: 11px;">${Number(order.total_price).toLocaleString()}원</span> (${order.method || ''})</p>
+                                <p style="margin: 1px 0;"><strong>💰 결제금액:</strong> <span style="color: #dc2626; font-weight: bold; font-size: 10px;">${Number(order.total_price).toLocaleString()}원</span> (${order.method || ''})</p>
                             </div>
-                            <p style="font-size: 8px; color: #64748b; text-align: right; margin-top: 2px; border-top: 1px solid #f1f5f9; padding-top: 2px;">접수: ${order.time_str || ''}</p>
+                            <p style="font-size: 7.5px; color: #64748b; text-align: right; margin-top: 1px; border-top: 1px solid #f1f5f9; padding-top: 1px;">접수: ${order.time_str || ''}</p>
                         </div>`;
                 });
                 pageHtml += `</div>`;
@@ -1141,11 +1180,16 @@
             setTimeout(() => { window.print(); printArea.style.display = 'none'; }, 300);
         }
 
+        // 입금 확인 / 완료 후 실시간 리로드 연동
         async function triggerUpdateStatus(id, status, btnEl) {
             if(btnEl) btnEl.disabled = true;
             try {
                 const res = await fetch(`${API_URL}/api/admin/orders/${id}?status=${status}&password=${PASS}`, { method: 'PUT' });
-                if(res.ok) { alert('💵 입금 확인 처리되었습니다!'); renderAdminOrders(); }
+                if(res.ok) { 
+                    alert('💵 입금 확인 처리되었습니다!'); 
+                    await renderAdminOrders(); 
+                    await loadStoreData();
+                }
             } catch(e) { alert('처리 실패!'); }
             finally { if(btnEl) btnEl.disabled = false; }
         }
@@ -1154,7 +1198,11 @@
             if(btnEl) btnEl.disabled = true;
             try {
                 const res = await fetch(`${API_URL}/api/admin/orders/${id}?status=판매완료&password=${PASS}`, { method: 'PUT' });
-                if(res.ok) { alert('🎉 완료 처리되었습니다!'); renderAdminOrders(); }
+                if(res.ok) { 
+                    alert('🎉 완료 처리되었습니다!'); 
+                    await renderAdminOrders(); 
+                    await loadStoreData();
+                }
             } catch(e) { alert('처리 실패!'); }
             finally { if(btnEl) btnEl.disabled = false; }
         }
@@ -1164,7 +1212,11 @@
                 if(btnEl) btnEl.disabled = true;
                 try {
                     const res = await fetch(`${API_URL}/api/admin/orders/${id}?password=${PASS}`, { method: 'DELETE' });
-                    if(res.ok) { alert('주문 취소 완료!'); renderAdminOrders(); }
+                    if(res.ok) { 
+                        alert('주문 취소 완료!'); 
+                        await renderAdminOrders(); 
+                        await loadStoreData();
+                    }
                 } catch(e) { alert('취소 실패!'); }
                 finally { if(btnEl) btnEl.disabled = false; }
             }
@@ -1195,9 +1247,9 @@
                 const historyCount = getStrictCustomerOrderCount(order.kakao_nickname);
                 const badgeStyle = getBadgeStyleByCount(historyCount);
                 doneList.innerHTML += `
-                    <div class="bg-white p-5 rounded-3xl border border-gray-100 space-y-2 flex flex-col justify-between relative">
+                    <div class="bg-white p-5 rounded-3xl border border-gray-100 flex flex-col justify-between h-full min-h-[160px] relative">
                         <span class="absolute right-5 top-5 text-xs font-black px-2 py-1 rounded-md ${badgeStyle.classes}">${badgeStyle.text}</span>
-                        <div>
+                        <div class="space-y-1">
                             <span class="text-xs font-bold px-2 py-0.5 rounded-md bg-green-100 text-green-800">${order.order_type || '픽업'} 완료</span>
                             <h4 class="text-lg font-black mt-1 flex items-center gap-1.5">
                                 ${order.name} 
