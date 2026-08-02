@@ -68,6 +68,7 @@
                 <div id="displayNoticeImgContainer" class="w-full max-h-60 bg-gray-50 rounded-2xl overflow-hidden hidden flex items-center justify-center border border-gray-100 shadow-inner">
                     <img id="displayNoticeImg" src="" class="w-full h-full object-cover">
                 </div>
+                <!-- 📝 줄글 공지에 맞춰 폰트 사이즈 가독성 좋게 조율 (text-sm font-semibold) -->
                 <p id="displayDailyNotice" class="text-sm font-semibold text-gray-800 leading-relaxed whitespace-pre-line">로딩 중...</p>
             </div>
 
@@ -263,6 +264,15 @@
                         </div>
                         <button onclick="printAllDeliveryLabels()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow-md transition active:scale-95 self-stretch sm:self-auto justify-center">🖨️ 전체 배달 라벨 일괄 인쇄 (A4 10칸)</button>
                     </div>
+
+                    <!-- 📦 오늘 배달 나갈 과일 품목별 총 수량 실시간 집계 위젯 -->
+                    <div id="deliverySummaryBox" class="bg-amber-100/80 border border-amber-300 p-4 rounded-2xl hidden">
+                        <h3 class="text-xs font-black text-amber-900 mb-2 flex items-center gap-1">
+                            📦 오늘 배달 나갈 과일 총 포장 수량 (실시간 집계)
+                        </h3>
+                        <div id="deliverySummaryItems" class="flex flex-wrap gap-2"></div>
+                    </div>
+
                     <div id="deliveryOrderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch"></div>
                 </div>
 
@@ -426,7 +436,7 @@
         let storeMeta = {};
         let globalOrders = []; 
         let rawCompletedOrders = []; 
-        let currentAdminDeliveryOrders = []; // 실시간 배달 대시보드 인쇄용 전역 보관함
+        let currentAdminDeliveryOrders = []; 
         let selectedOrderType = '픽업'; 
         let isDeliveryAvailable = true;
         let uploadedDetailImgs = []; 
@@ -1137,7 +1147,7 @@
             }
         }
 
-        // 🖼️ 사장님 카드 렌더링
+        // 🖼️ 사장님 카드 렌더링 (오늘 배달 과일 총 수량 실시간 자동 카운팅 포함)
         async function renderAdminOrders() {
             try {
                 const res = await fetch(`${API_URL}/api/admin/orders?password=${PASS}`);
@@ -1146,10 +1156,44 @@
 
                 const pendingPickup = (data.pending || []).filter(o => o.order_type !== '배달');
                 const deliveryOrders = data.delivery_orders || [];
-                currentAdminDeliveryOrders = deliveryOrders; // 인쇄용 최신 배달 목록 동기화
+                currentAdminDeliveryOrders = deliveryOrders; 
                 rawCompletedOrders = data.completed || [];
 
                 updateAdminDashboardSummary();
+
+                // 📦 [새 기능] 배달 나갈 과일 실시간 종합 수량 카운팅 로직
+                let deliveryFruitSummary = {};
+                deliveryOrders.forEach(order => {
+                    let rawFruitStr = order.fruit_name || order.fruit || "";
+                    let fruitItemsList = rawFruitStr.split(',').map(s => s.trim()).filter(s => s);
+
+                    fruitItemsList.forEach(itemStr => {
+                        let pureName = itemStr.replace(/\s*x\d+개/g, "").replace(/\s*\([\d,]+원\)/g, "").trim();
+                        let qtyMatch = itemStr.match(/x(\d+)개/);
+                        let itemQty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
+
+                        if (!deliveryFruitSummary[pureName]) {
+                            deliveryFruitSummary[pureName] = 0;
+                        }
+                        deliveryFruitSummary[pureName] += itemQty;
+                    });
+                });
+
+                const summaryBox = document.getElementById('deliverySummaryBox');
+                const summaryItemsEl = document.getElementById('deliverySummaryItems');
+
+                if (Object.keys(deliveryFruitSummary).length > 0 && summaryBox && summaryItemsEl) {
+                    summaryItemsEl.innerHTML = '';
+                    Object.entries(deliveryFruitSummary).forEach(([name, qty]) => {
+                        summaryItemsEl.innerHTML += `
+                            <span class="bg-white border border-amber-300 text-amber-950 font-black text-xs px-3 py-1.5 rounded-xl shadow-2xs">
+                                ${name}: <span class="text-red-600 text-sm font-black">${qty}개</span>
+                            </span>`;
+                    });
+                    summaryBox.classList.remove('hidden');
+                } else if (summaryBox) {
+                    summaryBox.classList.add('hidden');
+                }
 
                 const waitList = document.getElementById('orderList'); waitList.innerHTML = '';
                 pendingPickup.forEach(order => {
@@ -1224,11 +1268,10 @@
             } catch(e) { console.error("장부 조회 에러", e); }
         }
 
-        // 📦 배달 전표 포장 체크리스트 인쇄 로직 (실시간 배달 대시보드 직접 연결 완벽 보정)
+        // 📦 배달 전표 포장 체크리스트 인쇄 로직
         function printAllDeliveryLabels() {
             let deliveryOrders = [...currentAdminDeliveryOrders];
             
-            // 혹시 몰라 전체 리스트에서도 배달 미완료 건 한 번 더 필터링
             if (deliveryOrders.length === 0) {
                 deliveryOrders = (globalOrders || []).filter(o => o.order_type === '배달' && o.status !== '판매완료');
             }
