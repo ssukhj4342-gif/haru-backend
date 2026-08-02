@@ -644,7 +644,7 @@
                 // 실적용 가격 결정
                 let activePrice = isEvent ? item.event_price : item.price;
 
-                let eventBadge = isEvent ? `<span class="bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md animate-pulse flex items-center gap-0.5">🎉 특가 이벤트</span>` : '';
+                let eventBadge = isEvent ? `<span class="bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md animate-pulse flex items-center gap-0.5 shadow-sm">🎉 특가 이벤트</span>` : '';
                 let badge = isUrgent ? `<span class="bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-md animate-bounce flex items-center gap-1">🔥 품절 임박!</span>` : '';
                 if(isSoldOut) badge = `<span class="bg-gray-700 text-white text-[10px] font-black px-2 py-0.5 rounded-md">완판 (SOLD OUT)</span>`;
 
@@ -665,13 +665,20 @@
                 // 가격 표시 UI (이벤트시 취소선 + 특가 강조)
                 let priceDisplayHtml = isEvent 
                     ? `<div class="flex items-center gap-2">
-                        <span class="text-gray-400 line-through text-sm font-bold">${Number(item.price).toLocaleString()}원</span>
+                        <span class="text-gray-400 line-through text-xs font-bold">${Number(item.price).toLocaleString()}원</span>
                         <span class="text-red-600 text-xl font-black">${Number(item.event_price).toLocaleString()}원</span>
                        </div>`
                     : `<p class="text-orange-600 text-lg font-black">${Number(item.price).toLocaleString()}원</p>`;
 
+                // 🎨 이벤트 진행 중인 제품 박스 배경색 및 테두리 강렬하게 강조!
+                let boxClass = isEvent 
+                    ? 'bg-gradient-to-br from-red-50 via-rose-50 to-orange-50 p-4 rounded-2xl border-2 border-red-500 shadow-md space-y-3 relative' 
+                    : isSoldOut 
+                        ? 'bg-gray-50/80 p-4 rounded-2xl border border-gray-300 opacity-60 space-y-3 relative' 
+                        : 'bg-gray-50/80 p-4 rounded-2xl border border-gray-200 space-y-3 relative';
+
                 userListEl.innerHTML += `
-                    <div class="bg-gray-50/80 p-4 rounded-2xl border ${isEvent ? 'border-red-300 ring-2 ring-red-100 bg-red-50/20' : isSoldOut ? 'border-gray-300 opacity-60' : 'border-gray-200'} space-y-3 relative">
+                    <div class="${boxClass}">
                         ${imgHtmlContainer}
                         <div class="flex justify-between items-start gap-3">
                             <div class="space-y-1 min-w-0 flex-1">
@@ -686,10 +693,10 @@
                             </div>
                             <div class="flex flex-col items-end gap-2 shrink-0">
                                 <button onclick="openDetailModal(${originalIndex})" class="px-2.5 py-1 bg-white border border-gray-200 text-gray-600 font-bold rounded-xl text-xs shadow-2xs hover:bg-gray-100 active:scale-95 transition">🔍 상세사진</button>
-                                <div class="flex items-center space-x-1.5 border-2 ${isSoldOut ? 'border-gray-200 bg-gray-100' : 'border-orange-300 bg-white'} rounded-xl p-1 shadow-2xs">
+                                <div class="flex items-center space-x-1.5 border-2 ${isEvent ? 'border-red-400 bg-white' : isSoldOut ? 'border-gray-200 bg-gray-100' : 'border-orange-300 bg-white'} rounded-xl p-1 shadow-2xs">
                                     <button onclick="adjustOrderFormQty(${item.id}, '${item.name}', ${activePrice}, -1)" ${isSoldOut ? 'disabled' : ''} class="w-7 h-7 bg-orange-50 border border-orange-200 rounded-lg text-sm font-black text-orange-900 active:scale-90 transition disabled:opacity-40">-</button>
                                     <span id="orderQty-${item.id}" class="w-6 text-center font-black text-sm text-gray-800">${currentQty}</span>
-                                    <button onclick="adjustOrderFormQty(${item.id}, '${item.name}', ${activePrice}, 1)" ${isSoldOut ? 'disabled' : ''} class="w-7 h-7 bg-orange-500 border border-orange-600 rounded-lg text-sm font-black text-white active:scale-90 transition disabled:bg-gray-300 disabled:cursor-not-allowed">+</button>
+                                    <button onclick="adjustOrderFormQty(${item.id}, '${item.name}', ${activePrice}, 1)" ${isSoldOut ? 'disabled' : ''} class="w-7 h-7 ${isEvent ? 'bg-red-600 border-red-700' : 'bg-orange-500 border-orange-600'} rounded-lg text-sm font-black text-white active:scale-90 transition disabled:bg-gray-300 disabled:cursor-not-allowed">+</button>
                                 </div>
                             </div>
                         </div>
@@ -699,14 +706,14 @@
                 let hideBtnClass = item.hide_stock ? "bg-gray-600 text-white font-bold text-xs px-2.5 py-1.5 rounded-xl active:scale-95 transition" : "bg-orange-500 text-white font-bold text-xs px-2.5 py-1.5 rounded-xl active:scale-95 transition";
                 
                 let eventBtnText = item.is_event ? "🏷️ 이벤트 해제" : "🎉 이벤트 하기";
-                let eventBtnClass = item.is_event ? "bg-red-600 text-white font-bold text-xs px-3 py-1.5 rounded-xl active:scale-95 transition" : "bg-rose-100 text-rose-700 border border-rose-300 font-bold text-xs px-3 py-1.5 rounded-xl hover:bg-rose-200 active:scale-95 transition";
+                let eventBtnClass = item.is_event ? "bg-red-600 text-white font-bold text-xs px-3 py-1.5 rounded-xl active:scale-95 transition shadow-xs" : "bg-rose-100 text-rose-700 border border-rose-300 font-bold text-xs px-3 py-1.5 rounded-xl hover:bg-rose-200 active:scale-95 transition";
 
                 adminListEl.innerHTML += `
-                    <div class="bg-gray-50 p-5 rounded-2xl border ${item.is_event ? 'border-red-300 bg-red-50/30' : 'border-gray-200'} flex flex-col justify-between space-y-3">
+                    <div class="bg-gray-50 p-5 rounded-2xl border ${item.is_event ? 'border-red-400 bg-red-50/40 shadow-xs' : 'border-gray-200'} flex flex-col justify-between space-y-3">
                         <div class="flex justify-between items-start w-full">
                             <div class="min-w-0 flex-1">
                                 <div class="flex items-center gap-1.5 flex-wrap">
-                                    ${item.is_event ? '<span class="bg-red-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded">이벤트 중</span>' : ''}
+                                    ${item.is_event ? '<span class="bg-red-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded animate-pulse">이벤트 중</span>' : ''}
                                     <h4 class="font-black text-gray-800 text-base leading-snug">${item.name}</h4>
                                 </div>
                                 <div class="flex items-center gap-2 mt-0.5">
@@ -742,8 +749,8 @@
             let eventPrice = 0;
 
             if (enableEvent) {
-                let input = prompt(`🎉 [${fruitItems.find(f=>f.id===fruitId)?.name}] 이벤트 할인가를 입력하세요.\n(현재 정상가: ${Number(normalPrice).toLocaleString()}원)`, normalPrice);
-                if (input === null) return; // 취소 누름
+                let input = prompt(`🎉 [${fruitItems.find(f=>f.id===fruitId)?.name}] 이벤트 특가를 입력하세요.\n(현재 정상가: ${Number(normalPrice).toLocaleString()}원)`, normalPrice);
+                if (input === null) return; // 취소
                 eventPrice = parseInt(input);
                 if (isNaN(eventPrice) || eventPrice <= 0) {
                     alert("⚠️ 올바른 숫자를 입력해 주세요!");
@@ -758,9 +765,9 @@
                     body: JSON.stringify({ is_event: enableEvent, event_price: eventPrice })
                 });
                 if(res.ok) { 
-                    alert(enableEvent ? '🎉 특가 이벤트가 시작되었습니다! 최상단에 강조 표시됩니다.' : '🏷️ 이벤트가 해제되고 정상가로 복원되었습니다.'); 
+                    alert(enableEvent ? '🎉 특가 이벤트가 시작되었습니다! 최상단에 빨간색 박스로 강조 표시됩니다.' : '🏷️ 이벤트가 해제되었습니다.'); 
                     await loadStoreData(); 
-                } else { alert('이벤트 변경 실패!'); }
+                } else { alert('이벤트 변경 실패! Supabase 테이블 칼럼을 확인하세요.'); }
             } catch(e) { alert('이벤트 설정 서버 통신 실패!'); }
             finally { if(btnEl) btnEl.disabled = false; }
         }
