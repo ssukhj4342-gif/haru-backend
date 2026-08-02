@@ -113,7 +113,7 @@
                         </button>
                         <button type="button" id="btnTypeDelivery" onclick="selectOrderType('배달')" class="h-16 p-2 border-2 border-gray-200 bg-white text-gray-500 rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-0.5 active:scale-95 transition">
                             <span>🚚 배달 주문</span>
-                            <span id="deliveryBadgeText" class="text-[10px] font-normal text-gray-400">배달비 3,000원 (12시 마감)</span>
+                            <span id="deliveryBadgeText" class="text-[10px] font-normal text-gray-400">배달비 2,000원 (12시 반 마감)</span>
                         </button>
                     </div>
                 </div>
@@ -820,7 +820,8 @@
                 }
             });
 
-            let deliveryFee = (selectedOrderType === '배달' && totalQty > 0) ? 3000 : 0;
+            // 💰 배달비 2,000원 적용
+            let deliveryFee = (selectedOrderType === '배달' && totalQty > 0) ? 2000 : 0;
             let finalPrice = totalFruitPrice + deliveryFee;
 
             const summaryEl = document.getElementById('stickySelectedSummary');
@@ -881,7 +882,7 @@
         function closeDetailModal() { document.getElementById('detailModal').classList.add('hidden'); }
 
         function selectOrderType(type) {
-            if (type === '배달' && !isDeliveryAvailable) { alert("⏰ 금일 배달 주문이 마감되었습니다. (오후 12시 이전까지만 가능)"); return; }
+            if (type === '배달' && !isDeliveryAvailable) { alert("⏰ 금일 배달 주문이 마감되었습니다. (오후 12시 반 이전까지만 가능)"); return; }
             selectedOrderType = type;
             const btnPickup = document.getElementById('btnTypePickup');
             const btnDelivery = document.getElementById('btnTypeDelivery');
@@ -944,7 +945,8 @@
                 const resData = await res.json();
                 if(res.ok) {
                     let totalFruitPrice = itemsToOrder.reduce((sum, i) => sum + (i.price * i.qty), 0);
-                    let finalAmount = totalFruitPrice + ((selectedOrderType === '배달') ? 3000 : 0);
+                    // 💰 배달비 2,000원 계산 적용
+                    let finalAmount = totalFruitPrice + ((selectedOrderType === '배달') ? 2000 : 0);
 
                     if(method === '계좌이체') {
                         document.getElementById('bankModalAccount').innerText = storeMeta.account || '등록된 계좌 없음';
