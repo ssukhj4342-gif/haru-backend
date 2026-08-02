@@ -1094,28 +1094,47 @@
             }
             if (targetOrders.length === 0) { alert("판매 완료된 내역이 없습니다!"); return; }
 
-            const fruitPriceMap = {}; (fruitItems || []).forEach(f => { fruitPriceMap[f.name] = f.price || 0; });
-            const availableFruits = (fruitItems && fruitItems.length > 0) ? fruitItems.map(f => f.name) : ["기본 품목"];
-            const calcEndRow = 3 + availableFruits.length;
-
-            const salesQtyMap = {}; const salesTotalMap = {};
-            availableFruits.forEach(fn => { salesQtyMap[fn] = 0; salesTotalMap[fn] = 0; });
+            // 1. 실제 완료된 주문(targetOrders) 내역에서 개별 품목/단가/판매량 파싱 및 모으기
+            const soldFruitMap = {}; 
 
             targetOrders.forEach(order => {
                 let rawFruitStr = order.fruit_name || order.fruit || "";
                 let fruitItemsList = rawFruitStr.split(',').map(s => s.trim()).filter(s => s);
+
                 if (fruitItemsList.length > 0) {
                     fruitItemsList.forEach(itemStr => {
                         let pureName = itemStr.replace(/\s*x\d+개/g, "").replace(/\s*\([\d,]+원\)/g, "").trim();
                         let qtyMatch = itemStr.match(/x(\d+)개/);
                         let itemQty = qtyMatch ? parseInt(qtyMatch[1]) : (order.qty || 1);
-                        let itemPrice = fruitPriceMap[pureName] || order.price || 0;
-                        let itemTotal = itemPrice * itemQty;
-                        if (salesQtyMap[pureName] !== undefined) { salesQtyMap[pureName] += itemQty; salesTotalMap[pureName] += itemTotal; }
-                        else { salesQtyMap[pureName] = itemQty; salesTotalMap[pureName] = itemTotal; }
+                        
+                        let priceMatch = itemStr.match(/\(([\d,]+)원\)/);
+                        let itemPrice = priceMatch ? parseInt(priceMatch[1].replace(/,/g, '')) : (order.price || 0);
+
+                        if (!soldFruitMap[pureName]) {
+                            soldFruitMap[pureName] = { price: itemPrice, qty: 0, total: 0 };
+                        }
+                        soldFruitMap[pureName].qty += itemQty;
+                        soldFruitMap[pureName].total += (itemPrice * itemQty);
+                        if (itemPrice > 0 && soldFruitMap[pureName].price === 0) {
+                            soldFruitMap[pureName].price = itemPrice;
+                        }
                     });
+                } else if (rawFruitStr) {
+                    let pureName = rawFruitStr.trim();
+                    let itemQty = order.qty || 1;
+                    let itemPrice = order.price || 0;
+                    if (!soldFruitMap[pureName]) {
+                        soldFruitMap[pureName] = { price: itemPrice, qty: 0, total: 0 };
+                    }
+                    soldFruitMap[pureName].qty += itemQty;
+                    soldFruitMap[pureName].total += (itemPrice * itemQty);
                 }
             });
+
+            const uniqueSoldFruitNames = Object.keys(soldFruitMap);
+            if (uniqueSoldFruitNames.length === 0) uniqueSoldFruitNames.push("기타 품목");
+
+            const calcEndRow = 3 + uniqueSoldFruitNames.length;
 
             let html = `
             <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
@@ -1143,18 +1162,26 @@
                     <th class="sum-header" colspan="3">🏆 전체 매출 종합 대시보드 요약</th>
                 </tr>`;
 
-            availableFruits.forEach((fName, idx) => {
-                const r = 4 + idx; const defaultSellingPrice = fruitPriceMap[fName] || 0;
+            // 2. 실제 추출된 판매 품목들로만 마진 분석표(상단) 생성
+            uniqueSoldFruitNames.forEach((fName, idx) => {
+                const r = 4 + idx;
+                const itemData = soldFruitMap[fName] || { price: 0, qty: 0, total: 0 };
                 let sumColHtml = "";
+                
                 if (idx === 0) sumColHtml = `<th></th><th class="sum-header">전체 총 매출액</th><th class="sum-header">전체 총 순이익</th><th class="sum-header">평균 마진율</th>`;
                 else if (idx === 1) sumColHtml = `<td></td><td class="num" style="font-weight:bold; color:#1e40af;">=SUM(E4:E${calcEndRow})</td><td class="num" style="font-weight:bold; color:#166534;">=SUM(G4:G${calcEndRow})</td><td class="rate" style="font-weight:bold; color:#c2410c;">=IF(SUM(E4:E${calcEndRow})>0, SUM(G4:G${calcEndRow})/SUM(E4:E${calcEndRow}), 0)</td>`;
                 else sumColHtml = `<td></td><td></td><td></td><td></td>`;
 
                 html += `
                 <tr>
-                    <td class="text-cell">${fName}</td><td class="num">${defaultSellingPrice}</td><td class="num">0</td>
-                    <td class="num">=SUMIF($G$10:$G$65536, A${r}, $I$10:$I$65536)</td><td class="num">=SUMIF($G$10:$G$65536, A${r}, $J$10:$J$65536)</td>
-                    <td class="num">=D${r}*C${r}</td><td class="num">=E${r}-F${r}</td><td class="rate">=IF(E${r}>0, G${r}/E${r}, 0)</td>
+                    <td class="text-cell">${fName}</td>
+                    <td class="num">${itemData.price}</td>
+                    <td class="num">0</td>
+                    <td class="num">${itemData.qty}</td>
+                    <td class="num">=D${r}*B${r}</td>
+                    <td class="num">=D${r}*C${r}</td>
+                    <td class="num">=E${r}-F${r}</td>
+                    <td class="rate">=IF(E${r}>0, G${r}/E${r}, 0)</td>
                     ${sumColHtml}
                 </tr>`;
             });
@@ -1180,7 +1207,9 @@
                         let pureName = itemStr.replace(/\s*x\d+개/g, "").replace(/\s*\([\d,]+원\)/g, "").trim();
                         let qtyMatch = itemStr.match(/x(\d+)개/);
                         let itemQty = qtyMatch ? parseInt(qtyMatch[1]) : (order.qty || 1);
-                        let itemPrice = fruitPriceMap[pureName] || order.price || 0;
+                        
+                        let priceMatch = itemStr.match(/\(([\d,]+)원\)/);
+                        let itemPrice = priceMatch ? parseInt(priceMatch[1].replace(/,/g, '')) : (soldFruitMap[pureName]?.price || order.price || 0);
                         let itemTotal = itemPrice * itemQty;
                         let isFirst = itemIdx === 0;
 
