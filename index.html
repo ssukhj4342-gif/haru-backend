@@ -24,13 +24,14 @@
         <span id="toastMsg">📋 클립보드에 복사되었습니다!</span>
     </div>
 
-    <header class="bg-white sticky top-0 z-40 border-b border-gray-200 px-6 py-4 flex justify-between items-center shadow-xs">
-        <h1 class="text-2xl font-black text-orange-600 tracking-tight cursor-pointer flex items-center gap-2 active:scale-95 transition" onclick="switchView('customer')">
+    <!-- 헤더 모바일 레이아웃 최적화 -->
+    <header class="bg-white sticky top-0 z-40 border-b border-gray-200 px-4 sm:px-6 py-3.5 flex items-center justify-between shadow-xs">
+        <h1 class="text-lg sm:text-2xl font-black text-orange-600 tracking-tight cursor-pointer flex items-center gap-1 shrink-0 active:scale-95 transition" onclick="switchView('customer')">
             하루마켓 흑석점 🍊
         </h1>
-        <div class="flex items-center gap-2">
-            <button onclick="openMyOrdersModal()" class="bg-gray-100 text-gray-700 px-3.5 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 active:scale-95 transition">🔎 내 주문</button>
-            <button id="toggleBtn" onclick="openAdminAuthModal()" class="bg-orange-100 text-orange-700 px-3.5 py-2 rounded-xl text-xs font-bold transition hover:bg-orange-200 active:scale-95">👨‍🌾 사장님</button>
+        <div class="flex items-center gap-1.5 shrink-0">
+            <button onclick="openMyOrdersModal()" class="bg-gray-100 text-gray-700 px-2.5 sm:px-3.5 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 active:scale-95 transition whitespace-nowrap">🔎 내 주문</button>
+            <button id="toggleBtn" onclick="openAdminAuthModal()" class="bg-orange-100 text-orange-700 px-2.5 sm:px-3.5 py-2 rounded-xl text-xs font-bold transition hover:bg-orange-200 active:scale-95 whitespace-nowrap">👨‍🌾 사장님</button>
         </div>
     </header>
 
@@ -1094,7 +1095,6 @@
             }
             if (targetOrders.length === 0) { alert("판매 완료된 내역이 없습니다!"); return; }
 
-            // 1. 실제 완료된 주문(targetOrders) 내역에서 개별 품목/단가/판매량 파싱 및 모으기
             const soldFruitMap = {}; 
 
             targetOrders.forEach(order => {
@@ -1162,7 +1162,6 @@
                     <th class="sum-header" colspan="3">🏆 전체 매출 종합 대시보드 요약</th>
                 </tr>`;
 
-            // 2. 실제 추출된 판매 품목들로만 마진 분석표(상단) 생성
             uniqueSoldFruitNames.forEach((fName, idx) => {
                 const r = 4 + idx;
                 const itemData = soldFruitMap[fName] || { price: 0, qty: 0, total: 0 };
