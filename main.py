@@ -21,7 +21,7 @@ SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-ADMIN_PASS = "13157"
+ADMIN_PASS = "788599"
 
 def get_kST_time():
     return datetime.now(ZoneInfo("Asia/Seoul"))
