@@ -767,7 +767,7 @@
                 if(res.ok) { 
                     alert(enableEvent ? '🎉 특가 이벤트가 시작되었습니다! 최상단에 빨간색 박스로 강조 표시됩니다.' : '🏷️ 이벤트가 해제되었습니다.'); 
                     await loadStoreData(); 
-                } else { alert('이벤트 변경 실패! Supabase 테이블 칼럼을 확인하세요.'); }
+                } else { alert('이벤트 변경 실패!'); }
             } catch(e) { alert('이벤트 설정 서버 통신 실패!'); }
             finally { if(btnEl) btnEl.disabled = false; }
         }
@@ -1221,13 +1221,19 @@
             } catch(e) { console.error("장부 조회 에러", e); }
         }
 
-        // 📦 배달 전표 포장 체크리스트 구체화 인쇄 로직 (2x5 규격 출력)
+        // 📦 배달 전표 포장 체크리스트 구체화 인쇄 로직 (2x5 규격 출력 - 미완료 배달 주문 보정)
         function printAllDeliveryLabels() {
+            // 현재 대시보드에 나와 있는 미완료 배달 주문 전체 추출
             const deliveryOrders = (globalOrders || []).filter(o => o.order_type === '배달' && o.status !== '판매완료');
-            if (deliveryOrders.length === 0) { alert("🚚 인쇄할 배달 주문건이 없습니다!"); return; }
+            
+            if (deliveryOrders.length === 0) { 
+                alert("🚚 현재 인쇄할 미완료 배달 주문건이 없습니다!"); 
+                return; 
+            }
 
             const printArea = document.getElementById('labelPrintArea');
-            printArea.style.display = 'block'; printArea.innerHTML = '';
+            printArea.style.display = 'block'; 
+            printArea.innerHTML = '';
 
             const chunkSize = 10;
             for (let i = 0; i < deliveryOrders.length; i += chunkSize) {
