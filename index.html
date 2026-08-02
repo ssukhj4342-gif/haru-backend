@@ -1059,8 +1059,11 @@
                     document.getElementById('fileFruitImg').value = ''; document.getElementById('fileFruitDetailImgs').value = ''; document.getElementById('newFruitImg').value = '';
                     uploadedDetailImgs = [];
                     toggleAddForm(); loadStoreData();
+                } else {
+                    const errData = await res.json();
+                    alert(errData.detail || '품목 추가 실패! 비밀번호 또는 백엔드 설정을 확인하세요.');
                 }
-            } catch(e) { alert('품목 추가 실패!'); }
+            } catch(e) { alert('품목 추가 실패! 백엔드 서버 상태를 확인하세요.'); }
             finally { btn.disabled = false; btn.innerText = "진짜 추가"; }
         }
 
