@@ -164,8 +164,8 @@
             <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4 h-fit md:sticky md:top-24 w-full md:w-[380px] shrink-0">
                 <div class="flex justify-between items-center border-b pb-2">
                     <h2 class="text-xl font-extrabold text-gray-800 flex items-center gap-2">⚙️ 하루마켓 흑석점 관리</h2>
-                    <!-- 🔊 [새 기능] POS 실시간 주문 띵동 알림 활성화 버튼 -->
-                    <button id="btnEnablePosSound" onclick="enablePosNotification()" class="bg-amber-500 hover:bg-amber-600 text-white font-black text-xs px-2.5 py-1.5 rounded-xl shadow-xs transition active:scale-95 flex items-center gap-1">
+                    <!-- 🔊 [새 기능] 주문 알림 ON/OFF 버튼 -->
+                    <button id="btnEnablePosSound" onclick="toggleOrderNotification()" class="bg-amber-500 hover:bg-amber-600 text-white font-black text-xs px-2.5 py-1.5 rounded-xl shadow-xs transition active:scale-95 flex items-center gap-1">
                         🔔 주문 알림 켜기
                     </button>
                 </div>
@@ -449,12 +449,12 @@
         let isSubmitting = false; 
         let selectedItems = {};
 
-        // 🔔 [POS 실시간 띵동 알림 전역 변수]
-        let posSoundEnabled = false;
+        // 🔔 [실시간 주문 띵동 알림 전역 변수]
+        let orderSoundEnabled = false;
         let knownOrderIds = new Set();
         let isFirstLoad = true;
 
-        // Web Audio API를 활용한 '띵동~' 소리 생성기
+        // Web Audio API 기반 '띵동~' 실시간 청각 소리 생성기
         function playChimeSound() {
             try {
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -486,21 +486,25 @@
             } catch(e) { console.error("소리 재생 오류", e); }
         }
 
-        function enablePosNotification() {
-            if ("Notification" in window) {
-                Notification.requestPermission().then(permission => {
-                    if (permission === "granted") {
-                        posSoundEnabled = true;
-                        playChimeSound();
-                        showToast("🔔 POS 실시간 띵동 알림이 활성화되었습니다!");
-                        const btn = document.getElementById('btnEnablePosSound');
-                        if (btn) {
-                            btn.innerText = "🔔 알림 작동 중";
-                            btn.className = "bg-emerald-600 text-white font-black text-xs px-2.5 py-1.5 rounded-xl shadow-xs cursor-default flex items-center gap-1";
-                        }
-                    } else { alert("알림 권한이 거부되었습니다. 브라우저 주소창 왼쪽 자물쇠 아이콘을 눌러 알림을 허용해주세요!"); }
-                });
-            } else { alert("이 브라우저는 알림 기능을 지원하지 않습니다."); }
+        // 🔔 주문 알림 ON/OFF 토글 처리 함수
+        function toggleOrderNotification() {
+            const btn = document.getElementById('btnEnablePosSound');
+            if (!orderSoundEnabled) {
+                orderSoundEnabled = true;
+                playChimeSound(); // 알림 켤 때 확인 테스트음 재생
+                showToast("🔔 주문 알림이 켜졌습니다! 새 주문 시 띵동 소리가 울립니다.");
+                if (btn) {
+                    btn.innerText = "🔕 주문 알림 끄기";
+                    btn.className = "bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs px-2.5 py-1.5 rounded-xl shadow-xs transition active:scale-95 flex items-center gap-1";
+                }
+            } else {
+                orderSoundEnabled = false;
+                showToast("🔕 주문 알림이 꺼졌습니다.");
+                if (btn) {
+                    btn.innerText = "🔔 주문 알림 켜기";
+                    btn.className = "bg-amber-500 hover:bg-amber-600 text-white font-black text-xs px-2.5 py-1.5 rounded-xl shadow-xs transition active:scale-95 flex items-center gap-1";
+                }
+            }
         }
 
         function copyToClipboard(text, message = '클립보드에 복사되었습니다!') {
@@ -558,12 +562,12 @@
             const mm = String(today.getMonth() + 1).padStart(2, '0');
             document.getElementById('excelMonthPicker').value = `${yyyy}-${mm}`;
 
-            // ⏱️ 사장님 노트북 상시 가동용 10초 주기 실시간 주문 감지 타이머
+            // ⏱️ 3초 주기 사장님 화면 실시간 신규 주문 자동 체크
             setInterval(() => {
                 if (currentView === 'admin') {
-                    renderAdminOrders(true); // 배경 감지 모드
+                    renderAdminOrders(true);
                 }
-            }, 10000);
+            }, 3000);
         };
 
         function setupFileListeners() {
@@ -1216,7 +1220,7 @@
             }
         }
 
-        // 🖼️ 사장님 카드 렌더링 (실시간 신규 주문 소리+푸시 감지 로직 연동)
+        // 🖼️ 사장님 카드 렌더링 (실시간 신규 주문 감지 및 3초 주기 자동 동기화)
         async function renderAdminOrders(isBackgroundCheck = false) {
             try {
                 const res = await fetch(`${API_URL}/api/admin/orders?password=${PASS}`);
@@ -1228,31 +1232,24 @@
                 currentAdminDeliveryOrders = deliveryOrders; 
                 rawCompletedOrders = data.completed || [];
 
-                // 🔔 [실시간 감지] 새 주문 ID가 들어왔는지 검사해서 소리 + 푸시 팝업 트리거
+                // 🔔 [3초 실시간 감지] 새 주문 ID가 들어오면 '알림 ON' 상태일 때 띵동 소리 재생!
                 const allCurrentOrders = [...pendingPickup, ...deliveryOrders];
                 let hasNewOrder = false;
-                let newestOrderInfo = null;
 
                 allCurrentOrders.forEach(o => {
                     if (o.id && !knownOrderIds.has(o.id)) {
                         knownOrderIds.add(o.id);
                         if (!isFirstLoad) {
                             hasNewOrder = true;
-                            newestOrderInfo = o;
                         }
                     }
                 });
 
                 if (isFirstLoad) { isFirstLoad = false; }
 
-                if (hasNewOrder && newestOrderInfo) {
+                if (hasNewOrder && orderSoundEnabled) {
                     playChimeSound(); // 🔊 '띵동~' 소리 재생
-                    if (posSoundEnabled && "Notification" in window && Notification.permission === "granted") {
-                        new Notification("🚨 [하루마켓] 새 주문 접수!", {
-                            body: `${newestOrderInfo.name}님 - ${newestOrderInfo.fruit} (${Number(newestOrderInfo.total_price).toLocaleString()}원)`,
-                            icon: "https://res.cloudinary.com/w9ilodii/image/upload/v1720000000/orange.png"
-                        });
-                    }
+                    showToast("🔔 새 주문이 접수되었습니다!");
                 }
 
                 updateAdminDashboardSummary();
