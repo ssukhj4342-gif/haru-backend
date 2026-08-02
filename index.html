@@ -401,7 +401,7 @@
 
     <script>
         const API_URL = "https://haru-market-api.onrender.com"; 
-        const PASS = "13157"; 
+        const PASS = "788599"; 
 
         // ☁️ Cloudinary 설정
         const CLOUD_NAME = "w9ilodii"; 
@@ -549,7 +549,7 @@
             } catch (e) { console.error("네트워크 통신 오류:", e); }
         }
 
-        // 📊 사장님 당일 매출 간단 요약 위젯 계산 함수 (실시간 자동 갱신)
+        // 📊 사장님 당일 매출 간단 요약 위젯 계산 함수
         function updateAdminDashboardSummary() {
             const today = new Date();
             const yyyy = today.getFullYear();
@@ -565,7 +565,6 @@
 
             rawCompletedOrders.forEach(o => {
                 const timeStr = o.status_changed_time || o.time_str || '';
-                // 2026. 08. 02 또는 2026-08-02 포맷 모두 파싱 처리
                 if (timeStr.includes(`${yyyy}.`) && (timeStr.includes(`.${mm}.`) || timeStr.includes(`. ${mm}.`))) {
                     if (timeStr.includes(`.${dd}.`) || timeStr.includes(`. ${dd}.`)) {
                         todayTotalSales += (o.total_price || 0);
@@ -627,18 +626,21 @@
                 return;
             }
 
-            // 품절 상품을 맨 아래로 정렬 (시각적 효과 개선)
+            // 📌 상단 고정(is_pinned) 우선 -> 품절 상품 맨 아래 정렬
             const sortedFruitItems = [...fruitItems].sort((a, b) => {
+                if (a.is_pinned && !b.is_pinned) return -1;
+                if (!a.is_pinned && b.is_pinned) return 1;
                 if (a.stock <= 0 && b.stock > 0) return 1;
                 if (a.stock > 0 && b.stock <= 0) return -1;
                 return 0;
             });
 
-            sortedFruitItems.forEach((item) => {
+            sortedFruitItems.forEach((item, index) => {
                 const originalIndex = fruitItems.findIndex(f => f.id === item.id);
                 let isUrgent = item.max_stock > 0 && (item.stock / item.max_stock) < 0.2 && item.stock > 0;
                 let isSoldOut = item.stock <= 0;
 
+                let pinnedBadge = item.is_pinned ? `<span class="bg-amber-500 text-white text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-0.5">📌 강추/고정</span>` : '';
                 let badge = isUrgent ? `<span class="bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-md animate-bounce flex items-center gap-1">🔥 품절 임박!</span>` : '';
                 if(isSoldOut) badge = `<span class="bg-gray-700 text-white text-[10px] font-black px-2 py-0.5 rounded-md">완판 (SOLD OUT)</span>`;
 
@@ -662,6 +664,7 @@
                         <div class="flex justify-between items-start gap-3">
                             <div class="space-y-1 min-w-0 flex-1">
                                 <div class="flex items-center gap-1.5 flex-wrap">
+                                    ${pinnedBadge}
                                     <h3 class="text-base font-black text-gray-800 truncate cursor-pointer" onclick="openDetailModal(${originalIndex})">${item.name}</h3>
                                     ${badge}
                                 </div>
@@ -680,20 +683,32 @@
                         </div>
                     </div>`;
 
-                let hideBtnText = item.hide_stock ? "재고 숨김 중 🙈" : "재고 노출 중 👁️";
-                let hideBtnClass = item.hide_stock ? "bg-gray-600 text-white font-bold text-xs px-2.5 py-1 rounded-xl active:scale-95 transition" : "bg-orange-500 text-white font-bold text-xs px-2.5 py-1 rounded-xl active:scale-95 transition";
+                let hideBtnText = item.hide_stock ? "재고 숨김 🙈" : "재고 노출 👁️";
+                let hideBtnClass = item.hide_stock ? "bg-gray-600 text-white font-bold text-xs px-2 py-1 rounded-xl active:scale-95 transition" : "bg-orange-500 text-white font-bold text-xs px-2 py-1 rounded-xl active:scale-95 transition";
+                let pinBtnText = item.is_pinned ? "📍 고정 해제" : "📌 상단 고정";
+                let pinBtnClass = item.is_pinned ? "bg-amber-600 text-white font-bold text-xs px-2 py-1 rounded-xl active:scale-95 transition" : "bg-gray-200 text-gray-700 font-bold text-xs px-2 py-1 rounded-xl hover:bg-gray-300 active:scale-95 transition";
 
                 adminListEl.innerHTML += `
                     <div class="bg-gray-50 p-5 rounded-2xl border border-gray-200 flex flex-col justify-between space-y-3">
                         <div class="flex justify-between items-start w-full">
                             <div class="min-w-0 flex-1">
-                                <h4 class="font-black text-gray-800 text-base leading-snug">${item.name}</h4>
+                                <div class="flex items-center gap-1.5 flex-wrap">
+                                    ${item.is_pinned ? '<span class="bg-amber-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded">고정됨</span>' : ''}
+                                    <h4 class="font-black text-gray-800 text-base leading-snug">${item.name}</h4>
+                                </div>
                                 <p class="text-sm font-bold text-orange-600 mt-0.5">${Number(item.price).toLocaleString()}원</p>
                             </div>
-                            <button onclick="deleteFruitItem(${item.id}, this)" class="bg-red-50 text-red-600 font-bold text-xs px-2.5 py-1.5 rounded-xl ml-2 hover:bg-red-100 active:scale-95 transition">품목 삭제</button>
+                            <div class="flex items-center gap-1">
+                                <button onclick="moveFruitOrder(${originalIndex}, -1)" class="bg-white border border-gray-300 text-gray-700 px-2 py-1 rounded-lg text-xs font-bold hover:bg-gray-100">⬆️</button>
+                                <button onclick="moveFruitOrder(${originalIndex}, 1)" class="bg-white border border-gray-300 text-gray-700 px-2 py-1 rounded-lg text-xs font-bold hover:bg-gray-100">⬇️</button>
+                                <button onclick="deleteFruitItem(${item.id}, this)" class="bg-red-50 text-red-600 font-bold text-xs px-2.5 py-1.5 rounded-xl ml-1 hover:bg-red-100 active:scale-95 transition">삭제</button>
+                            </div>
                         </div>
-                        <div class="pt-2 border-t border-gray-200/60 flex items-center justify-between text-xs gap-2">
-                            <button onclick="toggleItemHideStock(${item.id}, ${!item.hide_stock}, this)" class="${hideBtnClass}">${hideBtnText}</button>
+                        <div class="pt-2 border-t border-gray-200/60 flex items-center justify-between text-xs gap-1 flex-wrap">
+                            <div class="flex items-center gap-1">
+                                <button onclick="togglePinItem(${item.id}, ${!item.is_pinned}, this)" class="${pinBtnClass}">${pinBtnText}</button>
+                                <button onclick="toggleItemHideStock(${item.id}, ${!item.hide_stock}, this)" class="${hideBtnClass}">${hideBtnText}</button>
+                            </div>
                             <div class="flex items-center gap-1 ml-auto">
                                 <span class="font-bold text-gray-400">재고:</span>
                                 <input type="number" id="stock-input-${item.id}" value="${item.stock}" class="w-12 text-right font-black bg-white text-gray-700 border border-gray-300 rounded px-1 py-0.5 focus:outline-none focus:border-orange-500">
@@ -703,6 +718,33 @@
                     </div>`;
             });
             updateStickyCheckoutBar();
+        }
+
+        // 📌 상단 고정 토글 함수
+        async function togglePinItem(fruitId, newPinState, btnEl) {
+            if(btnEl) btnEl.disabled = true;
+            try {
+                const res = await fetch(`${API_URL}/api/admin/fruits/${fruitId}?password=${PASS}`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ is_pinned: newPinState })
+                });
+                if(res.ok) { alert(newPinState ? '📌 최상단으로 고정되었습니다!' : '📍 고정이 해제되었습니다.'); loadStoreData(); }
+            } catch(e) { alert('고정 설정 실패!'); }
+            finally { if(btnEl) btnEl.disabled = false; }
+        }
+
+        // ⬆️⬇️ 상품 순서 바꾸기 함수
+        async function moveFruitOrder(index, direction) {
+            let targetIndex = index + direction;
+            if (targetIndex < 0 || targetIndex >= fruitItems.length) return;
+            
+            // 배열 순서 변경
+            const temp = fruitItems[index];
+            fruitItems[index] = fruitItems[targetIndex];
+            fruitItems[targetIndex] = temp;
+
+            refreshMainDisplay();
+            showToast("상품 순서가 변경되었습니다!");
         }
 
         function adjustOrderFormQty(fruitId, fruitName, price, change) {
@@ -1046,7 +1088,7 @@
             }
         }
 
-        // 🖼️ 사장님 카드 렌더링 균일 정렬 적용
+        // 🖼️ 사장님 카드 렌더링 (매장 픽업 카드에 '총 결제금액' 표시 추가)
         async function renderAdminOrders() {
             try {
                 const res = await fetch(`${API_URL}/api/admin/orders?password=${PASS}`);
@@ -1069,7 +1111,7 @@
                     else actionBtn = `<button onclick="triggerCompleteOrder(${order.id}, this)" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-xl text-xs font-black active:scale-95 transition">✅ 수령 완료</button>`;
 
                     waitList.innerHTML += `
-                        <div class="bg-white p-5 rounded-3xl border border-gray-100 shadow-2xs relative flex flex-col justify-between h-full min-h-[170px]">
+                        <div class="bg-white p-5 rounded-3xl border border-gray-100 shadow-2xs relative flex flex-col justify-between h-full min-h-[180px]">
                             <div class="space-y-2">
                                 <div class="flex justify-between items-start pr-20">
                                     <h4 class="text-lg font-black flex items-center gap-1.5">
@@ -1081,6 +1123,7 @@
                                 </div>
                                 <span class="absolute right-5 top-5 text-xs font-black px-2 py-1 rounded-md ${badgeStyle.classes}">${badgeStyle.text}</span>
                                 <p class="text-orange-600 font-bold text-sm">📦 과일: ${order.fruit} | 결제: ${order.method}</p>
+                                <p class="text-sm font-black text-red-600">💰 총 결제금액: ${Number(order.total_price).toLocaleString()}원</p>
                                 <p class="text-xs text-gray-400">🕒 접수일시: ${order.time_str || ''} [상태: ${order.status}]</p>
                             </div>
                             <div class="flex gap-2 pt-3 border-t border-gray-100 mt-3">
@@ -1116,7 +1159,8 @@
                                     <p class="text-xs font-extrabold text-blue-700 mt-1">🏠 주소: ${order.address}</p>
                                     <p class="text-xs font-black text-red-600 mt-0.5">🔑 공동현관 비번: ${order.door_password || '없음/자유출입'}</p>
                                 </div>
-                                <p class="text-orange-600 font-bold text-sm">📦 ${order.fruit} (총 ${Number(order.total_price).toLocaleString()}원)</p>
+                                <p class="text-orange-600 font-bold text-sm">📦 ${order.fruit}</p>
+                                <p class="text-sm font-black text-red-600">💰 총 결제금액: ${Number(order.total_price).toLocaleString()}원 (${order.method})</p>
                                 <p class="text-[11px] text-gray-400 font-bold">🕒 주문 접수일시: ${order.time_str || ''}</p>
                             </div>
                             <div class="flex gap-2 pt-3 border-t border-gray-100 mt-3">
