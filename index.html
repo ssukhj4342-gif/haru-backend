@@ -221,9 +221,10 @@
                         <button onclick="toggleAddForm()" id="addFormBtn" class="bg-orange-500 text-white font-bold text-sm px-3 py-1.5 rounded-xl hover:bg-orange-600 active:scale-95 transition">+ 새 품목 추가하기</button>
                     </div>
                     <div id="itemAddForm" class="hidden bg-gray-50 p-4 rounded-2xl border border-gray-200 space-y-3">
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
                             <input type="text" id="newFruitName" placeholder="과일 품목명" class="p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition">
-                            <input type="number" id="newFruitPrice" placeholder="판매 가격 (숫자만)" class="p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition">
+                            <input type="number" id="newFruitPrice" placeholder="기존 정상가 (숫자만)" class="p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition">
+                            <input type="number" id="newFruitEventPrice" placeholder="이벤트 특가 (선택)" class="p-3 border border-orange-300 bg-orange-50/50 rounded-xl text-sm font-bold focus:outline-none focus:border-orange-500 transition">
                             <input type="number" id="newFruitStock" placeholder="초기 재고량" class="p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition">
                         </div>
                         <textarea id="newFruitDesc" rows="2" placeholder="상품 상세 설명을 입력하세요 (선택)" class="w-full p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition"></textarea>
@@ -626,21 +627,25 @@
                 return;
             }
 
-            // 📌 상단 고정(is_pinned) 우선 -> 품절 상품 맨 아래 정렬
+            // 🎉 이벤트(is_event) 진행 중인 과일 최상단 우선 정렬 -> 품절 상품 맨 아래 정렬
             const sortedFruitItems = [...fruitItems].sort((a, b) => {
-                if (a.is_pinned && !b.is_pinned) return -1;
-                if (!a.is_pinned && b.is_pinned) return 1;
+                if (a.is_event && !b.is_event) return -1;
+                if (!a.is_event && b.is_event) return 1;
                 if (a.stock <= 0 && b.stock > 0) return 1;
                 if (a.stock > 0 && b.stock <= 0) return -1;
                 return 0;
             });
 
-            sortedFruitItems.forEach((item, index) => {
+            sortedFruitItems.forEach((item) => {
                 const originalIndex = fruitItems.findIndex(f => f.id === item.id);
                 let isUrgent = item.max_stock > 0 && (item.stock / item.max_stock) < 0.2 && item.stock > 0;
                 let isSoldOut = item.stock <= 0;
+                let isEvent = item.is_event && item.event_price > 0;
 
-                let pinnedBadge = item.is_pinned ? `<span class="bg-amber-500 text-white text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-0.5">📌 강추/고정</span>` : '';
+                // 실적용 가격 결정
+                let activePrice = isEvent ? item.event_price : item.price;
+
+                let eventBadge = isEvent ? `<span class="bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md animate-pulse flex items-center gap-0.5">🎉 특가 이벤트</span>` : '';
                 let badge = isUrgent ? `<span class="bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-md animate-bounce flex items-center gap-1">🔥 품절 임박!</span>` : '';
                 if(isSoldOut) badge = `<span class="bg-gray-700 text-white text-[10px] font-black px-2 py-0.5 rounded-md">완판 (SOLD OUT)</span>`;
 
@@ -658,26 +663,34 @@
 
                 let currentQty = selectedItems[item.id] ? selectedItems[item.id].qty : 0;
 
+                // 가격 표시 UI (이벤트시 취소선 + 특가 강조)
+                let priceDisplayHtml = isEvent 
+                    ? `<div class="flex items-center gap-2">
+                        <span class="text-gray-400 line-through text-sm font-bold">${Number(item.price).toLocaleString()}원</span>
+                        <span class="text-red-600 text-xl font-black">${Number(item.event_price).toLocaleString()}원</span>
+                       </div>`
+                    : `<p class="text-orange-600 text-lg font-black">${Number(item.price).toLocaleString()}원</p>`;
+
                 userListEl.innerHTML += `
-                    <div class="bg-gray-50/80 p-4 rounded-2xl border ${isSoldOut ? 'border-gray-300 opacity-60' : 'border-gray-200'} space-y-3 relative">
+                    <div class="bg-gray-50/80 p-4 rounded-2xl border ${isEvent ? 'border-red-300 ring-2 ring-red-100 bg-red-50/20' : isSoldOut ? 'border-gray-300 opacity-60' : 'border-gray-200'} space-y-3 relative">
                         ${imgHtmlContainer}
                         <div class="flex justify-between items-start gap-3">
                             <div class="space-y-1 min-w-0 flex-1">
                                 <div class="flex items-center gap-1.5 flex-wrap">
-                                    ${pinnedBadge}
+                                    ${eventBadge}
                                     <h3 class="text-base font-black text-gray-800 truncate cursor-pointer" onclick="openDetailModal(${originalIndex})">${item.name}</h3>
                                     ${badge}
                                 </div>
-                                <p class="text-orange-600 text-lg font-black">${Number(item.price).toLocaleString()}원</p>
+                                ${priceDisplayHtml}
                                 ${stockDisplayHtml}
                                 <p class="text-xs text-gray-500 line-clamp-1 cursor-pointer" onclick="openDetailModal(${originalIndex})">${item.description || "상세 설명 보기 >"}</p>
                             </div>
                             <div class="flex flex-col items-end gap-2 shrink-0">
                                 <button onclick="openDetailModal(${originalIndex})" class="px-2.5 py-1 bg-white border border-gray-200 text-gray-600 font-bold rounded-xl text-xs shadow-2xs hover:bg-gray-100 active:scale-95 transition">🔍 상세사진</button>
                                 <div class="flex items-center space-x-1.5 border-2 ${isSoldOut ? 'border-gray-200 bg-gray-100' : 'border-orange-300 bg-white'} rounded-xl p-1 shadow-2xs">
-                                    <button onclick="adjustOrderFormQty(${item.id}, '${item.name}', ${item.price}, -1)" ${isSoldOut ? 'disabled' : ''} class="w-7 h-7 bg-orange-50 border border-orange-200 rounded-lg text-sm font-black text-orange-900 active:scale-90 transition disabled:opacity-40">-</button>
+                                    <button onclick="adjustOrderFormQty(${item.id}, '${item.name}', ${activePrice}, -1)" ${isSoldOut ? 'disabled' : ''} class="w-7 h-7 bg-orange-50 border border-orange-200 rounded-lg text-sm font-black text-orange-900 active:scale-90 transition disabled:opacity-40">-</button>
                                     <span id="orderQty-${item.id}" class="w-6 text-center font-black text-sm text-gray-800">${currentQty}</span>
-                                    <button onclick="adjustOrderFormQty(${item.id}, '${item.name}', ${item.price}, 1)" ${isSoldOut ? 'disabled' : ''} class="w-7 h-7 bg-orange-500 border border-orange-600 rounded-lg text-sm font-black text-white active:scale-90 transition disabled:bg-gray-300 disabled:cursor-not-allowed">+</button>
+                                    <button onclick="adjustOrderFormQty(${item.id}, '${item.name}', ${activePrice}, 1)" ${isSoldOut ? 'disabled' : ''} class="w-7 h-7 bg-orange-500 border border-orange-600 rounded-lg text-sm font-black text-white active:scale-90 transition disabled:bg-gray-300 disabled:cursor-not-allowed">+</button>
                                 </div>
                             </div>
                         </div>
@@ -685,18 +698,22 @@
 
                 let hideBtnText = item.hide_stock ? "재고 숨김 🙈" : "재고 노출 👁️";
                 let hideBtnClass = item.hide_stock ? "bg-gray-600 text-white font-bold text-xs px-2 py-1 rounded-xl active:scale-95 transition" : "bg-orange-500 text-white font-bold text-xs px-2 py-1 rounded-xl active:scale-95 transition";
-                let pinBtnText = item.is_pinned ? "📍 고정 해제" : "📌 상단 고정";
-                let pinBtnClass = item.is_pinned ? "bg-amber-600 text-white font-bold text-xs px-2 py-1 rounded-xl active:scale-95 transition" : "bg-gray-200 text-gray-700 font-bold text-xs px-2 py-1 rounded-xl hover:bg-gray-300 active:scale-95 transition";
+                
+                let eventBtnText = item.is_event ? "🏷️ 이벤트 해제" : "🎉 이벤트 하기";
+                let eventBtnClass = item.is_event ? "bg-red-600 text-white font-bold text-xs px-2 py-1 rounded-xl active:scale-95 transition" : "bg-rose-100 text-rose-700 border border-rose-300 font-bold text-xs px-2 py-1 rounded-xl hover:bg-rose-200 active:scale-95 transition";
 
                 adminListEl.innerHTML += `
-                    <div class="bg-gray-50 p-5 rounded-2xl border border-gray-200 flex flex-col justify-between space-y-3">
+                    <div class="bg-gray-50 p-5 rounded-2xl border ${item.is_event ? 'border-red-300 bg-red-50/30' : 'border-gray-200'} flex flex-col justify-between space-y-3">
                         <div class="flex justify-between items-start w-full">
                             <div class="min-w-0 flex-1">
                                 <div class="flex items-center gap-1.5 flex-wrap">
-                                    ${item.is_pinned ? '<span class="bg-amber-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded">고정됨</span>' : ''}
+                                    ${item.is_event ? '<span class="bg-red-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded">이벤트 중</span>' : ''}
                                     <h4 class="font-black text-gray-800 text-base leading-snug">${item.name}</h4>
                                 </div>
-                                <p class="text-sm font-bold text-orange-600 mt-0.5">${Number(item.price).toLocaleString()}원</p>
+                                <div class="flex items-center gap-2 mt-0.5">
+                                    <span class="text-sm font-bold text-gray-600">정상가: ${Number(item.price).toLocaleString()}원</span>
+                                    ${item.event_price ? `<span class="text-xs font-black text-red-600">(이벤트가: ${Number(item.event_price).toLocaleString()}원)</span>` : ''}
+                                </div>
                             </div>
                             <div class="flex items-center gap-1">
                                 <button onclick="moveFruitOrder(${originalIndex}, -1)" class="bg-white border border-gray-300 text-gray-700 px-2 py-1 rounded-lg text-xs font-bold hover:bg-gray-100">⬆️</button>
@@ -704,9 +721,19 @@
                                 <button onclick="deleteFruitItem(${item.id}, this)" class="bg-red-50 text-red-600 font-bold text-xs px-2.5 py-1.5 rounded-xl ml-1 hover:bg-red-100 active:scale-95 transition">삭제</button>
                             </div>
                         </div>
+
+                        <!-- 이벤트 가격 즉시 입력/수정 창 -->
+                        <div class="bg-white p-2.5 rounded-xl border border-gray-200 space-y-1.5">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-xs font-bold text-gray-500">🎉 이벤트 특가:</span>
+                                <input type="number" id="event-price-input-${item.id}" value="${item.event_price || ''}" placeholder="이벤트 할인가 입력" class="w-28 p-1 text-right text-xs font-black bg-gray-50 border border-gray-300 rounded focus:outline-none focus:border-red-500">
+                                <button onclick="saveEventPrice(${item.id})" class="bg-gray-800 text-white text-[11px] font-bold px-2 py-1 rounded active:scale-95 transition">저장</button>
+                            </div>
+                        </div>
+
                         <div class="pt-2 border-t border-gray-200/60 flex items-center justify-between text-xs gap-1 flex-wrap">
                             <div class="flex items-center gap-1">
-                                <button onclick="togglePinItem(${item.id}, ${!item.is_pinned}, this)" class="${pinBtnClass}">${pinBtnText}</button>
+                                <button onclick="toggleEventItem(${item.id}, ${!item.is_event}, this)" class="${eventBtnClass}">${eventBtnText}</button>
                                 <button onclick="toggleItemHideStock(${item.id}, ${!item.hide_stock}, this)" class="${hideBtnClass}">${hideBtnText}</button>
                             </div>
                             <div class="flex items-center gap-1 ml-auto">
@@ -720,17 +747,45 @@
             updateStickyCheckoutBar();
         }
 
-        // 📌 상단 고정 토글 함수
-        async function togglePinItem(fruitId, newPinState, btnEl) {
+        // 🎉 이벤트 ON/OFF 토글 함수
+        async function toggleEventItem(fruitId, newEventState, btnEl) {
+            const item = fruitItems.find(f => f.id === fruitId);
+            const inputVal = document.getElementById(`event-price-input-${fruitId}`).value;
+            let eventPrice = parseInt(inputVal) || item.event_price || 0;
+
+            if (newEventState && (!eventPrice || eventPrice <= 0)) {
+                alert("⚠️ 이벤트를 시작하려면 먼저 '이벤트 특가' 금액을 입력해 주세요!");
+                document.getElementById(`event-price-input-${fruitId}`).focus();
+                return;
+            }
+
             if(btnEl) btnEl.disabled = true;
             try {
                 const res = await fetch(`${API_URL}/api/admin/fruits/${fruitId}?password=${PASS}`, {
                     method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ is_pinned: newPinState })
+                    body: JSON.stringify({ is_event: newEventState, event_price: eventPrice })
                 });
-                if(res.ok) { alert(newPinState ? '📌 최상단으로 고정되었습니다!' : '📍 고정이 해제되었습니다.'); loadStoreData(); }
-            } catch(e) { alert('고정 설정 실패!'); }
+                if(res.ok) { 
+                    alert(newEventState ? '🎉 이벤트가 활성화되었습니다!' : '🏷️ 이벤트가 해제되었습니다.'); 
+                    loadStoreData(); 
+                }
+            } catch(e) { alert('이벤트 설정 실패!'); }
             finally { if(btnEl) btnEl.disabled = false; }
+        }
+
+        // 💰 이벤트 가격 개별 저장 함수
+        async function saveEventPrice(fruitId) {
+            const inputVal = document.getElementById(`event-price-input-${fruitId}`).value;
+            let eventPrice = parseInt(inputVal);
+            if (isNaN(eventPrice) || eventPrice < 0) { alert('올바른 이벤트 가격을 입력해주세요!'); return; }
+
+            try {
+                const res = await fetch(`${API_URL}/api/admin/fruits/${fruitId}?password=${PASS}`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ event_price: eventPrice })
+                });
+                if(res.ok) { alert('이벤트 가격이 저장되었습니다!'); loadStoreData(); }
+            } catch(e) { alert('이벤트 가격 저장 실패!'); }
         }
 
         // ⬆️⬇️ 상품 순서 바꾸기 함수
@@ -738,7 +793,6 @@
             let targetIndex = index + direction;
             if (targetIndex < 0 || targetIndex >= fruitItems.length) return;
             
-            // 배열 순서 변경
             const temp = fruitItems[index];
             fruitItems[index] = fruitItems[targetIndex];
             fruitItems[targetIndex] = temp;
@@ -807,8 +861,13 @@
 
         function openDetailModal(index) {
             const item = fruitItems[index];
+            const isEvent = item.is_event && item.event_price > 0;
+            const priceText = isEvent 
+                ? `특가 ${Number(item.event_price).toLocaleString()}원 (정상가 ${Number(item.price).toLocaleString()}원)`
+                : `${Number(item.price).toLocaleString()}원`;
+
             document.getElementById('detailFruitName').innerText = item.name;
-            document.getElementById('detailPrice').innerText = Number(item.price).toLocaleString() + "원";
+            document.getElementById('detailPrice').innerText = priceText;
             document.getElementById('detailStock').innerText = item.hide_stock ? "구매 가능" : `남은 재고: ${item.stock}개`;
             document.getElementById('detailDescription').innerText = item.description || "등록된 상세 설명이 없습니다.";
 
@@ -1039,10 +1098,13 @@
         async function addNewFruitItem() {
             const btn = document.getElementById('btnAddNewFruit');
             const nameInput = document.getElementById('newFruitName'); const priceInput = document.getElementById('newFruitPrice');
+            const eventPriceInput = document.getElementById('newFruitEventPrice');
             const stockInput = document.getElementById('newFruitStock'); const descInput = document.getElementById('newFruitDesc');
             const hideStockInput = document.getElementById('newFruitHideStock');
 
-            const name = nameInput.value; const price = parseInt(priceInput.value); const stock = parseInt(stockInput.value);
+            const name = nameInput.value; const price = parseInt(priceInput.value); 
+            const eventPrice = parseInt(eventPriceInput.value) || 0;
+            const stock = parseInt(stockInput.value);
             const img = document.getElementById('newFruitImg').value; const desc = descInput.value; const hideStock = hideStockInput.checked;
 
             if(!name || isNaN(price) || isNaN(stock)) { alert('정보를 올바르게 입력해주세요!'); return; }
@@ -1051,11 +1113,11 @@
             try {
                 const res = await fetch(`${API_URL}/api/admin/fruits?password=${PASS}`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, price, stock, img, detail_imgs: uploadedDetailImgs, description: desc, hide_stock: hideStock })
+                    body: JSON.stringify({ name, price, event_price: eventPrice, stock, img, detail_imgs: uploadedDetailImgs, description: desc, hide_stock: hideStock })
                 });
                 if(res.ok) {
                     alert('새 품목 추가 완료! 🍓');
-                    nameInput.value = ''; priceInput.value = ''; stockInput.value = ''; descInput.value = ''; hideStockInput.checked = false;
+                    nameInput.value = ''; priceInput.value = ''; eventPriceInput.value = ''; stockInput.value = ''; descInput.value = ''; hideStockInput.checked = false;
                     document.getElementById('fileFruitImg').value = ''; document.getElementById('fileFruitDetailImgs').value = ''; document.getElementById('newFruitImg').value = '';
                     uploadedDetailImgs = [];
                     toggleAddForm(); loadStoreData();
@@ -1091,7 +1153,7 @@
             }
         }
 
-        // 🖼️ 사장님 카드 렌더링 (매장 픽업 카드에 '총 결제금액' 표시 추가)
+        // 🖼️ 사장님 카드 렌더링
         async function renderAdminOrders() {
             try {
                 const res = await fetch(`${API_URL}/api/admin/orders?password=${PASS}`);
