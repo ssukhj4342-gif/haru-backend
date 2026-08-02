@@ -162,7 +162,13 @@
 
         <section id="adminView" class="hidden flex-col md:flex-row gap-6 w-full transition-all duration-300">
             <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4 h-fit md:sticky md:top-24 w-full md:w-[380px] shrink-0">
-                <h2 class="text-xl font-extrabold text-gray-800 border-b pb-2 flex items-center gap-2">⚙️ 하루마켓 흑석점 관리</h2>
+                <div class="flex justify-between items-center border-b pb-2">
+                    <h2 class="text-xl font-extrabold text-gray-800 flex items-center gap-2">⚙️ 하루마켓 흑석점 관리</h2>
+                    <!-- 🔊 [새 기능] POS 실시간 주문 띵동 알림 활성화 버튼 -->
+                    <button id="btnEnablePosSound" onclick="enablePosNotification()" class="bg-amber-500 hover:bg-amber-600 text-white font-black text-xs px-2.5 py-1.5 rounded-xl shadow-xs transition active:scale-95 flex items-center gap-1">
+                        🔔 주문 알림 켜기
+                    </button>
+                </div>
                 <div class="space-y-3">
                     <div>
                         <label class="block text-xs font-bold text-gray-400 mb-1">📋 데일리 공지 수정</label>
@@ -443,6 +449,60 @@
         let isSubmitting = false; 
         let selectedItems = {};
 
+        // 🔔 [POS 실시간 띵동 알림 전역 변수]
+        let posSoundEnabled = false;
+        let knownOrderIds = new Set();
+        let isFirstLoad = true;
+
+        // Web Audio API를 활용한 '띵동~' 소리 생성기
+        function playChimeSound() {
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) return;
+                const ctx = new AudioContext();
+
+                const now = ctx.currentTime;
+                const osc1 = ctx.createOscillator();
+                const gain1 = ctx.createGain();
+                osc1.type = 'sine';
+                osc1.frequency.setValueAtTime(659.25, now); // E5
+                gain1.gain.setValueAtTime(0.3, now);
+                gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+                osc1.connect(gain1);
+                gain1.connect(ctx.destination);
+                osc1.start(now);
+                osc1.stop(now + 0.5);
+
+                const osc2 = ctx.createOscillator();
+                const gain2 = ctx.createGain();
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(880, now + 0.15); // A5
+                gain2.gain.setValueAtTime(0.3, now + 0.15);
+                gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+                osc2.connect(gain2);
+                gain2.connect(ctx.destination);
+                osc2.start(now + 0.15);
+                osc2.stop(now + 0.8);
+            } catch(e) { console.error("소리 재생 오류", e); }
+        }
+
+        function enablePosNotification() {
+            if ("Notification" in window) {
+                Notification.requestPermission().then(permission => {
+                    if (permission === "granted") {
+                        posSoundEnabled = true;
+                        playChimeSound();
+                        showToast("🔔 POS 실시간 띵동 알림이 활성화되었습니다!");
+                        const btn = document.getElementById('btnEnablePosSound');
+                        if (btn) {
+                            btn.innerText = "🔔 알림 작동 중";
+                            btn.className = "bg-emerald-600 text-white font-black text-xs px-2.5 py-1.5 rounded-xl shadow-xs cursor-default flex items-center gap-1";
+                        }
+                    } else { alert("알림 권한이 거부되었습니다. 브라우저 주소창 왼쪽 자물쇠 아이콘을 눌러 알림을 허용해주세요!"); }
+                });
+            } else { alert("이 브라우저는 알림 기능을 지원하지 않습니다."); }
+        }
+
         function copyToClipboard(text, message = '클립보드에 복사되었습니다!') {
             if (!text) return;
             navigator.clipboard.writeText(text).then(() => { showToast(message); }).catch(() => {
@@ -497,6 +557,13 @@
             const yyyy = today.getFullYear();
             const mm = String(today.getMonth() + 1).padStart(2, '0');
             document.getElementById('excelMonthPicker').value = `${yyyy}-${mm}`;
+
+            // ⏱️ 사장님 노트북 상시 가동용 10초 주기 실시간 주문 감지 타이머
+            setInterval(() => {
+                if (currentView === 'admin') {
+                    renderAdminOrders(true); // 배경 감지 모드
+                }
+            }, 10000);
         };
 
         function setupFileListeners() {
@@ -1149,8 +1216,8 @@
             }
         }
 
-        // 🖼️ 사장님 카드 렌더링 (오늘 배달 과일 총 수량 실시간 자동 카운팅 포함)
-        async function renderAdminOrders() {
+        // 🖼️ 사장님 카드 렌더링 (실시간 신규 주문 소리+푸시 감지 로직 연동)
+        async function renderAdminOrders(isBackgroundCheck = false) {
             try {
                 const res = await fetch(`${API_URL}/api/admin/orders?password=${PASS}`);
                 if(!res.ok) return;
@@ -1161,9 +1228,36 @@
                 currentAdminDeliveryOrders = deliveryOrders; 
                 rawCompletedOrders = data.completed || [];
 
+                // 🔔 [실시간 감지] 새 주문 ID가 들어왔는지 검사해서 소리 + 푸시 팝업 트리거
+                const allCurrentOrders = [...pendingPickup, ...deliveryOrders];
+                let hasNewOrder = false;
+                let newestOrderInfo = null;
+
+                allCurrentOrders.forEach(o => {
+                    if (o.id && !knownOrderIds.has(o.id)) {
+                        knownOrderIds.add(o.id);
+                        if (!isFirstLoad) {
+                            hasNewOrder = true;
+                            newestOrderInfo = o;
+                        }
+                    }
+                });
+
+                if (isFirstLoad) { isFirstLoad = false; }
+
+                if (hasNewOrder && newestOrderInfo) {
+                    playChimeSound(); // 🔊 '띵동~' 소리 재생
+                    if (posSoundEnabled && "Notification" in window && Notification.permission === "granted") {
+                        new Notification("🚨 [하루마켓] 새 주문 접수!", {
+                            body: `${newestOrderInfo.name}님 - ${newestOrderInfo.fruit} (${Number(newestOrderInfo.total_price).toLocaleString()}원)`,
+                            icon: "https://res.cloudinary.com/w9ilodii/image/upload/v1720000000/orange.png"
+                        });
+                    }
+                }
+
                 updateAdminDashboardSummary();
 
-                // 📦 [새 기능] 배달 나갈 과일 실시간 종합 수량 카운팅 로직
+                // 📦 배달 나갈 과일 실시간 종합 수량 카운팅 로직
                 let deliveryFruitSummary = {};
                 deliveryOrders.forEach(order => {
                     let rawFruitStr = order.fruit_name || order.fruit || "";
