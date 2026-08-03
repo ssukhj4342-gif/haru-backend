@@ -7,18 +7,16 @@
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        /* 📱 모바일 단어 단위 깨짐 방지 및 터치 감도 최적화 */
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             word-break: keep-all;
             overflow-wrap: break-word;
         }
         
-        /* 🖨️ A4 용지 규격 2x5 (10칸) 절대 고정 출력 스타일 */
         @page { size: A4 portrait; margin: 5mm; }
         @media print {
             html, body { height: 100% !important; overflow: visible !important; background: white !important; margin: 0 !important; padding: 0 !important; }
-            header, main, #stickyCheckoutBar, #thumbModal, #detailModal, #myOrdersModal, #editFruitModal, #authModal, #bankModal, #toastNotification { display: none !important; }
+            header, main, #stickyCheckoutBar, #thumbModal, #detailModal, #editFruitModal, #authModal, #bankModal, #toastNotification { display: none !important; }
             #labelPrintArea { display: block !important; position: absolute !important; left: 0 !important; top: 0 !important; width: 200mm !important; background: white !important; }
             .label-page { 
                 display: grid !important; 
@@ -53,21 +51,20 @@
         <span id="toastMsg">📋 클립보드에 복사되었습니다!</span>
     </div>
 
-    <!-- 헤더 모바일 레이아웃 최적화 -->
+    <!-- 헤더 -->
     <header class="bg-white sticky top-0 z-40 border-b border-gray-200 px-3 sm:px-6 py-3.5 flex items-center justify-between shadow-xs">
         <h1 class="text-lg sm:text-2xl font-black text-orange-600 tracking-tight cursor-pointer flex items-center gap-1 shrink-0 active:scale-95 transition" onclick="switchView('customer')">
             하루마켓 흑석점 🍊
         </h1>
         <div class="flex items-center gap-1.5 shrink-0">
-            <button onclick="scrollToMyOrdersDash()" class="bg-gray-100 text-gray-700 px-2.5 sm:px-3.5 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 active:scale-95 transition whitespace-nowrap">🔎 내 주문</button>
-            <button id="toggleBtn" onclick="openAdminAuthModal()" class="bg-orange-100 text-orange-700 px-2.5 sm:px-3.5 py-2 rounded-xl text-xs font-bold transition hover:bg-orange-200 active:scale-95 whitespace-nowrap">👨‍🌾 사장님</button>
+            <button id="toggleBtn" onclick="openAdminAuthModal()" class="bg-orange-100 text-orange-700 px-3 py-2 rounded-xl text-xs font-bold transition hover:bg-orange-200 active:scale-95 whitespace-nowrap">👨‍🌾 사장님</button>
         </div>
     </header>
 
     <main id="mainContainer" class="max-w-md mx-auto p-3 sm:p-4 pb-32 transition-all duration-300 ease-in-out">
         <section id="customerView" class="space-y-6 transition-all duration-300">
             
-            <!-- 📢 데일리 공지 카드 (사진 크기에 맞게 가변 크기 조정) -->
+            <!-- 📢 데일리 공지 카드 -->
             <div class="bg-gradient-to-br from-orange-50/80 to-white p-5 sm:p-6 rounded-3xl shadow-xs border border-orange-100/80 space-y-3">
                 <div class="flex items-center space-x-2">
                     <span class="bg-orange-500 text-white text-xs font-black px-2.5 py-1 rounded-md shadow-xs">📢 데일리 공지</span>
@@ -88,6 +85,7 @@
                 </button>
             </div>
 
+            <!-- ⏰ 영업 시간 카드 -->
             <div class="bg-white p-5 rounded-3xl shadow-xs border border-gray-100 flex items-center justify-between">
                 <div>
                     <span class="bg-amber-100 text-amber-800 text-xs font-bold px-2.5 py-1 rounded-md">⏰ 오늘 영업 시간</span>
@@ -96,22 +94,34 @@
                 <span class="text-3xl">🏪</span>
             </div>
 
-            <!-- 📅 요일별 예약/오늘 주문 탭 선택 -->
-            <div class="bg-white p-2 rounded-2xl shadow-xs border border-gray-200 flex gap-1">
-                <button id="tabTodayFruit" onclick="switchFruitTab('today')" class="flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-black transition bg-orange-500 text-white shadow-xs">
-                    🍊 오늘 입고 당일 주문
+            <!-- 🔎 주문 내역 확인 대시보드 -->
+            <div id="mainMyOrdersDash" class="bg-gradient-to-br from-gray-900 to-gray-800 text-white p-5 sm:p-6 rounded-3xl shadow-lg space-y-4 border border-gray-700">
+                <div class="flex items-center justify-between border-b border-gray-700 pb-3 gap-2">
+                    <h3 class="text-base sm:text-lg font-black text-orange-400 flex items-center gap-1.5 whitespace-nowrap">
+                        🔎 주문 내역 확인
+                    </h3>
+                    <span class="text-[11px] text-gray-400 font-bold whitespace-nowrap shrink-0">1초 빠른 조회</span>
+                </div>
+                <div class="space-y-2">
+                    <input type="text" id="dashSearchKakao" placeholder="카톡 닉네임 (예: 래미안1234)" class="w-full p-3 bg-gray-800/90 border border-gray-600 rounded-xl text-xs sm:text-sm font-bold text-white placeholder-gray-400 focus:outline-none focus:border-orange-500 transition">
+                    <input type="text" id="dashSearchName" placeholder="주문자 성함 (예: 박명숙)" class="w-full p-3 bg-gray-800/90 border border-gray-600 rounded-xl text-xs sm:text-sm font-bold text-white placeholder-gray-400 focus:outline-none focus:border-orange-500 transition">
+                </div>
+                <button id="btnDashFetchOrders" onclick="fetchMyOrdersFromDash()" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-3 rounded-xl text-sm shadow-md transition active:scale-95">
+                    내 주문 확인하기 🍊
                 </button>
-                <button id="tabReserveFruit" onclick="switchFruitTab('reserve')" class="flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-black transition bg-gray-100 text-gray-600 hover:bg-gray-200">
-                    📅 입고 예정 요일 예약
-                </button>
+                <div id="dashMyOrdersResult" class="space-y-3 pt-2 hidden"></div>
             </div>
 
-            <!-- 요일 선택 서브 바 (예약 탭 선택시만 노출) -->
-            <div id="daySelectorContainer" class="hidden bg-orange-50/60 p-3 rounded-2xl border border-orange-200/80 space-y-2">
-                <p class="text-xs font-bold text-orange-900">🗓️ 수령 희망 요일을 선택해 주세요</p>
-                <div id="dayButtonsList" class="flex items-center gap-1.5 overflow-x-auto pb-1"></div>
+            <!-- 🗓️ 오늘부터 10일간 날짜 선택 스크롤 토글 바 -->
+            <div class="bg-white p-4 rounded-3xl shadow-xs border border-gray-100 space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-extrabold text-orange-600 bg-orange-50 px-2.5 py-1 rounded-md border border-orange-200">🗓️ 수령 날짜 선택</span>
+                    <span id="selectedDateLabel" class="text-xs font-black text-gray-700"></span>
+                </div>
+                <div id="tenDaysToggleList" class="flex items-center gap-1.5 overflow-x-auto pt-1 pb-1 scrollbar-none"></div>
             </div>
 
+            <!-- 과일 수량 선택 영역 -->
             <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
                 <div class="flex justify-between items-center border-b pb-3">
                     <div>
@@ -124,6 +134,7 @@
                 </div>
             </div>
 
+            <!-- 수령 정보 입력 -->
             <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 space-y-5">
                 <h2 class="text-lg sm:text-xl font-black text-gray-900 border-b pb-3">📝 2. 수령 및 고객 정보 입력</h2>
                 <div class="space-y-2">
@@ -179,24 +190,6 @@
                 </div>
 
                 <button id="btnSubmitOrder" onclick="submitOrder()" class="w-full bg-orange-500 hover:bg-orange-600 text-white text-lg sm:text-xl font-black py-4 rounded-2xl shadow-xl transition disabled:bg-gray-400 disabled:cursor-not-allowed transform active:scale-95">🍊 일괄 주문 완료하기</button>
-            </div>
-
-            <!-- 2번 보완: 메인 화면 전면에 노출되는 실시간 내 주문 조회 대시보드 카드 -->
-            <div id="mainMyOrdersDash" class="bg-gradient-to-br from-gray-900 to-gray-800 text-white p-5 sm:p-6 rounded-3xl shadow-lg space-y-4 border border-gray-700">
-                <div class="flex items-center justify-between border-b border-gray-700 pb-3">
-                    <h3 class="text-lg font-black text-orange-400 flex items-center gap-1.5">
-                        🔎 실시간 내 주문 내역 확인 대시보드
-                    </h3>
-                    <span class="text-xs text-gray-400 font-bold">1초 빠른 조회</span>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <input type="text" id="dashSearchKakao" placeholder="카톡 닉네임 (예: 래미안1234)" class="p-3 bg-gray-700/80 border border-gray-600 rounded-xl text-sm font-bold text-white placeholder-gray-400 focus:outline-none focus:border-orange-500 transition">
-                    <input type="text" id="dashSearchName" placeholder="주문자 성함 (예: 박명숙)" class="p-3 bg-gray-700/80 border border-gray-600 rounded-xl text-sm font-bold text-white placeholder-gray-400 focus:outline-none focus:border-orange-500 transition">
-                </div>
-                <button id="btnDashFetchOrders" onclick="fetchMyOrdersFromDash()" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-3 rounded-xl text-sm shadow-md transition active:scale-95">
-                    내 주문 확인하기 🍊
-                </button>
-                <div id="dashMyOrdersResult" class="space-y-3 pt-2 hidden"></div>
             </div>
 
         </section>
@@ -273,16 +266,8 @@
                             <input type="text" id="newFruitName" placeholder="과일 품목명" class="p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition">
                             <input type="number" id="newFruitPrice" placeholder="판매 가격 (숫자만)" class="p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition">
                             <input type="number" id="newFruitStock" placeholder="초기 재고량" class="p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition">
-                            <select id="newFruitAvailableDay" class="p-3 border border-gray-300 rounded-xl text-sm bg-white font-bold focus:outline-none focus:border-orange-500 transition">
-                                <option value="today">당일 입금/즉시판매</option>
-                                <option value="월요일">월요일 입고예약</option>
-                                <option value="화요일">화요일 입고예약</option>
-                                <option value="수요일">수요일 입고예약</option>
-                                <option value="목요일">목요일 입고예약</option>
-                                <option value="금요일">금요일 입고예약</option>
-                                <option value="토요일">토요일 입고예약</option>
-                                <option value="일요일">일요일 입고예약</option>
-                            </select>
+                            <!-- 날짜 지정 드롭다운 -->
+                            <select id="newFruitAvailableDay" class="p-3 border border-gray-300 rounded-xl text-sm bg-white font-bold focus:outline-none focus:border-orange-500 transition"></select>
                         </div>
                         <textarea id="newFruitDesc" rows="2" placeholder="상품 상세 설명을 입력하세요 (선택)" class="w-full p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition"></textarea>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
@@ -306,17 +291,15 @@
                     <div id="adminFruitList" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
                 </div>
 
-                <!-- 🏢 매장 픽업 현황 대시보드 (3번: 픽업 제품 카운팅 + 5번: 이름/닉네임 실시간 검색 기능 추가) -->
+                <!-- 🏢 매장 픽업 현황 대시보드 -->
                 <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-3 gap-2">
                         <h2 class="text-lg sm:text-xl font-extrabold text-gray-800">🏢 매장 픽업 예약 현황 (<span id="orderCount" class="text-orange-500">0</span>건)</h2>
-                        <!-- 5번 보완: 사장님 픽업 주문 실시간 빠른 검색 입력창 -->
                         <div class="relative w-full sm:w-64">
                             <input type="text" id="pickupSearchKeyword" oninput="renderAdminOrders()" placeholder="🔍 손님 성함 / 카톡 닉네임 검색..." class="w-full p-2.5 text-xs font-bold bg-gray-50 border border-gray-300 rounded-xl focus:outline-none focus:border-orange-500 transition">
                         </div>
                     </div>
 
-                    <!-- 3번 보완: 매장 픽업 품목별 실시간 총 수량 카운팅 집계 위젯 -->
                     <div id="pickupSummaryBox" class="bg-orange-100/80 border border-orange-300 p-4 rounded-2xl hidden">
                         <h3 class="text-xs font-black text-orange-900 mb-2 flex items-center gap-1">
                             📦 오늘 매장 픽업 나갈 과일 총 포장 수량 (실시간 집계)
@@ -372,7 +355,7 @@
         </section>
     </main>
 
-    <!-- ✏️ 1번 보완: 과일 품목 상세 정보 편집 모달 (가격/제품명/설명/이미지 등 자유 수정) -->
+    <!-- 과일 품목 상세 편집 모달 -->
     <div id="editFruitModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden p-4" onclick="if(event.target == this) closeEditFruitModal()">
         <div class="bg-white w-full max-w-lg rounded-3xl p-5 sm:p-6 space-y-4 shadow-2xl overflow-y-auto max-h-[90vh]">
             <div class="flex justify-between items-center border-b pb-3">
@@ -401,17 +384,8 @@
                         <input type="number" id="editFruitStock" class="w-full p-3 border border-gray-300 rounded-xl font-bold focus:outline-none focus:border-orange-500">
                     </div>
                     <div>
-                        <label class="block font-bold text-gray-500 mb-1">판매 수령 구분</label>
-                        <select id="editFruitAvailableDay" class="w-full p-3 border border-gray-300 rounded-xl font-bold focus:outline-none focus:border-orange-500">
-                            <option value="today">당일 입금/즉시판매</option>
-                            <option value="월요일">월요일 입고예약</option>
-                            <option value="화요일">화요일 입고예약</option>
-                            <option value="수요일">수요일 입고예약</option>
-                            <option value="목요일">목요일 입고예약</option>
-                            <option value="금요일">금요일 입고예약</option>
-                            <option value="토요일">토요일 입고예약</option>
-                            <option value="일요일">일요일 입고예약</option>
-                        </select>
+                        <label class="block font-bold text-gray-500 mb-1">판매 수령 날짜 지정</label>
+                        <select id="editFruitAvailableDay" class="w-full p-3 border border-gray-300 rounded-xl font-bold focus:outline-none focus:border-orange-500"></select>
                     </div>
                 </div>
                 <div>
@@ -476,7 +450,6 @@
         </div>
     </div>
 
-    <!-- 4번 보완: 사진 원본 크기에 맞춰 박스 크기가 자연스럽게 조율되는 이미지 모달 -->
     <div id="thumbModal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center hidden p-4" onclick="closeThumbModal()">
         <div class="max-w-md w-full relative bg-transparent flex flex-col items-center">
             <button onclick="closeThumbModal()" class="absolute -top-10 right-0 text-white text-3xl font-black">✕</button>
@@ -543,8 +516,6 @@
         }
 
         let currentView = 'customer';
-        let activeFruitTab = 'today'; // 'today' 또는 'reserve'
-        let selectedReserveDay = ''; // 선택된 수령 희망 요일
         let fruitItems = [];
         let storeMeta = {};
         let globalOrders = []; 
@@ -560,7 +531,29 @@
         let knownOrderIds = new Set();
         let isFirstLoad = true;
 
-        const WEEK_DAYS = ['월요일', '화요일', '수요일', '목요일', '금요일', '토요일', '일요일'];
+        // 🗓️ 오늘부터 10일간의 날짜 배열 및 선택 날짜 식별값 관리
+        let tenDaysList = [];
+        let selectedDateKey = 'today'; // 기본값: 오늘
+
+        const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
+
+        function generateTenDays() {
+            tenDaysList = [];
+            const today = new Date();
+            for (let i = 0; i < 10; i++) {
+                let d = new Date(today);
+                d.setDate(today.getDate() + i);
+                
+                let month = d.getMonth() + 1;
+                let date = d.getDate();
+                let dayName = DAY_NAMES[d.getDay()];
+                
+                let key = (i === 0) ? 'today' : `${month}/${date}(${dayName})`;
+                let label = (i === 0) ? `${month}/${date} (오늘)` : `${month}/${date} (${dayName})`;
+                
+                tenDaysList.push({ key, label, index: i });
+            }
+        }
 
         function playChimeSound() {
             try {
@@ -660,9 +653,11 @@
         }
 
         window.onload = function() {
+            generateTenDays();
+            setupTenDaysToggleList();
+            setupAdminDateDropdowns();
             loadStoreData();
             setupFileListeners();
-            setupDaySelectorButtons();
             const today = new Date();
             const yyyy = today.getFullYear();
             const mm = String(today.getMonth() + 1).padStart(2, '0');
@@ -675,51 +670,48 @@
             }, 3000);
         };
 
-        // 6번 보완: 요일 선택 서브 버튼 생성기
-        function setupDaySelectorButtons() {
-            const container = document.getElementById('dayButtonsList');
+        // 1번 요건: 오늘 포함 열흘간 날짜 스크롤 토글 바 생성
+        function setupTenDaysToggleList() {
+            const container = document.getElementById('tenDaysToggleList');
             if (!container) return;
             container.innerHTML = '';
-            
-            const todayIdx = new Date().getDay(); // 0:일, 1:월 ...
-            let orderedDays = ['월요일', '화요일', '수요일', '목요일', '금요일', '토요일', '일요일'];
-            if (!selectedReserveDay) selectedReserveDay = orderedDays[0];
 
-            orderedDays.forEach(day => {
-                let isSelected = day === selectedReserveDay;
-                let btnClass = isSelected 
-                    ? "bg-orange-500 text-white font-black text-xs px-3 py-1.5 rounded-xl shrink-0 shadow-2xs transition"
-                    : "bg-white text-gray-700 font-bold text-xs px-3 py-1.5 rounded-xl shrink-0 border border-gray-200 hover:bg-orange-100 transition";
+            tenDaysList.forEach(item => {
+                let isSelected = item.key === selectedDateKey;
+                let btnClass = isSelected
+                    ? "bg-orange-500 text-white font-black text-xs px-3 py-2 rounded-xl shrink-0 shadow-xs transition"
+                    : "bg-gray-100 text-gray-700 font-bold text-xs px-3 py-2 rounded-xl shrink-0 hover:bg-orange-100 transition";
 
-                container.innerHTML += `<button onclick="selectReserveDay('${day}')" class="${btnClass}">${day}</button>`;
+                container.innerHTML += `<button onclick="selectCustomerDateKey('${item.key}')" class="${btnClass}">${item.label}</button>`;
             });
-        }
 
-        function selectReserveDay(day) {
-            selectedReserveDay = day;
-            setupDaySelectorButtons();
-            refreshMainDisplay();
-        }
-
-        function switchFruitTab(tab) {
-            activeFruitTab = tab;
-            const btnToday = document.getElementById('tabTodayFruit');
-            const btnReserve = document.getElementById('tabReserveFruit');
-            const dayContainer = document.getElementById('daySelectorContainer');
-            const titleEl = document.getElementById('fruitListTitle');
-
-            if (tab === 'today') {
-                btnToday.className = "flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-black transition bg-orange-500 text-white shadow-xs";
-                btnReserve.className = "flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-black transition bg-gray-100 text-gray-600 hover:bg-gray-200";
-                dayContainer.classList.add('hidden');
-                titleEl.innerText = "🛒 1. 오늘의 당일 입고 과일 수량 선택";
-            } else {
-                btnReserve.className = "flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-black transition bg-orange-500 text-white shadow-xs";
-                btnToday.className = "flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-black transition bg-gray-100 text-gray-600 hover:bg-gray-200";
-                dayContainer.classList.remove('hidden');
-                titleEl.innerText = `📅 [${selectedReserveDay}] 입고 예정 예약 과일 선택`;
+            const currObj = tenDaysList.find(t => t.key === selectedDateKey);
+            const labelEl = document.getElementById('selectedDateLabel');
+            if (labelEl && currObj) {
+                labelEl.innerText = currObj.label;
             }
+        }
+
+        function selectCustomerDateKey(key) {
+            selectedDateKey = key;
+            setupTenDaysToggleList();
             refreshMainDisplay();
+        }
+
+        // 사장님 모드 신규 추가/수정용 날짜 선택 옵션 구성
+        function setupAdminDateDropdowns() {
+            const addSelect = document.getElementById('newFruitAvailableDay');
+            const editSelect = document.getElementById('editFruitAvailableDay');
+
+            let optionsHtml = `<option value="today">🍊 당일 입금/즉시판매</option>`;
+            tenDaysList.forEach(t => {
+                if (t.key !== 'today') {
+                    optionsHtml += `<option value="${t.key}">📅 ${t.label} 예약</option>`;
+                }
+            });
+
+            if (addSelect) addSelect.innerHTML = optionsHtml;
+            if (editSelect) editSelect.innerHTML = optionsHtml;
         }
 
         function setupFileListeners() {
@@ -796,54 +788,6 @@
             } catch (e) { console.error("네트워크 통신 오류:", e); }
         }
 
-        function updateAdminDashboardSummary() {
-            const today = new Date();
-            const yyyy = today.getFullYear();
-            const mm = String(today.getMonth() + 1).padStart(2, '0');
-            const dd = String(today.getDate()).padStart(2, '0');
-            
-            document.getElementById('summaryTodayDate').innerText = `${yyyy}년 ${parseInt(mm)}월 ${parseInt(dd)}일 기준`;
-
-            let todayTotalSales = 0;
-            let todayCount = 0;
-            let todayPickupCount = 0;
-            let todayDeliveryCount = 0;
-
-            rawCompletedOrders.forEach(o => {
-                const timeStr = o.status_changed_time || o.time_str || '';
-                if (timeStr.includes(`${yyyy}.`) && (timeStr.includes(`.${mm}.`) || timeStr.includes(`. ${mm}.`))) {
-                    if (timeStr.includes(`.${dd}.`) || timeStr.includes(`. ${dd}.`)) {
-                        todayTotalSales += (o.total_price || 0);
-                        todayCount++;
-                        if (o.order_type === '배달') todayDeliveryCount++;
-                        else todayPickupCount++;
-                    }
-                } else if (timeStr.startsWith(`${yyyy}-${mm}-${dd}`)) {
-                    todayTotalSales += (o.total_price || 0);
-                    todayCount++;
-                    if (o.order_type === '배달') todayDeliveryCount++;
-                    else todayPickupCount++;
-                }
-            });
-
-            document.getElementById('summaryTodaySales').innerText = todayTotalSales.toLocaleString() + "원";
-            document.getElementById('summaryTodayCount').innerText = todayCount + "건";
-            document.getElementById('summaryTodayPickup').innerText = todayPickupCount + "건";
-            document.getElementById('summaryTodayDelivery').innerText = todayDeliveryCount + "건";
-        }
-
-        function getBadgeStyleByCount(count) {
-            if (count === 0 || count === 1) return { text: `🌱 최초 주문`, classes: "bg-emerald-100 text-emerald-800 border border-emerald-200" };
-            else if (count >= 2 && count <= 5) return { text: `✨ ${count}회차`, classes: "bg-blue-100 text-blue-800 border border-blue-200" };
-            else if (count >= 6 && count <= 10) return { text: `🔥 ${count}회차`, classes: "bg-purple-100 text-purple-800 border border-purple-200" };
-            else return { text: `👑 ${count}회차`, classes: "bg-amber-100 text-amber-700 border border-amber-300 font-black ring-2 ring-amber-400" };
-        }
-
-        function getStrictCustomerOrderCount(nickname) {
-            if(!nickname || globalOrders.length === 0) return 0;
-            return globalOrders.filter(o => o.kakao_nickname && o.kakao_nickname.trim() === nickname.trim()).length;
-        }
-
         function refreshMainDisplay() {
             document.getElementById('displayDailyNotice').innerText = storeMeta.notice || '공지사항이 없습니다.';
             document.getElementById('displayAccount').innerText = (storeMeta.account || '등록된 계좌가 없습니다.') + " (클릭시 복사)";
@@ -867,23 +811,20 @@
             const adminListEl = document.getElementById('adminFruitList'); adminListEl.innerHTML = '';
 
             if (!Array.isArray(fruitItems) || fruitItems.length === 0) {
-                userListEl.innerHTML = `<p class="text-center text-gray-400 py-10 font-bold">오늘 등록된 싱싱 품목이 없습니다. 🍎</p>`;
+                userListEl.innerHTML = `<p class="text-center text-gray-400 py-10 font-bold">해당 날짜에 판매 중인 상품이 없습니다. 🍎</p>`;
                 adminListEl.innerHTML = `<p class="text-center text-gray-400 py-4 font-bold">등록된 품목이 없습니다. 새 품목을 추가해 주세요.</p>`;
                 return;
             }
 
-            // 6번 보완: 탭(당일 vs 요일예약) 및 선택된 요일에 맞게 과일 필터링
+            // 선택된 날짜 키에 맞게 정확한 과일 필터링 (버그 완벽 수정!)
             let targetFruitItems = fruitItems.filter(item => {
                 let availDay = item.available_day || 'today';
-                if (activeFruitTab === 'today') {
-                    return availDay === 'today' || !availDay;
-                } else {
-                    return availDay === selectedReserveDay;
-                }
+                return availDay === selectedDateKey;
             });
 
+            // 1번 요건: 없는 경우 요청 문구 출력
             if (targetFruitItems.length === 0) {
-                userListEl.innerHTML = `<p class="text-center text-gray-400 py-10 font-bold">${activeFruitTab === 'today' ? '오늘 판매 중인 과일이 없습니다.' : `[${selectedReserveDay}] 입고 예약 가능한 과일이 없습니다.`} 🍎</p>`;
+                userListEl.innerHTML = `<p class="text-center text-gray-400 py-10 font-bold">해당 날짜에 판매 중인 상품이 없습니다. 🍎</p>`;
             }
 
             const sortedFruitItems = [...targetFruitItems].sort((a, b) => {
@@ -906,7 +847,6 @@
                 let badge = isUrgent ? `<span class="bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-md animate-bounce flex items-center gap-1">🔥 품절 임박!</span>` : '';
                 if(isSoldOut) badge = `<span class="bg-gray-700 text-white text-[10px] font-black px-2 py-0.5 rounded-md">완판 (SOLD OUT)</span>`;
 
-                // 4번 보완: 사진 자름 없이 박스 크기가 유연하게 조정되도록 고침
                 let imgHtmlContainer = '';
                 if (item.img && item.img.trim() !== "") {
                     imgHtmlContainer = `<div class="w-full bg-gray-100 rounded-2xl overflow-hidden flex items-center justify-center cursor-pointer relative p-1" onclick="openThumbModal('${item.img}')">
@@ -935,7 +875,7 @@
                         : 'bg-gray-50/80 p-4 rounded-2xl border border-gray-200 space-y-3 relative';
 
                 let reserveBadge = (item.available_day && item.available_day !== 'today') 
-                    ? `<span class="bg-indigo-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md">📅 ${item.available_day} 수령예약</span>` : '';
+                    ? `<span class="bg-indigo-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md">📅 ${item.available_day} 예약</span>` : '';
 
                 userListEl.innerHTML += `
                     <div class="${boxClass}">
@@ -964,8 +904,8 @@
                     </div>`;
             });
 
-            // 사장님 모드 품목 리스트
-            fruitItems.forEach((item, originalIndex) => {
+            // 사장님 모드 품목 카드 정렬
+            fruitItems.forEach((item) => {
                 let hideBtnText = item.hide_stock ? "재고 숨김 🙈" : "재고 노출 👁️";
                 let hideBtnClass = item.hide_stock ? "bg-gray-600 text-white font-bold text-xs px-2.5 py-1.5 rounded-xl active:scale-95 transition" : "bg-orange-500 text-white font-bold text-xs px-2.5 py-1.5 rounded-xl active:scale-95 transition";
                 
@@ -976,34 +916,33 @@
 
                 adminListEl.innerHTML += `
                     <div class="bg-gray-50 p-4 rounded-2xl border ${item.is_event ? 'border-red-400 bg-red-50/40 shadow-xs' : 'border-gray-200'} flex flex-col justify-between space-y-3">
-                        <div class="flex justify-between items-start w-full gap-2">
-                            <div class="min-w-0 flex-1">
+                        <div class="flex justify-between items-start w-full gap-2 border-b border-gray-200/60 pb-2">
+                            <div class="min-w-0 flex-1 space-y-1">
                                 <div class="flex items-center gap-1.5 flex-wrap">
                                     <span class="bg-gray-800 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">${dayText}</span>
                                     ${item.is_event ? '<span class="bg-red-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded animate-pulse">이벤트 중</span>' : ''}
-                                    <h4 class="font-black text-gray-800 text-sm sm:text-base leading-snug">${item.name}</h4>
                                 </div>
-                                <div class="flex items-center gap-2 mt-1">
+                                <h4 class="font-black text-gray-800 text-sm sm:text-base leading-snug">${item.name}</h4>
+                                <div class="flex items-center gap-1.5">
                                     <span class="text-xs font-bold text-gray-600">정상가: ${Number(item.price).toLocaleString()}원</span>
                                     ${item.is_event && item.event_price ? `<span class="text-xs font-black text-red-600">(특가: ${Number(item.event_price).toLocaleString()}원)</span>` : ''}
                                 </div>
                             </div>
-                            <!-- 1번 보완: ✏️ 상세 정보 수정 버튼 연동 -->
                             <div class="flex items-center gap-1 shrink-0">
                                 <button onclick="openEditFruitModal(${item.id})" class="bg-blue-600 text-white font-bold text-xs px-2.5 py-1.5 rounded-xl hover:bg-blue-700 active:scale-95 transition shadow-2xs">✏️ 수정</button>
                                 <button onclick="deleteFruitItem(${item.id}, this)" class="bg-red-50 text-red-600 font-bold text-xs px-2 py-1.5 rounded-xl hover:bg-red-100 active:scale-95 transition">삭제</button>
                             </div>
                         </div>
 
-                        <div class="pt-2 border-t border-gray-200/60 flex items-center justify-between text-xs gap-1 flex-wrap">
-                            <div class="flex items-center gap-1">
+                        <div class="flex items-center justify-between text-xs gap-1 flex-wrap pt-1">
+                            <div class="flex items-center gap-1 flex-wrap">
                                 <button onclick="handleEventToggle(${item.id}, ${!item.is_event}, ${item.price}, this)" class="${eventBtnClass}">${eventBtnText}</button>
                                 <button onclick="toggleItemHideStock(${item.id}, ${!item.hide_stock}, this)" class="${hideBtnClass}">${hideBtnText}</button>
                             </div>
-                            <div class="flex items-center gap-1 ml-auto">
+                            <div class="flex items-center gap-1 ml-auto shrink-0">
                                 <span class="font-bold text-gray-400">재고:</span>
-                                <input type="number" id="stock-input-${item.id}" value="${item.stock}" class="w-12 text-right font-black bg-white text-gray-700 border border-gray-300 rounded px-1 py-0.5 focus:outline-none focus:border-orange-500">
-                                <button onclick="updateStock(${item.id}, this)" class="bg-gray-800 text-white font-bold px-2 py-0.5 rounded active:scale-95 transition">변경</button>
+                                <input type="number" id="stock-input-${item.id}" value="${item.stock}" class="w-12 text-center font-black bg-white text-gray-700 border border-gray-300 rounded-lg px-1 py-1 focus:outline-none focus:border-orange-500">
+                                <button onclick="updateStock(${item.id}, this)" class="bg-gray-800 text-white font-bold px-2 py-1 rounded-lg active:scale-95 transition">변경</button>
                             </div>
                         </div>
                     </div>`;
@@ -1011,7 +950,6 @@
             updateStickyCheckoutBar();
         }
 
-        // 1번 보완: 과일 품목 상세 정보 수정 모달 열기/닫기/저장
         function openEditFruitModal(fruitId) {
             const item = fruitItems.find(f => f.id === fruitId);
             if (!item) return;
@@ -1138,11 +1076,6 @@
             if (formBox) { formBox.scrollIntoView({ behavior: 'smooth', block: 'center' }); formBox.focus(); }
         }
 
-        function scrollToMyOrdersDash() {
-            const dashBox = document.getElementById('mainMyOrdersDash');
-            if (dashBox) { dashBox.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
-        }
-
         function openThumbModal(imgUrl) { document.getElementById('thumbModalImg').src = imgUrl; document.getElementById('thumbModal').classList.remove('hidden'); }
         function closeThumbModal() { document.getElementById('thumbModal').classList.add('hidden'); }
 
@@ -1260,7 +1193,6 @@
 
         function closeBankModal() { document.getElementById('bankModal').classList.add('hidden'); }
 
-        // 2번 보완: 메인 대시보드 내 주문 실시간 조회 기능
         async function fetchMyOrdersFromDash() {
             const kakao = document.getElementById('dashSearchKakao').value.trim();
             const name = document.getElementById('dashSearchName').value.trim();
@@ -1294,7 +1226,12 @@
                 let canCancel = o.status === '입금대기' || o.status === '접수완료';
                 let cancelBtnHtml = canCancel 
                     ? `<button onclick="cancelMyOrder(${o.id}, '${kakao}', '${name}', this)" class="bg-red-500/20 text-red-400 font-bold text-xs px-2.5 py-1.5 rounded-xl hover:bg-red-500/30 transition">주문 취소</button>`
-                    : `<span class="text-xs text-gray-500 font-bold">취소 불가</span>`;
+                    : `<span class="text-xs text-emerald-400 font-bold">✅ 완료됨</span>`;
+
+                let displayStatusText = o.status;
+                if (o.status === '판매완료') {
+                    displayStatusText = o.order_type === '배달' ? '🚚 배달 완료' : '🏢 수령 완료';
+                }
 
                 box.innerHTML += `
                     <div class="bg-gray-900/90 p-4 rounded-2xl border border-gray-700 space-y-2 text-left">
@@ -1303,7 +1240,7 @@
                                 <span class="bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-md">${o.order_type || '픽업'}</span>
                                 <h4 class="font-black text-white text-base mt-1">${o.fruit}</h4>
                             </div>
-                            <span class="bg-blue-500/30 text-blue-300 text-xs font-black px-2 py-0.5 rounded-md border border-blue-400/30">${o.status}</span>
+                            <span class="bg-blue-500/30 text-blue-300 text-xs font-black px-2 py-0.5 rounded-md border border-blue-400/30">${displayStatusText}</span>
                         </div>
                         <p class="text-xs text-gray-300 font-bold">결제금액: ${Number(o.total_price).toLocaleString()}원 (${o.method})</p>
                         ${o.address ? `<p class="text-xs text-blue-300 font-bold">주소: ${o.address}</p>` : ''}
@@ -1321,7 +1258,7 @@
                 if(btnEl) btnEl.disabled = true;
                 try {
                     const res = await fetch(`${API_URL}/api/my-orders/${orderId}?kakao_nickname=${encodeURIComponent(kakao)}&name=${encodeURIComponent(name)}`, { method: 'DELETE' });
-                    if(res.ok) { alert('주문이 취소되었습니다.'); fetchMyOrdersFromDash(); loadStoreData(); }
+                    if(res.ok) { alert('주문이 취소되었으며, 재고가 정상 복구되었습니다.'); fetchMyOrdersFromDash(); loadStoreData(); }
                     else { const errData = await res.json(); alert(errData.detail || '취소할 수 없습니다.'); }
                 } catch(e) { alert('취소 통신 오류!'); }
                 finally { if(btnEl) btnEl.disabled = false; }
@@ -1452,7 +1389,6 @@
             }
         }
 
-        // 🖼️ 사장님 카드 렌더링 (3번: 픽업 수량 카운팅 + 5번: 닉네임/성함 빠른 실시간 검색)
         async function renderAdminOrders(isBackgroundCheck = false) {
             try {
                 const res = await fetch(`${API_URL}/api/admin/orders?password=${PASS}`);
@@ -1485,7 +1421,6 @@
 
                 updateAdminDashboardSummary();
 
-                // 3번 보완: 오늘 매장 픽업 나갈 과일 품목별 실시간 총 수량 카운팅
                 let pickupFruitSummary = {};
                 pendingPickup.forEach(order => {
                     let rawFruitStr = order.fruit_name || order.fruit || "";
@@ -1519,7 +1454,6 @@
                     pickupSummaryBox.classList.add('hidden');
                 }
 
-                // 5번 보완: 사장님 픽업 주문 실시간 빠른 검색 필터링
                 const pickupSearchInput = document.getElementById('pickupSearchKeyword');
                 const pickupKeyword = pickupSearchInput ? pickupSearchInput.value.trim().toLowerCase() : '';
 
@@ -1530,7 +1464,6 @@
                     );
                 }
 
-                // 배달 품목별 실시간 총 수량 카운팅
                 let deliveryFruitSummary = {};
                 deliveryOrders.forEach(order => {
                     let rawFruitStr = order.fruit_name || order.fruit || "";
@@ -1722,12 +1655,12 @@
         }
 
         async function cancelAdminOrder(id, btnEl) {
-            if(confirm('이 주문을 취소하시겠습니까? (재고가 복구됩니다)')) {
+            if(confirm('이 주문을 취소하시겠습니까? (재고가 즉시 원상 복구됩니다)')) {
                 if(btnEl) btnEl.disabled = true;
                 try {
                     const res = await fetch(`${API_URL}/api/admin/orders/${id}?password=${PASS}`, { method: 'DELETE' });
                     if(res.ok) { 
-                        alert('주문 취소 완료!'); 
+                        alert('주문 취소 완료 및 재고 복구 완료!'); 
                         await renderAdminOrders(); 
                         await loadStoreData();
                     }
