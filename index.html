@@ -291,7 +291,7 @@
                     <div id="adminFruitList" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
                 </div>
 
-                <!-- 🏢 매장 픽업 현황 대시보드 -->
+                <!-- 🏢 매장 픽업 현황 대시보드 (기간경과 미수령 전용 필터 포함) -->
                 <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-3 gap-2">
                         <div>
@@ -300,7 +300,8 @@
                         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                             <!-- 픽업일자 필터 셀렉터 -->
                             <select id="adminPickupDateFilter" onchange="renderAdminOrders()" class="p-2.5 bg-white border-2 border-orange-300 text-orange-900 rounded-xl text-xs font-bold focus:outline-none focus:border-orange-500 transition">
-                                <option value="today">🍊 당일 수령건</option>
+                                <option value="overdue">🚨 [기간경과] 미수령건</option>
+                                <option value="today" selected>🍊 당일 수령건</option>
                             </select>
                             <div class="relative w-full sm:w-52">
                                 <input type="text" id="pickupSearchKeyword" oninput="renderAdminOrders()" placeholder="🔍 성함 / 닉네임 검색..." class="w-full p-2.5 text-xs font-bold bg-gray-50 border border-gray-300 rounded-xl focus:outline-none focus:border-orange-500 transition">
@@ -318,7 +319,7 @@
                     <div id="orderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch"></div>
                 </div>
 
-                <!-- 🚚 배달 현황 대시보드 -->
+                <!-- 🚚 배달 현황 대시보드 (기간경과 미배달 전용 필터 포함) -->
                 <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-5 sm:p-6 rounded-3xl shadow-sm border border-blue-100 space-y-4">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-blue-200/60 pb-3 gap-3">
                         <div>
@@ -329,7 +330,8 @@
                         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                             <!-- 배달일자 필터 셀렉터 -->
                             <select id="adminDeliveryDateFilter" onchange="renderAdminOrders()" class="p-2.5 bg-white border-2 border-blue-300 text-blue-900 rounded-xl text-xs font-bold focus:outline-none focus:border-indigo-500 transition">
-                                <option value="today">🍊 당일 수령건</option>
+                                <option value="overdue">🚨 [기간경과] 미배달건</option>
+                                <option value="today" selected>🍊 당일 수령건</option>
                             </select>
 
                             <button onclick="printAllDeliveryLabels()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow-md transition active:scale-95 justify-center">🖨️ 배달 라벨 인쇄 (A4 10칸)</button>
@@ -739,7 +741,7 @@
             const pickupFilterSelect = document.getElementById('adminPickupDateFilter');
 
             let optionsHtml = `<option value="today">🍊 당일 입금/즉시판매</option>`;
-            let filterHtml = `<option value="today">🍊 당일 수령건</option>`;
+            let filterHtml = `<option value="overdue">🚨 [기간경과] 미처리건</option><option value="today" selected>🍊 당일 수령건</option>`;
 
             tenDaysList.forEach(t => {
                 if (t.key !== 'today') {
@@ -1584,12 +1586,15 @@
 
                 updateAdminDashboardSummary();
 
-                // 🏢 픽업 수령일자 토글 필터링
+                // 🏢 픽업 수령일자 및 기간경과(Overdue) 필터링
                 const pickupDateFilterEl = document.getElementById('adminPickupDateFilter');
                 const selectedPickupDate = pickupDateFilterEl ? pickupDateFilterEl.value : 'today';
 
                 let filteredPickupOrders = pendingPickup.filter(o => {
                     let orderDay = extractOrderAvailableDay(o);
+                    if (selectedPickupDate === 'overdue') {
+                        return orderDay !== 'today' && orderDay !== tenDaysList[0]?.label;
+                    }
                     return orderDay === selectedPickupDate;
                 });
 
@@ -1636,12 +1641,15 @@
                     );
                 }
 
-                // 🚚 배달 수령일자 토글 필터링
+                // 🚚 배달 수령일자 및 기간경과(Overdue) 필터링
                 const deliveryDateFilterEl = document.getElementById('adminDeliveryDateFilter');
                 const selectedDeliveryDate = deliveryDateFilterEl ? deliveryDateFilterEl.value : 'today';
 
                 let filteredDeliveryOrders = deliveryOrders.filter(o => {
                     let orderDay = extractOrderAvailableDay(o);
+                    if (selectedDeliveryDate === 'overdue') {
+                        return orderDay !== 'today' && orderDay !== tenDaysList[0]?.label;
+                    }
                     return orderDay === selectedDeliveryDate;
                 });
                 currentAdminDeliveryOrders = filteredDeliveryOrders;
@@ -1726,7 +1734,6 @@
                     let orderDay = extractOrderAvailableDay(order);
                     let reserveTag = (orderDay !== 'today') ? `📅 ${orderDay} 배달` : '🍊 당일배달';
 
-                    // 🚨 배달비 2,500원 무조건 합산 계산 (과일상품가격 + 2500)
                     let rawPrice = Number(order.total_price || 0);
                     let finalDeliveryTotalPrice = rawPrice < 2500 ? (rawPrice + 2500) : rawPrice;
 
@@ -1912,6 +1919,7 @@
 
         function resetDateFilter() { document.getElementById('searchDate').value = ''; filterAndRenderCompletedOrders(); }
 
+        // 📊 수령일자(available_day) 및 2,500원 배달비 정산 반영 엑셀 다운로드
         function downloadExcel(mode = 'all') {
             let targetOrders = [...rawCompletedOrders];
             if (mode === 'month') {
@@ -1984,8 +1992,8 @@
             </head>
             <body>
             <table>
-                <tr><td colspan="12" class="title">💡 하루마켓 흑석점 - 품목별 원가/마진 정산 분석기</td></tr>
-                <tr><td colspan="12" style="color: #6b7280; font-size: 9pt;">📌 '품목별 원가(C열)'에 원가를 입력하시면 총 원가, 순이익, 마진율이 자동 산출됩니다.</td></tr>
+                <tr><td colspan="13" class="title">💡 하루마켓 흑석점 - 품목별 원가/마진 정산 분석기</td></tr>
+                <tr><td colspan="13" style="color: #6b7280; font-size: 9pt;">📌 '품목별 원가(C열)'에 원가를 입력하시면 총 원가, 순이익, 마진율이 자동 산출됩니다.</td></tr>
                 <tr>
                     <th class="calc-header">품목명</th> <th class="calc-header">품목별 판매가(원)</th> <th class="calc-header">품목별 원가(입력)</th>
                     <th class="calc-header">총 판매 수량</th> <th class="calc-header">총 매출액(원)</th> <th class="calc-header">총 원가(원)</th>
@@ -2016,9 +2024,9 @@
                 </tr>`;
             });
 
-            html += `<tr><td colspan="16"></td></tr>
+            html += `<tr><td colspan="17"></td></tr>
                 <tr>
-                    <th class="data-header">연번</th><th class="data-header">구분(수령방식)</th><th class="data-header">카톡 닉네임</th>
+                    <th class="data-header">연번</th><th class="data-header">구분(수령방식)</th><th class="data-header">지정 수령일자</th><th class="data-header">카톡 닉네임</th>
                     <th class="data-header">고객 성함</th><th class="data-header">고객 누적회차</th><th class="data-header">배달 주소</th>
                     <th class="data-header">판매 품목명</th><th class="data-header">단가(원)</th><th class="data-header">주문 수량(개)</th>
                     <th class="data-header">품목 합계금액(원)</th><th class="data-header">배달비(원)</th><th class="data-header">총 결제금액(원)</th>
@@ -2031,6 +2039,8 @@
                 const orderUserCount = getStrictCustomerOrderCount(order.kakao_nickname);
                 let rawFruitStr = order.fruit_name || order.fruit || "";
                 let fruitItemsList = rawFruitStr.split(',').map(s => s.trim()).filter(s => s);
+                let orderDay = extractOrderAvailableDay(order);
+                let deliveryFeeVal = (order.order_type === '배달') ? 2500 : 0;
 
                 if (fruitItemsList.length > 0) {
                     fruitItemsList.forEach((itemStr, itemIdx) => {
@@ -2043,27 +2053,32 @@
                         let itemTotal = itemPrice * itemQty;
                         let isFirst = itemIdx === 0;
 
+                        let calculatedTotalPrice = isFirst ? (order.total_price || (itemTotal + deliveryFeeVal)) : itemTotal;
+
                         html += `
                         <tr>
                             <td class="center">${isFirst ? rowSeq++ : ''}</td><td class="center">${isFirst ? (order.order_type || "픽업") : ''}</td>
+                            <td class="center">${isFirst ? orderDay : ''}</td>
                             <td>${isFirst ? (order.kakao_nickname || "") : ''}</td><td>${isFirst ? (order.name || "") : ''}</td>
                             <td class="center">${isFirst ? (orderUserCount + '회차') : ''}</td><td>${isFirst ? (order.address || "-") : ''}</td>
                             <td class="text-cell">${pureName}</td><td class="num">${itemPrice}</td><td class="num">${itemQty}</td>
-                            <td class="num">${itemTotal}</td><td class="num">${isFirst ? (order.delivery_fee || 0) : ''}</td>
-                            <td class="num" style="${isFirst ? 'font-weight:bold; color:#dc2626;' : ''}">${isFirst ? (order.total_price || 0) : ''}</td>
+                            <td class="num">${itemTotal}</td><td class="num">${isFirst ? deliveryFeeVal : ''}</td>
+                            <td class="num" style="${isFirst ? 'font-weight:bold; color:#dc2626;' : ''}">${isFirst ? calculatedTotalPrice : ''}</td>
                             <td class="center">${isFirst ? (order.method || "계좌이체") : ''}</td><td class="center">${isFirst ? (order.door_password || "-") : ''}</td>
                             <td class="center">${isFirst ? (order.time_str || "") : ''}</td><td class="center">${isFirst ? (order.status_changed_time || "") : ''}</td>
                         </tr>`;
                     });
                 } else {
+                    let calculatedTotalPrice = order.total_price || ((order.price || 0) * (order.qty || 1) + deliveryFeeVal);
                     html += `
                     <tr>
                         <td class="center">${rowSeq++}</td><td class="center">${order.order_type || "픽업"}</td>
+                        <td class="center">${orderDay}</td>
                         <td>${order.kakao_nickname || ""}</td><td>${order.name || ""}</td>
                         <td class="center">${orderUserCount}회차</td><td>${order.address || "-"}</td>
                         <td class="text-cell">${rawFruitStr}</td><td class="num">${order.price || 0}</td>
                         <td class="num">${order.qty || 1}</td><td class="num">${(order.price || 0) * (order.qty || 1)}</td>
-                        <td class="num">${order.delivery_fee || 0}</td><td class="num" style="font-weight:bold; color:#dc2626;">${order.total_price || 0}</td>
+                        <td class="num">${deliveryFeeVal}</td><td class="num" style="font-weight:bold; color:#dc2626;">${calculatedTotalPrice}</td>
                         <td class="center">${order.method || "계좌이체"}</td><td class="center">${order.door_password || "-"}</td>
                         <td class="center">${order.time_str || ""}</td><td class="center">${order.status_changed_time || ""}</td>
                     </tr>`;
