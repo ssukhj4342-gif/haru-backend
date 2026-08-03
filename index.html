@@ -291,7 +291,7 @@
                     <div id="adminFruitList" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
                 </div>
 
-                <!-- 🏢 매장 픽업 현황 대시보드 (기간경과 미수령 전용 필터 포함) -->
+                <!-- 🏢 매장 픽업 현황 대시보드 (미처리건 전용 필터 적용) -->
                 <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-3 gap-2">
                         <div>
@@ -300,7 +300,7 @@
                         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                             <!-- 픽업일자 필터 셀렉터 -->
                             <select id="adminPickupDateFilter" onchange="renderAdminOrders()" class="p-2.5 bg-white border-2 border-orange-300 text-orange-900 rounded-xl text-xs font-bold focus:outline-none focus:border-orange-500 transition">
-                                <option value="overdue">🚨 [기간경과] 미수령건</option>
+                                <option value="overdue">🚨 미처리건</option>
                                 <option value="today" selected>🍊 당일 수령건</option>
                             </select>
                             <div class="relative w-full sm:w-52">
@@ -319,7 +319,7 @@
                     <div id="orderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch"></div>
                 </div>
 
-                <!-- 🚚 배달 현황 대시보드 (기간경과 미배달 전용 필터 포함) -->
+                <!-- 🚚 배달 현황 대시보드 (미처리건 전용 필터 적용) -->
                 <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-5 sm:p-6 rounded-3xl shadow-sm border border-blue-100 space-y-4">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-blue-200/60 pb-3 gap-3">
                         <div>
@@ -330,7 +330,7 @@
                         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                             <!-- 배달일자 필터 셀렉터 -->
                             <select id="adminDeliveryDateFilter" onchange="renderAdminOrders()" class="p-2.5 bg-white border-2 border-blue-300 text-blue-900 rounded-xl text-xs font-bold focus:outline-none focus:border-indigo-500 transition">
-                                <option value="overdue">🚨 [기간경과] 미배달건</option>
+                                <option value="overdue">🚨 미처리건</option>
                                 <option value="today" selected>🍊 당일 수령건</option>
                             </select>
 
@@ -741,7 +741,7 @@
             const pickupFilterSelect = document.getElementById('adminPickupDateFilter');
 
             let optionsHtml = `<option value="today">🍊 당일 입금/즉시판매</option>`;
-            let filterHtml = `<option value="overdue">🚨 [기간경과] 미처리건</option><option value="today" selected>🍊 당일 수령건</option>`;
+            let filterHtml = `<option value="overdue">🚨 미처리건</option><option value="today" selected>🍊 당일 수령건</option>`;
 
             tenDaysList.forEach(t => {
                 if (t.key !== 'today') {
@@ -1586,7 +1586,7 @@
 
                 updateAdminDashboardSummary();
 
-                // 🏢 픽업 수령일자 및 기간경과(Overdue) 필터링
+                // 🏢 픽업 수령일자 및 미처리건(Overdue) 필터링
                 const pickupDateFilterEl = document.getElementById('adminPickupDateFilter');
                 const selectedPickupDate = pickupDateFilterEl ? pickupDateFilterEl.value : 'today';
 
@@ -1641,7 +1641,7 @@
                     );
                 }
 
-                // 🚚 배달 수령일자 및 기간경과(Overdue) 필터링
+                // 🚚 배달 수령일자 및 미처리건(Overdue) 필터링
                 const deliveryDateFilterEl = document.getElementById('adminDeliveryDateFilter');
                 const selectedDeliveryDate = deliveryDateFilterEl ? deliveryDateFilterEl.value : 'today';
 
@@ -1830,14 +1830,40 @@
             setTimeout(() => { window.print(); printArea.style.display = 'none'; }, 300);
         }
 
+        // 🌟 주문일시 + 이름 + 카톡닉네임이 일치하는 그룹을 찾아 입금확인 일괄 처리 적용
         async function triggerUpdateStatus(id, status, btnEl) {
             if(btnEl) btnEl.disabled = true;
             try {
-                const res = await fetch(`${API_URL}/api/admin/orders/${id}?status=${status}&password=${PASS}`, { method: 'PUT' });
-                if(res.ok) { 
-                    alert('💵 입금 확인 처리되었습니다!'); 
+                // 클릭한 대상 주문 찾기
+                const targetOrder = globalOrders.find(o => o.id === id);
+                
+                // 동일 주문 판단 조건 (주문일시, 성함, 카톡닉네임)
+                let groupOrders = [id];
+                if (targetOrder && targetOrder.time_str && targetOrder.name && targetOrder.kakao_nickname) {
+                    groupOrders = globalOrders
+                        .filter(o => o.time_str === targetOrder.time_str && 
+                                     o.name === targetOrder.name && 
+                                     o.kakao_nickname === targetOrder.kakao_nickname &&
+                                     o.status === '입금대기')
+                        .map(o => o.id);
+                }
+
+                if (groupOrders.length === 0) groupOrders = [id];
+
+                // 동일 그룹 주문건 일괄 상태 변경 요청 실행
+                const updatePromises = groupOrders.map(orderId => 
+                    fetch(`${API_URL}/api/admin/orders/${orderId}?status=${status}&password=${PASS}`, { method: 'PUT' })
+                );
+
+                const results = await Promise.all(updatePromises);
+                const allSuccess = results.every(res => res.ok);
+
+                if(allSuccess) { 
+                    alert(groupOrders.length > 1 ? `💵 동일 주문 ${groupOrders.length}건이 한 번에 입금 확인 처리되었습니다!` : '💵 입금 확인 처리되었습니다!'); 
                     await renderAdminOrders(); 
                     await loadStoreData();
+                } else {
+                    alert('일부 주문 처리 중 오류가 발생했습니다.');
                 }
             } catch(e) { alert('처리 실패!'); }
             finally { if(btnEl) btnEl.disabled = false; }
@@ -1919,7 +1945,7 @@
 
         function resetDateFilter() { document.getElementById('searchDate').value = ''; filterAndRenderCompletedOrders(); }
 
-        // 📊 수령일자(available_day) 및 2,500원 배달비 정산 반영 엑셀 다운로드
+        // 📊 수령일자(available_day) 및 수령일자 단위 배달비 2,500원 정산 반영 엑셀 다운로드
         function downloadExcel(mode = 'all') {
             let targetOrders = [...rawCompletedOrders];
             if (mode === 'month') {
