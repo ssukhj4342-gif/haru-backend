@@ -62,7 +62,6 @@
         </div>
     </header>
 
-    <!-- 모바일 최적화 여백 pb-28 설정 -->
     <main id="mainContainer" class="max-w-md mx-auto p-3 sm:p-4 pb-28 transition-all duration-300 ease-in-out">
         <section id="customerView" class="space-y-6 transition-all duration-300">
             
@@ -176,7 +175,7 @@
                 <button id="btnSubmitOrder" onclick="checkMultiDatePopup()" class="w-full bg-orange-500 hover:bg-orange-600 text-white text-lg sm:text-xl font-black py-4 rounded-2xl shadow-xl transition disabled:bg-gray-400 disabled:cursor-not-allowed transform active:scale-95">🍊 일괄 주문 완료하기</button>
             </div>
 
-            <!-- 주문 내역 확인 대시보드 (하단 가림 방지 및 박스 정렬 보정) -->
+            <!-- 주문 내역 확인 대시보드 -->
             <div id="mainMyOrdersDash" class="bg-gradient-to-br from-gray-900 to-gray-800 text-white p-5 sm:p-6 rounded-3xl shadow-lg space-y-4 border border-gray-700 w-full box-border">
                 <div class="flex items-center justify-between border-b border-gray-700 pb-3 gap-2">
                     <h3 class="text-base sm:text-lg font-black text-orange-400 flex items-center gap-1.5 whitespace-nowrap">
@@ -1531,7 +1530,6 @@
             return { text: `🌱 첫주문`, classes: 'bg-emerald-600 text-white' };
         }
 
-        // 오늘 매출 대시보드 정밀 집계
         function updateAdminDashboardSummary() {
             const now = new Date();
             const yyyy = now.getFullYear();
@@ -1569,7 +1567,6 @@
             return 'today';
         }
 
-        // 과일 품목 및 정가/특가 파싱 헬퍼 함수
         function calculateOrderFruitBasePrice(fruitStr) {
             if (!fruitStr) return 0;
             let totalFruitPrice = 0;
@@ -1585,7 +1582,6 @@
                     let unitP = foundFruit.is_event ? foundFruit.event_price : foundFruit.price;
                     totalFruitPrice += (unitP * itemQty);
                 } else {
-                    // 품목 매핑 안 될 시 내장 원본 정규식 활용
                     let priceMatch = itemStr.match(/\(([\d,]+)원\)/);
                     if (priceMatch) totalFruitPrice += parseInt(priceMatch[1].replace(/,/g, ''));
                 }
@@ -1627,8 +1623,9 @@
                 const pickupDateFilterEl = document.getElementById('adminPickupDateFilter');
                 const selectedPickupDate = pickupDateFilterEl ? pickupDateFilterEl.value : 'today';
 
+                // 🌟 [핵심 수정] overdue 필터 시 status가 없거나 판매완료가 아니면 무조건 렌더링하도록 조건식 완벽 보정
                 let filteredPickupOrders = pendingPickup.filter(o => {
-                    if (selectedPickupDate === 'overdue') return o.status !== '판매완료';
+                    if (selectedPickupDate === 'overdue') return !o.status || o.status !== '판매완료';
                     let orderDay = extractOrderAvailableDay(o);
                     return orderDay === selectedPickupDate;
                 });
@@ -1677,8 +1674,9 @@
                 const deliveryDateFilterEl = document.getElementById('adminDeliveryDateFilter');
                 const selectedDeliveryDate = deliveryDateFilterEl ? deliveryDateFilterEl.value : 'today';
 
+                // 🌟 [핵심 수정] overdue 필터 시 status가 없거나 판매완료가 아니면 무조건 렌더링하도록 조건식 완벽 보정
                 let filteredDeliveryOrders = deliveryOrders.filter(o => {
-                    if (selectedDeliveryDate === 'overdue') return o.status !== '판매완료';
+                    if (selectedDeliveryDate === 'overdue') return !o.status || o.status !== '판매완료';
                     let orderDay = extractOrderAvailableDay(o);
                     return orderDay === selectedDeliveryDate;
                 });
@@ -1741,7 +1739,7 @@
                                 <span class="absolute right-5 top-5 text-xs font-black px-2 py-1 rounded-md ${badgeStyle.classes}">${badgeStyle.text}</span>
                                 <p class="text-orange-600 font-bold text-sm">📦 과일: ${order.fruit} (<span class="text-blue-600 font-extrabold">${pickupReserveTag}</span>) | 결제: ${order.method}</p>
                                 <p class="text-sm font-black text-red-600">💰 총 결제금액: ${Number(order.total_price || 0).toLocaleString()}원</p>
-                                <p class="text-xs text-gray-400">🕒 접수일시: ${order.time_str || ''} [상태: ${order.status}]</p>
+                                <p class="text-xs text-gray-400">🕒 접수일시: ${order.time_str || ''} [상태: ${order.status || '접수대기'}]</p>
                             </div>
                             <div class="flex gap-2 pt-3 border-t border-gray-100 mt-3">
                                 ${actionBtn}
@@ -1762,23 +1760,20 @@
                     let orderDay = extractOrderAvailableDay(order);
                     let reserveTag = (orderDay !== 'today') ? `📅 ${orderDay} 배달` : '🍊 당일배달';
 
-                    // 🌟 [수정 완료] 수령일별 개별 배달 주문건 금액 보정 로직
+                    // 🌟 배달 금액 원본 출력 보정
                     let rawPrice = Number(order.total_price || 0);
                     let baseFruitPrice = calculateOrderFruitBasePrice(order.fruit || order.fruit_name || "");
                     
                     let displayPrice = rawPrice;
-                    if (order.order_type === '배달') {
-                        // DB 수량이 금액과 1:1 매칭되어 배달비가 포함 안 된 경우 보정 (과일값 합산과 원본 total_price가 같을 시 2,500원 합산)
-                        if (baseFruitPrice > 0 && (rawPrice === baseFruitPrice)) {
-                            displayPrice = basePrice + 2500;
-                        }
+                    if (order.order_type === '배달' && baseFruitPrice > 0 && rawPrice === baseFruitPrice) {
+                        displayPrice = rawPrice + 2500;
                     }
 
                     deliveryList.innerHTML += `
                         <div class="bg-white p-5 rounded-3xl border border-blue-200 shadow-sm relative flex flex-col justify-between h-full min-h-[200px]">
                             <div class="space-y-2">
                                 <div class="flex justify-between items-center pr-20">
-                                    <span class="bg-blue-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md">🚚 배달 [${order.status}] (${reserveTag})</span>
+                                    <span class="bg-blue-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md">🚚 배달 [${order.status || '접수대기'}] (${reserveTag})</span>
                                 </div>
                                 <span class="absolute right-5 top-5 text-xs font-black px-2 py-1 rounded-md ${badgeStyle.classes}">${badgeStyle.text}</span>
                                 <div>
