@@ -291,7 +291,7 @@
                     <div id="adminFruitList" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
                 </div>
 
-                <!-- 🏢 매장 픽업 현황 대시보드 (픽업 수령일자 선택 토글 추가 완료) -->
+                <!-- 🏢 매장 픽업 현황 대시보드 -->
                 <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-3 gap-2">
                         <div>
@@ -318,7 +318,7 @@
                     <div id="orderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch"></div>
                 </div>
 
-                <!-- 🚚 배달 현황 대시보드 (수령일자별 필터링 기능 연동 완료) -->
+                <!-- 🚚 배달 현황 대시보드 -->
                 <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-5 sm:p-6 rounded-3xl shadow-sm border border-blue-100 space-y-4">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-blue-200/60 pb-3 gap-3">
                         <div>
@@ -1192,7 +1192,6 @@
             }
         }
 
-        // 🚨 수령일자 다중 선택 시 안내 팝업 검사 함수
         function checkMultiDatePopup() {
             let itemsToOrder = Object.values(selectedItems).filter(item => item.qty > 0);
             
@@ -1205,11 +1204,9 @@
             if(!kakao || !name) { alert('카톡 닉네임과 성함을 꼭 입력해주세요!'); return; }
             if(selectedOrderType === '배달' && !address) { alert('배달 상세 주소를 적어주세요!'); return; }
 
-            // 담긴 상품들의 수령일자 종류 추출
             const uniqueDays = [...new Set(itemsToOrder.map(item => item.available_day || 'today'))];
 
             if (uniqueDays.length > 1) {
-                // 수령일이 2개 이상 선택된 경우 팝업 띄우기
                 const modal = document.getElementById('multiDateModal');
                 const titleEl = document.getElementById('multiDateTitle');
                 const subTextEl = document.getElementById('multiDateSubText');
@@ -1236,7 +1233,7 @@
                         detailsEl.innerHTML += `<div class="pb-1"><span class="font-bold text-blue-600">[${day} 배달]</span> ${items.join(', ')} (배달비 2,500원)</div>`;
                     });
 
-                    detailsEl.innerHTML += `<p class="pt-2 border-t text-red-600 font-extrabold text-[11px]">⚠️ 수령일자별 개별 배달로 진행되어, 배달비가 총 ${uniqueDays.length * 2500}원(${uniqueDays.length}회) 발생합니다.</p>`;
+                    detailsEl.innerHTML += `<p class="pt-2 border-t text-red-600 font-extrabold text-[11px]">⚠️ 수령일자별 개별 배달로 진행되어, 배달비가 총 ${(uniqueDays.length * 2500).toLocaleString()}원(${uniqueDays.length}회) 발생합니다.</p>`;
                 } else {
                     iconEl.innerText = '🏢';
                     iconEl.className = 'w-16 h-16 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-3xl mx-auto font-black';
@@ -1516,13 +1513,10 @@
             if (!kakaoNickname) return 0;
             const pureTarget = kakaoNickname.trim().toLowerCase();
             const customerOrders = (globalOrders || []).filter(o => o.kakao_nickname && o.kakao_nickname.trim().toLowerCase() === pureTarget);
-            
-            // 동일 접수시간(time_str) 기준 그룹핑하여 1회로 계산
             const uniqueSessions = new Set(customerOrders.map(o => o.time_str || o.created_at || o.id));
             return uniqueSessions.size;
         }
 
-        // 단골 등급 구분 기준 업데이트 (첫주문 / 5회 이상 / 10회 이상 / 20회 이상)
         function getBadgeStyleByCount(count) {
             if (count >= 20) return { text: `👑 20회 이상 (${count}회)`, classes: 'bg-purple-700 text-white' };
             if (count >= 10) return { text: `🔥 10회 이상 (${count}회)`, classes: 'bg-indigo-600 text-white' };
@@ -1548,6 +1542,15 @@
             document.getElementById('summaryTodayCount').innerText = todayCompleted.length + '건';
             document.getElementById('summaryTodayPickup').innerText = pickupCount + '건';
             document.getElementById('summaryTodayDelivery').innerText = deliveryCount + '건';
+        }
+
+        // 🔍 주문 내역의 과일 문자열에서 수령 날짜 추출 헬퍼 함수
+        function extractOrderAvailableDay(order) {
+            if (order.available_day && order.available_day !== 'today') return order.available_day;
+            const str = order.fruit || order.fruit_name || "";
+            const match = str.match(/\[([0-9]+\/[0-9]+\([^)]+\))\s*수령\]/);
+            if (match) return match[1];
+            return 'today';
         }
 
         async function renderAdminOrders(isBackgroundCheck = false) {
@@ -1581,13 +1584,13 @@
 
                 updateAdminDashboardSummary();
 
-                // 픽업 수령일자 및 키워드 필터링 보정
+                // 🏢 픽업 수령일자 토글 필터링
                 const pickupDateFilterEl = document.getElementById('adminPickupDateFilter');
                 const selectedPickupDate = pickupDateFilterEl ? pickupDateFilterEl.value : 'today';
 
                 let filteredPickupOrders = pendingPickup.filter(o => {
-                    let orderAvailDay = o.available_day || 'today';
-                    return orderAvailDay === selectedPickupDate;
+                    let orderDay = extractOrderAvailableDay(o);
+                    return orderDay === selectedPickupDate;
                 });
 
                 let pickupFruitSummary = {};
@@ -1596,7 +1599,7 @@
                     let fruitItemsList = rawFruitStr.split(',').map(s => s.trim()).filter(s => s);
 
                     fruitItemsList.forEach(itemStr => {
-                        let pureName = itemStr.replace(/\s*x\d+개/g, "").replace(/\s*\([\d,]+원\)/g, "").trim();
+                        let pureName = itemStr.replace(/\s*x\d+개/g, "").replace(/\s*\([\d,]+원\)/g, "").replace(/\[[^\]]+\]/g, "").trim();
                         let qtyMatch = itemStr.match(/x(\d+)개/);
                         let itemQty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
 
@@ -1633,13 +1636,13 @@
                     );
                 }
 
-                // 배달 수령일자 필터링 완전 보정 (기본값 'today')
+                // 🚚 배달 수령일자 토글 필터링
                 const deliveryDateFilterEl = document.getElementById('adminDeliveryDateFilter');
                 const selectedDeliveryDate = deliveryDateFilterEl ? deliveryDateFilterEl.value : 'today';
 
                 let filteredDeliveryOrders = deliveryOrders.filter(o => {
-                    let orderAvailDay = o.available_day || 'today';
-                    return orderAvailDay === selectedDeliveryDate;
+                    let orderDay = extractOrderAvailableDay(o);
+                    return orderDay === selectedDeliveryDate;
                 });
                 currentAdminDeliveryOrders = filteredDeliveryOrders;
 
@@ -1649,7 +1652,7 @@
                     let fruitItemsList = rawFruitStr.split(',').map(s => s.trim()).filter(s => s);
 
                     fruitItemsList.forEach(itemStr => {
-                        let pureName = itemStr.replace(/\s*x\d+개/g, "").replace(/\s*\([\d,]+원\)/g, "").trim();
+                        let pureName = itemStr.replace(/\s*x\d+개/g, "").replace(/\s*\([\d,]+원\)/g, "").replace(/\[[^\]]+\]/g, "").trim();
                         let qtyMatch = itemStr.match(/x(\d+)개/);
                         let itemQty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
 
@@ -1685,7 +1688,8 @@
                     else if(order.status === '입금대기') actionBtn = `<button onclick="triggerUpdateStatus(${order.id}, '접수완료', this)" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl text-xs font-black active:scale-95 transition">💵 입금확인</button>`;
                     else actionBtn = `<button onclick="triggerCompleteOrder(${order.id}, this)" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-xl text-xs font-black active:scale-95 transition">✅ 수령 완료</button>`;
 
-                    let pickupReserveTag = (order.available_day && order.available_day !== 'today') ? `📅 ${order.available_day}` : '🍊 당일수령';
+                    let orderDay = extractOrderAvailableDay(order);
+                    let pickupReserveTag = (orderDay !== 'today') ? `📅 ${orderDay} 수령` : '🍊 당일수령';
 
                     waitList.innerHTML += `
                         <div class="bg-white p-5 rounded-3xl border border-gray-100 shadow-2xs relative flex flex-col justify-between h-full min-h-[180px]">
@@ -1699,8 +1703,8 @@
                                     </h4>
                                 </div>
                                 <span class="absolute right-5 top-5 text-xs font-black px-2 py-1 rounded-md ${badgeStyle.classes}">${badgeStyle.text}</span>
-                                <p class="text-orange-600 font-bold text-sm">📦 과일: ${order.fruit} (${pickupReserveTag}) | 결제: ${order.method}</p>
-                                <p class="text-sm font-black text-red-600">💰 총 결제금액: ${Number(order.total_price).toLocaleString()}원</p>
+                                <p class="text-orange-600 font-bold text-sm">📦 과일: ${order.fruit} (<span class="text-blue-600 font-extrabold">${pickupReserveTag}</span>) | 결제: ${order.method}</p>
+                                <p class="text-sm font-black text-red-600">💰 총 결제금액: ${Number(order.total_price || 0).toLocaleString()}원</p>
                                 <p class="text-xs text-gray-400">🕒 접수일시: ${order.time_str || ''} [상태: ${order.status}]</p>
                             </div>
                             <div class="flex gap-2 pt-3 border-t border-gray-100 mt-3">
@@ -1719,7 +1723,12 @@
                         ? `<button onclick="triggerUpdateStatus(${order.id}, '접수완료', this)" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl text-xs font-black active:scale-95 transition">💵 입금확인</button>`
                         : `<button onclick="triggerCompleteOrder(${order.id}, this)" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl text-xs font-black active:scale-95 transition">🚚 배달 완료 처리</button>`;
 
-                    let reserveTag = (order.available_day && order.available_day !== 'today') ? `📅 ${order.available_day}` : '🍊 당일배달';
+                    let orderDay = extractOrderAvailableDay(order);
+                    let reserveTag = (orderDay !== 'today') ? `📅 ${orderDay} 배달` : '🍊 당일배달';
+
+                    // 🚨 배달비 2,500원 무조건 합산 계산 (과일상품가격 + 2500)
+                    let rawPrice = Number(order.total_price || 0);
+                    let finalDeliveryTotalPrice = rawPrice < 2500 ? (rawPrice + 2500) : rawPrice;
 
                     deliveryList.innerHTML += `
                         <div class="bg-white p-5 rounded-3xl border border-blue-200 shadow-sm relative flex flex-col justify-between h-full min-h-[200px]">
@@ -1739,7 +1748,7 @@
                                     <p class="text-xs font-black text-red-600 mt-0.5">🔑 공동현관 비번: ${order.door_password || '없음/자유출입'}</p>
                                 </div>
                                 <p class="text-orange-600 font-bold text-sm">📦 ${order.fruit}</p>
-                                <p class="text-sm font-black text-red-600">💰 총 결제금액: ${Number(order.total_price).toLocaleString()}원 (배달비 2,500원 포함)</p>
+                                <p class="text-sm font-black text-red-600">💰 총 결제금액: ${finalDeliveryTotalPrice.toLocaleString()}원 (배달비 2,500원 포함)</p>
                                 <p class="text-[11px] text-gray-400 font-bold">🕒 주문 접수일시: ${order.time_str || ''}</p>
                             </div>
                             <div class="flex gap-2 pt-3 border-t border-gray-100 mt-3">
@@ -1784,6 +1793,9 @@
                         checklistHtml = `<div style="display:flex; items-center; justify-content:space-between; margin-top:1px;"><span style="color:#d97706; font-weight:bold; font-size:10px;">▪ ${rawFruitStr}</span> <span style="border:1.5px solid #000; width:10px; height:10px; display:inline-block; border-radius:2px;"></span></div>`;
                     }
 
+                    let rawPrice = Number(order.total_price || 0);
+                    let finalPrintPrice = rawPrice < 2500 ? (rawPrice + 2500) : rawPrice;
+
                     pageHtml += `
                         <div class="label-card">
                             <div style="border-bottom: 1.5px solid #1d4ed8; padding-bottom: 2px; text-align: center; margin-bottom: 2px;"><strong style="font-size: 11px; font-weight: 900; color: #1d4ed8;">🚚 하루마켓 흑석점 배달전표</strong></div>
@@ -1799,7 +1811,7 @@
                                     ${checklistHtml}
                                 </div>
 
-                                <p style="margin: 1px 0;"><strong>💰 결제금액:</strong> <span style="color: #dc2626; font-weight: bold; font-size: 10px;">${Number(order.total_price).toLocaleString()}원</span> (${order.method || ''})</p>
+                                <p style="margin: 1px 0;"><strong>💰 결제금액:</strong> <span style="color: #dc2626; font-weight: bold; font-size: 10px;">${finalPrintPrice.toLocaleString()}원</span> (${order.method || ''})</p>
                             </div>
                             <p style="font-size: 7.5px; color: #64748b; text-align: right; margin-top: 1px; border-top: 1px solid #f1f5f9; padding-top: 1px;">접수: ${order.time_str || ''}</p>
                         </div>`;
@@ -1922,7 +1934,7 @@
 
                 if (fruitItemsList.length > 0) {
                     fruitItemsList.forEach(itemStr => {
-                        let pureName = itemStr.replace(/\s*x\d+개/g, "").replace(/\s*\([\d,]+원\)/g, "").trim();
+                        let pureName = itemStr.replace(/\s*x\d+개/g, "").replace(/\s*\([\d,]+원\)/g, "").replace(/\[[^\]]+\]/g, "").trim();
                         let qtyMatch = itemStr.match(/x(\d+)개/);
                         let itemQty = qtyMatch ? parseInt(qtyMatch[1]) : (order.qty || 1);
                         
@@ -2022,7 +2034,7 @@
 
                 if (fruitItemsList.length > 0) {
                     fruitItemsList.forEach((itemStr, itemIdx) => {
-                        let pureName = itemStr.replace(/\s*x\d+개/g, "").replace(/\s*\([\d,]+원\)/g, "").trim();
+                        let pureName = itemStr.replace(/\s*x\d+개/g, "").replace(/\s*\([\d,]+원\)/g, "").replace(/\[[^\]]+\]/g, "").trim();
                         let qtyMatch = itemStr.match(/x(\d+)개/);
                         let itemQty = qtyMatch ? parseInt(qtyMatch[1]) : (order.qty || 1);
                         
