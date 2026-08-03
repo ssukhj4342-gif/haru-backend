@@ -62,7 +62,8 @@
         </div>
     </header>
 
-    <main id="mainContainer" class="max-w-md mx-auto p-3 sm:p-4 pb-36 transition-all duration-300 ease-in-out">
+    <!-- 하단 바 가림 방지를 위해 pb-44 하단 여백 대폭 확보 -->
+    <main id="mainContainer" class="max-w-md mx-auto p-3 sm:p-4 pb-44 transition-all duration-300 ease-in-out">
         <section id="customerView" class="space-y-6 transition-all duration-300">
             
             <!-- 📢 데일리 공지 카드 -->
@@ -231,7 +232,7 @@
             </div>
 
             <div class="flex-1 space-y-6 w-full min-w-0">
-                <!-- 📊 당일 매출 실시간 요약 위젯 -->
+                <!-- 📊 당일 매출 실시간 요약 대시보드 -->
                 <div class="bg-gradient-to-br from-orange-500 to-amber-600 text-white p-5 sm:p-6 rounded-3xl shadow-lg space-y-3">
                     <div class="flex justify-between items-center border-b border-orange-400/50 pb-2">
                         <h3 class="text-sm sm:text-base font-black flex items-center gap-1.5">📊 오늘 매출 실시간 요약 대시보드</h3>
@@ -437,8 +438,8 @@
         </div>
     </div>
 
-    <!-- 하단 Floating 장바구니 바 (Z-index 및 손님 화면 가림 방지 보정) -->
-    <div id="stickyCheckoutBar" class="fixed bottom-0 left-0 right-0 z-30 bg-gray-900 text-white border-t border-gray-800 shadow-2xl p-4 transition-all duration-300">
+    <!-- 🌟 하단 Floating 바 메인 너비(max-w-md)에 완벽 고정하여 UI 가림 문제 원천 차단 -->
+    <div id="stickyCheckoutBar" class="fixed bottom-0 left-0 right-0 z-30 bg-gray-900/95 backdrop-blur-md text-white border-t border-gray-800 shadow-2xl p-4 transition-all duration-300">
         <div class="max-w-md mx-auto flex items-center justify-between gap-2">
             <div class="min-w-0 flex-1">
                 <p id="stickySelectedSummary" class="text-xs text-orange-300 font-bold truncate">과일을 선택해 주세요 🍎</p>
@@ -1506,17 +1507,19 @@
             }
         }
 
-        // 🌟 단골 뱃지 누적 회차 계산 로직 (카톡 닉네임 기준 고객 판단 + 주문일시/성함/닉네임 동일건 묶음)
+        // 🌟 단골 뱃지 누적 회차 산정 고도화 (동일 카톡 닉네임 기반 + 주문 접수 시점/세션별 회차 정확 분리)
         function getStrictCustomerOrderCount(kakaoNickname) {
             if (!kakaoNickname) return 0;
             const pureTarget = kakaoNickname.trim().toLowerCase();
             
-            // 해당 카톡 닉네임의 전체 주문 추출
             const customerOrders = (globalOrders || []).filter(o => o.kakao_nickname && o.kakao_nickname.trim().toLowerCase() === pureTarget);
             
-            // 주문일시 + 성함 + 닉네임이 같으면 '1회 주문 세션'으로 그룹핑
+            // 동일 시간대(초/분) 주문은 1회 세션으로 묶고, 시점이 다르면 별개 주문(2회차, 3회차)으로 정확 집계
             const uniqueSessions = new Set(
-                customerOrders.map(o => `${o.time_str || o.created_at}_${o.name}_${o.kakao_nickname}`)
+                customerOrders.map(o => {
+                    const timeKey = o.time_str || o.created_at || o.id;
+                    return `${timeKey}_${o.name}_${o.kakao_nickname}`;
+                })
             );
             
             return uniqueSessions.size;
@@ -1526,17 +1529,27 @@
             if (count >= 20) return { text: `👑 20회 이상 (${count}회)`, classes: 'bg-purple-700 text-white' };
             if (count >= 10) return { text: `🔥 10회 이상 (${count}회)`, classes: 'bg-indigo-600 text-white' };
             if (count >= 5) return { text: `⭐️ 5회 이상 (${count}회)`, classes: 'bg-amber-500 text-white' };
+            if (count >= 2) return { text: `🌱 ${count}번째 주문`, classes: 'bg-emerald-600 text-white' };
             return { text: `🌱 첫주문`, classes: 'bg-emerald-600 text-white' };
         }
 
+        // 🌟 실시간 매출 대시보드 날짜 매칭 보정 (완료 즉시 바로 반영)
         function updateAdminDashboardSummary() {
-            const todayStr = new Date().toLocaleDateString('ko-KR');
+            const now = new Date();
+            const yyyy = now.getFullYear();
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const dd = String(now.getDate()).padStart(2, '0');
+            
+            const todayStr1 = `${yyyy}-${mm}-${dd}`;
+            const todayStr2 = `${yyyy}. ${now.getMonth() + 1}. ${now.getDate()}.`;
+            const todayStr3 = now.toLocaleDateString('ko-KR');
+
             const summaryDateEl = document.getElementById('summaryTodayDate');
-            if (summaryDateEl) summaryDateEl.innerText = todayStr;
+            if (summaryDateEl) summaryDateEl.innerText = todayStr3;
 
             const todayCompleted = rawCompletedOrders.filter(o => {
                 const timeStr = o.status_changed_time || o.time_str || '';
-                return timeStr.includes(todayStr) || timeStr.startsWith(new Date().toISOString().slice(0, 10));
+                return timeStr.includes(todayStr1) || timeStr.includes(todayStr2) || timeStr.includes(todayStr3);
             });
 
             const totalSales = todayCompleted.reduce((sum, o) => sum + (o.total_price || 0), 0);
@@ -1588,7 +1601,7 @@
 
                 updateAdminDashboardSummary();
 
-                // 🏢 픽업 대시보드 미처리건 (overdue: 판매완료가 아닌 전체 미처리건)
+                // 🏢 픽업 미처리건 (overdue: 전체 미완료 주문건 표시)
                 const pickupDateFilterEl = document.getElementById('adminPickupDateFilter');
                 const selectedPickupDate = pickupDateFilterEl ? pickupDateFilterEl.value : 'today';
 
@@ -1639,7 +1652,7 @@
                     );
                 }
 
-                // 🚚 배달 대시보드 미처리건 (overdue: 판매완료가 아닌 전체 미처리건)
+                // 🚚 배달 미처리건 (overdue: 전체 미완료 주문건 표시)
                 const deliveryDateFilterEl = document.getElementById('adminDeliveryDateFilter');
                 const selectedDeliveryDate = deliveryDateFilterEl ? deliveryDateFilterEl.value : 'today';
 
@@ -1815,7 +1828,6 @@
             setTimeout(() => { window.print(); printArea.style.display = 'none'; }, 300);
         }
 
-        // 동일 주문건 일괄 입금확인 적용
         async function triggerUpdateStatus(id, status, btnEl) {
             if(btnEl) btnEl.disabled = true;
             try {
@@ -1841,8 +1853,8 @@
 
                 if(allSuccess) { 
                     alert(groupOrders.length > 1 ? `💵 동일 주문 ${groupOrders.length}건이 한 번에 입금 확인 처리되었습니다!` : '💵 입금 확인 처리되었습니다!'); 
-                    await renderAdminOrders(); 
                     await loadStoreData();
+                    await renderAdminOrders(); 
                 } else {
                     alert('일부 주문 처리 중 오류가 발생했습니다.');
                 }
@@ -1850,14 +1862,14 @@
             finally { if(btnEl) btnEl.disabled = false; }
         }
 
-        // 수령/배달 완료 시 상단 실시간 대시보드 반영
+        // 🌟 수령/배달 완료 즉시 상단 오늘 매출 대시보드 실시간 반영 처리
         async function triggerCompleteOrder(id, btnEl) {
             if(btnEl) btnEl.disabled = true;
             try {
                 const res = await fetch(`${API_URL}/api/admin/orders/${id}?status=판매완료&password=${PASS}`, { method: 'PUT' });
                 if(res.ok) { 
                     alert('🎉 완료 처리되었습니다!'); 
-                    await loadStoreData(); // 실시간 대시보드 리로드
+                    await loadStoreData(); // DB에서 최신 판매완료 내역 리로드 후 실시간 집계
                     await renderAdminOrders(); 
                 }
             } catch(e) { alert('처리 실패!'); }
@@ -1950,12 +1962,10 @@
 
                 if (fruitItemsList.length > 0) {
                     fruitItemsList.forEach(itemStr => {
-                        // 품목명 정밀 정제
                         let pureName = itemStr.replace(/\s*x\d+개/g, "").replace(/\s*\([\d,]+원\)/g, "").replace(/\[[^\]]+\]/g, "").trim();
                         let qtyMatch = itemStr.match(/x(\d+)개/);
                         let itemQty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
                         
-                        // 단가 추출 로직 보정
                         let itemPrice = order.price || 0;
                         let foundFruitObj = fruitItems.find(f => f.name === pureName);
                         if (foundFruitObj) {
