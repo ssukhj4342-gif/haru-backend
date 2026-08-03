@@ -17,21 +17,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Supabase 연결 설정 (환경변수 또는 기본값)
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://fohjmqpxjoetpgeigcsj.supabase.co")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...") # 실제 키 자동 적용
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...") 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# 관리자 비밀번호
 ADMIN_PASSWORD = "788599"
 
-# 한국 표준시(KST) 변환 함수
 def get_kst_time_str():
     kst = timezone(timedelta(hours=9))
     now = datetime.now(kst)
     return now.strftime("%Y. %m. %d. %p %I:%M").replace("AM", "오전").replace("PM", "오후")
 
-# Pydantic 데이터 모델 정의
+# Pydantic 데이터 모델
 class FruitItem(BaseModel):
     id: Optional[int] = None
     name: str
@@ -40,6 +37,7 @@ class FruitItem(BaseModel):
     is_event: Optional[bool] = False
     stock: int
     max_stock: Optional[int] = None
+    available_day: Optional[str] = "today"
     img: Optional[str] = ""
     detail_imgs: Optional[Any] = []
     description: Optional[str] = ""
@@ -52,6 +50,7 @@ class FruitUpdate(BaseModel):
     is_event: Optional[bool] = None
     stock: Optional[int] = None
     max_stock: Optional[int] = None
+    available_day: Optional[str] = None
     img: Optional[str] = None
     detail_imgs: Optional[Any] = None
     description: Optional[str] = None
@@ -64,7 +63,7 @@ class OrderItemInput(BaseModel):
     qty: int
 
 class OrderCreate(BaseModel):
-    order_type: str  # "픽업" 또는 "배달"
+    order_type: str
     kakao_nickname: str
     name: str
     address: Optional[str] = ""
@@ -79,13 +78,40 @@ class StoreMetaUpdate(BaseModel):
     hours: Optional[str] = None
     notice_img: Optional[str] = None
 
+# 주문 내역에서 과일 수량 복구하는 헬퍼 함수
+def restore_order_stock(order_id: int):
+    try:
+        o_res = supabase.table("orders").select("*").eq("id", order_id).execute()
+        if not o_res.data:
+            return
+        order = o_res.data[0]
+        raw_fruit_str = order.get("fruit", "")
+        if not raw_fruit_str:
+            return
+
+        # "신비복숭아 x2개, 거봉 x1개" 형태에서 품목명과 수량 파싱
+        items_str_list = [s.trim() for s in raw_fruit_str.split(",") if s.strip()]
+        for item_str in items_str_list:
+            import re
+            qty_match = re.search(r'x(\d+)개', item_str)
+            item_qty = int(qty_match.group(1)) if qty_match else 1
+            pure_name = re.sub(r'\s*x\d+개.*', '', item_str).strip()
+
+            # DB에서 해당 과일 찾아서 재고 원상 복구 (+합산)
+            f_res = supabase.table("fruit_items").select("id, stock").eq("name", pure_name).execute()
+            if f_res.data:
+                f_id = f_res.data[0]["id"]
+                curr_stock = f_res.data[0]["stock"]
+                supabase.table("fruit_items").update({"stock": curr_stock + item_qty}).eq("id", f_id).execute()
+    except Exception as e:
+        print(f"재고 복구 중 에러 발생: {str(e)}")
+
 # ==================== [API 엔드포인트] ====================
 
 @app.get("/")
 def read_root():
     return {"status": "ok", "message": "하루마켓 흑석점 백엔드가 가동 중입니다. 🍊"}
 
-# 1. 초기 데이터 불어오기 (손님/사장님 공통)
 @app.get("/api/init-data")
 def get_init_data():
     try:
@@ -94,9 +120,9 @@ def get_init_data():
         
         meta_data = meta_res.data[0] if meta_res.data else {
             "notice": "오늘도 신선한 과일 준비되어 있습니다 🍊",
-            "account": "카카오뱅크 1111-22-3333333",
-            "owner": "김혁진",
-            "hours": "09:00 - 20:00",
+            "account": "새마을금고 9003-3009-5914-9",
+            "owner": "하루마켓(손현모)",
+            "hours": "10:00 - 21:30",
             "notice_img": ""
         }
         
@@ -108,12 +134,11 @@ def get_init_data():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# 2. 주문 등록 (손님)
 @app.post("/api/orders")
 def create_order(order: OrderCreate):
     try:
         total_fruit_price = sum(item.price * item.qty for item in order.items)
-        delivery_fee = 3000 if order.order_type == "배달" else 0
+        delivery_fee = 2500 if order.order_type == "배달" else 0
         final_total_price = total_fruit_price + delivery_fee
 
         fruit_summary_list = [f"{item.fruit_name} x{item.qty}개" for item in order.items]
@@ -133,10 +158,9 @@ def create_order(order: OrderCreate):
             "time_str": get_kst_time_str()
         }
 
-        # 주문 DB 차곡차곡 저장
         res = supabase.table("orders").insert(new_order).execute()
 
-        # 재고 차감 처리
+        # 주문 접수 시 재고 차감
         for item in order.items:
             f_res = supabase.table("fruit_items").select("stock").eq("id", item.fruit_id).execute()
             if f_res.data:
@@ -148,7 +172,6 @@ def create_order(order: OrderCreate):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"주문 처리 실패: {str(e)}")
 
-# 3. 내 주문 내역 조회 (손님)
 @app.get("/api/my-orders")
 def get_my_orders(kakao_nickname: str = Query(...), name: str = Query(...)):
     try:
@@ -157,7 +180,7 @@ def get_my_orders(kakao_nickname: str = Query(...), name: str = Query(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# 4. 내 주문 취소 (손님)
+# 🛠️ 손님 본인 주문 취소 시 재고 자동 복구 적용!
 @app.delete("/api/my-orders/{order_id}")
 def cancel_my_order(order_id: int, kakao_nickname: str = Query(...), name: str = Query(...)):
     try:
@@ -172,14 +195,14 @@ def cancel_my_order(order_id: int, kakao_nickname: str = Query(...), name: str =
         if order["status"] not in ["입금대기", "접수완료"]:
             raise HTTPException(status_code=400, detail="이미 처리 중이거나 완료된 주문은 취소할 수 없습니다.")
 
+        # 재고 복구 함수 실행
+        restore_order_stock(order_id)
+
         supabase.table("orders").delete().eq("id", order_id).execute()
-        return {"message": "주문이 취소되었습니다."}
+        return {"message": "주문이 취소되었으며, 재고가 정상 복구되었습니다."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# ==================== [사장님 전용 API] ====================
-
-# 5. 사장님 주문 현황 목록 조회
 @app.get("/api/admin/orders")
 def get_admin_orders(password: str = Query(...)):
     if password != ADMIN_PASSWORD:
@@ -200,7 +223,6 @@ def get_admin_orders(password: str = Query(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# 6. 사장님 주문 상태 변경 (입금확인 / 완료 등)
 @app.put("/api/admin/orders/{order_id}")
 def update_order_status(order_id: int, status: str = Query(...), password: str = Query(...)):
     if password != ADMIN_PASSWORD:
@@ -215,18 +237,20 @@ def update_order_status(order_id: int, status: str = Query(...), password: str =
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# 7. 사장님 주문 취소/삭제
+# 🛠️ 사장님 주문 취소/삭제 시 재고 자동 복구 적용!
 @app.delete("/api/admin/orders/{order_id}")
 def delete_admin_order(order_id: int, password: str = Query(...)):
     if password != ADMIN_PASSWORD:
         raise HTTPException(status_code=401, detail="비밀번호가 틀렸습니다.")
     try:
+        # 재고 복구 함수 실행
+        restore_order_stock(order_id)
+
         supabase.table("orders").delete().eq("id", order_id).execute()
-        return {"message": "주문 삭제 완료"}
+        return {"message": "주문 취소 완료 및 재고가 복구되었습니다."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# 8. 사장님 과일 품목 신규 추가
 @app.post("/api/admin/fruits")
 def create_fruit_item(item: FruitItem, password: str = Query(...)):
     if password != ADMIN_PASSWORD:
@@ -239,6 +263,7 @@ def create_fruit_item(item: FruitItem, password: str = Query(...)):
             "is_event": item.is_event or False,
             "stock": item.stock,
             "max_stock": item.stock,
+            "available_day": item.available_day or "today",
             "img": item.img,
             "detail_imgs": item.detail_imgs,
             "description": item.description,
@@ -249,7 +274,6 @@ def create_fruit_item(item: FruitItem, password: str = Query(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# 9. 사장님 과일 품목 정보 수정 (★ 2단계 요청부분: 이벤트/재고/가격 수정 핵심!)
 @app.put("/api/admin/fruits/{fruit_id}")
 def update_fruit_item(fruit_id: int, item_data: FruitUpdate, password: str = Query(...)):
     if password != ADMIN_PASSWORD:
@@ -264,7 +288,6 @@ def update_fruit_item(fruit_id: int, item_data: FruitUpdate, password: str = Que
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# 10. 사장님 과일 품목 영구 삭제
 @app.delete("/api/admin/fruits/{fruit_id}")
 def delete_fruit_item(fruit_id: int, password: str = Query(...)):
     if password != ADMIN_PASSWORD:
@@ -275,7 +298,6 @@ def delete_fruit_item(fruit_id: int, password: str = Query(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# 11. 사장님 매장 기본 설정 수정 (공지, 계좌, 영업시간 등)
 @app.put("/api/admin/settings")
 def update_store_settings(meta: StoreMetaUpdate, password: str = Query(...)):
     if password != ADMIN_PASSWORD:
