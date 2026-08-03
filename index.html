@@ -51,13 +51,14 @@
         <span id="toastMsg">📋 클립보드에 복사되었습니다!</span>
     </div>
 
-    <!-- 헤더 -->
+    <!-- 헤더 (오른쪽 상단 '내 주문' 버튼 복구 완료) -->
     <header class="bg-white sticky top-0 z-40 border-b border-gray-200 px-3 sm:px-6 py-3.5 flex items-center justify-between shadow-xs">
         <h1 class="text-lg sm:text-2xl font-black text-orange-600 tracking-tight cursor-pointer flex items-center gap-1 shrink-0 active:scale-95 transition" onclick="switchView('customer')">
             하루마켓 흑석점 🍊
         </h1>
         <div class="flex items-center gap-1.5 shrink-0">
-            <button id="toggleBtn" onclick="openAdminAuthModal()" class="bg-orange-100 text-orange-700 px-3 py-2 rounded-xl text-xs font-bold transition hover:bg-orange-200 active:scale-95 whitespace-nowrap">👨‍🌾 사장님</button>
+            <button onclick="scrollToMyOrdersDash()" class="bg-gray-100 text-gray-700 px-2.5 sm:px-3 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 active:scale-95 transition whitespace-nowrap">🔎 내 주문</button>
+            <button id="toggleBtn" onclick="openAdminAuthModal()" class="bg-orange-100 text-orange-700 px-2.5 sm:px-3 py-2 rounded-xl text-xs font-bold transition hover:bg-orange-200 active:scale-95 whitespace-nowrap">👨‍🌾 사장님</button>
         </div>
     </header>
 
@@ -94,28 +95,10 @@
                 <span class="text-3xl">🏪</span>
             </div>
 
-            <!-- 🔎 주문 내역 확인 대시보드 -->
-            <div id="mainMyOrdersDash" class="bg-gradient-to-br from-gray-900 to-gray-800 text-white p-5 sm:p-6 rounded-3xl shadow-lg space-y-4 border border-gray-700">
-                <div class="flex items-center justify-between border-b border-gray-700 pb-3 gap-2">
-                    <h3 class="text-base sm:text-lg font-black text-orange-400 flex items-center gap-1.5 whitespace-nowrap">
-                        🔎 주문 내역 확인
-                    </h3>
-                    <span class="text-[11px] text-gray-400 font-bold whitespace-nowrap shrink-0">1초 빠른 조회</span>
-                </div>
-                <div class="space-y-2">
-                    <input type="text" id="dashSearchKakao" placeholder="카톡 닉네임 (예: 래미안1234)" class="w-full p-3 bg-gray-800/90 border border-gray-600 rounded-xl text-xs sm:text-sm font-bold text-white placeholder-gray-400 focus:outline-none focus:border-orange-500 transition">
-                    <input type="text" id="dashSearchName" placeholder="주문자 성함 (예: 박명숙)" class="w-full p-3 bg-gray-800/90 border border-gray-600 rounded-xl text-xs sm:text-sm font-bold text-white placeholder-gray-400 focus:outline-none focus:border-orange-500 transition">
-                </div>
-                <button id="btnDashFetchOrders" onclick="fetchMyOrdersFromDash()" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-3 rounded-xl text-sm shadow-md transition active:scale-95">
-                    내 주문 확인하기 🍊
-                </button>
-                <div id="dashMyOrdersResult" class="space-y-3 pt-2 hidden"></div>
-            </div>
-
-            <!-- 🗓️ 오늘부터 10일간 날짜 선택 스크롤 토글 바 -->
+            <!-- 🗓️ 오늘부터 10일간 '수령 일자별 주문 가능 품목' 토글 바 -->
             <div class="bg-white p-4 rounded-3xl shadow-xs border border-gray-100 space-y-2">
                 <div class="flex items-center justify-between">
-                    <span class="text-xs font-extrabold text-orange-600 bg-orange-50 px-2.5 py-1 rounded-md border border-orange-200">🗓️ 수령 날짜 선택</span>
+                    <span class="text-xs font-extrabold text-orange-600 bg-orange-50 px-2.5 py-1 rounded-md border border-orange-200">🗓️ 수령 일자별 주문 가능 품목</span>
                     <span id="selectedDateLabel" class="text-xs font-black text-gray-700"></span>
                 </div>
                 <div id="tenDaysToggleList" class="flex items-center gap-1.5 overflow-x-auto pt-1 pb-1 scrollbar-none"></div>
@@ -192,6 +175,24 @@
                 <button id="btnSubmitOrder" onclick="submitOrder()" class="w-full bg-orange-500 hover:bg-orange-600 text-white text-lg sm:text-xl font-black py-4 rounded-2xl shadow-xl transition disabled:bg-gray-400 disabled:cursor-not-allowed transform active:scale-95">🍊 일괄 주문 완료하기</button>
             </div>
 
+            <!-- 🔎 '주문 내역 확인' 대시보드 (최하단으로 내리기 완료) -->
+            <div id="mainMyOrdersDash" class="bg-gradient-to-br from-gray-900 to-gray-800 text-white p-5 sm:p-6 rounded-3xl shadow-lg space-y-4 border border-gray-700">
+                <div class="flex items-center justify-between border-b border-gray-700 pb-3 gap-2">
+                    <h3 class="text-base sm:text-lg font-black text-orange-400 flex items-center gap-1.5 whitespace-nowrap">
+                        🔎 주문 내역 확인
+                    </h3>
+                    <span class="text-[11px] text-gray-400 font-bold whitespace-nowrap shrink-0">1초 빠른 조회</span>
+                </div>
+                <div class="space-y-2">
+                    <input type="text" id="dashSearchKakao" placeholder="카톡 닉네임 (예: 래미안1234)" class="w-full p-3 bg-gray-800/90 border border-gray-600 rounded-xl text-xs sm:text-sm font-bold text-white placeholder-gray-400 focus:outline-none focus:border-orange-500 transition">
+                    <input type="text" id="dashSearchName" placeholder="주문자 성함 (예: 박명숙)" class="w-full p-3 bg-gray-800/90 border border-gray-600 rounded-xl text-xs sm:text-sm font-bold text-white placeholder-gray-400 focus:outline-none focus:border-orange-500 transition">
+                </div>
+                <button id="btnDashFetchOrders" onclick="fetchMyOrdersFromDash()" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-3 rounded-xl text-sm shadow-md transition active:scale-95">
+                    내 주문 확인하기 🍊
+                </button>
+                <div id="dashMyOrdersResult" class="space-y-3 pt-2 hidden"></div>
+            </div>
+
         </section>
 
         <!-- 사장님 관리 모드 뷰 -->
@@ -266,7 +267,6 @@
                             <input type="text" id="newFruitName" placeholder="과일 품목명" class="p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition">
                             <input type="number" id="newFruitPrice" placeholder="판매 가격 (숫자만)" class="p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition">
                             <input type="number" id="newFruitStock" placeholder="초기 재고량" class="p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition">
-                            <!-- 날짜 지정 드롭다운 -->
                             <select id="newFruitAvailableDay" class="p-3 border border-gray-300 rounded-xl text-sm bg-white font-bold focus:outline-none focus:border-orange-500 transition"></select>
                         </div>
                         <textarea id="newFruitDesc" rows="2" placeholder="상품 상세 설명을 입력하세요 (선택)" class="w-full p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition"></textarea>
@@ -531,9 +531,8 @@
         let knownOrderIds = new Set();
         let isFirstLoad = true;
 
-        // 🗓️ 오늘부터 10일간의 날짜 배열 및 선택 날짜 식별값 관리
         let tenDaysList = [];
-        let selectedDateKey = 'today'; // 기본값: 오늘
+        let selectedDateKey = 'today';
 
         const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -670,7 +669,6 @@
             }, 3000);
         };
 
-        // 1번 요건: 오늘 포함 열흘간 날짜 스크롤 토글 바 생성
         function setupTenDaysToggleList() {
             const container = document.getElementById('tenDaysToggleList');
             if (!container) return;
@@ -698,7 +696,6 @@
             refreshMainDisplay();
         }
 
-        // 사장님 모드 신규 추가/수정용 날짜 선택 옵션 구성
         function setupAdminDateDropdowns() {
             const addSelect = document.getElementById('newFruitAvailableDay');
             const editSelect = document.getElementById('editFruitAvailableDay');
@@ -816,13 +813,11 @@
                 return;
             }
 
-            // 선택된 날짜 키에 맞게 정확한 과일 필터링 (버그 완벽 수정!)
             let targetFruitItems = fruitItems.filter(item => {
                 let availDay = item.available_day || 'today';
                 return availDay === selectedDateKey;
             });
 
-            // 1번 요건: 없는 경우 요청 문구 출력
             if (targetFruitItems.length === 0) {
                 userListEl.innerHTML = `<p class="text-center text-gray-400 py-10 font-bold">해당 날짜에 판매 중인 상품이 없습니다. 🍎</p>`;
             }
@@ -877,6 +872,7 @@
                 let reserveBadge = (item.available_day && item.available_day !== 'today') 
                     ? `<span class="bg-indigo-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md">📅 ${item.available_day} 예약</span>` : '';
 
+                // 장바구니 담기 시 수령 날짜 정보(available_day)를 함께 전달!
                 userListEl.innerHTML += `
                     <div class="${boxClass}">
                         ${imgHtmlContainer}
@@ -895,9 +891,9 @@
                             <div class="flex flex-col items-end gap-2 shrink-0">
                                 <button onclick="openDetailModal(${originalIndex})" class="px-2.5 py-1 bg-white border border-gray-200 text-gray-600 font-bold rounded-xl text-xs shadow-2xs hover:bg-gray-100 active:scale-95 transition">🔍 상세사진</button>
                                 <div class="flex items-center space-x-1 border-2 ${isEvent ? 'border-red-400 bg-white' : isSoldOut ? 'border-gray-200 bg-gray-100' : 'border-orange-300 bg-white'} rounded-xl p-1 shadow-2xs">
-                                    <button onclick="adjustOrderFormQty(${item.id}, '${item.name}', ${activePrice}, -1)" ${isSoldOut ? 'disabled' : ''} class="w-7 h-7 bg-orange-50 border border-orange-200 rounded-lg text-sm font-black text-orange-900 active:scale-90 transition disabled:opacity-40">-</button>
+                                    <button onclick="adjustOrderFormQty(${item.id}, '${item.name}', ${activePrice}, '${item.available_day || 'today'}', -1)" ${isSoldOut ? 'disabled' : ''} class="w-7 h-7 bg-orange-50 border border-orange-200 rounded-lg text-sm font-black text-orange-900 active:scale-90 transition disabled:opacity-40">-</button>
                                     <span id="orderQty-${item.id}" class="w-6 text-center font-black text-sm text-gray-800">${currentQty}</span>
-                                    <button onclick="adjustOrderFormQty(${item.id}, '${item.name}', ${activePrice}, 1)" ${isSoldOut ? 'disabled' : ''} class="w-7 h-7 ${isEvent ? 'bg-red-600 border-red-700' : 'bg-orange-500 border-orange-600'} rounded-lg text-sm font-black text-white active:scale-90 transition disabled:bg-gray-300 disabled:cursor-not-allowed">+</button>
+                                    <button onclick="adjustOrderFormQty(${item.id}, '${item.name}', ${activePrice}, '${item.available_day || 'today'}', 1)" ${isSoldOut ? 'disabled' : ''} class="w-7 h-7 ${isEvent ? 'bg-red-600 border-red-700' : 'bg-orange-500 border-orange-600'} rounded-lg text-sm font-black text-white active:scale-90 transition disabled:bg-gray-300 disabled:cursor-not-allowed">+</button>
                                 </div>
                             </div>
                         </div>
@@ -1022,8 +1018,9 @@
             finally { if(btnEl) btnEl.disabled = false; }
         }
 
-        function adjustOrderFormQty(fruitId, fruitName, price, change) {
-            if (!selectedItems[fruitId]) selectedItems[fruitId] = { fruit_id: fruitId, fruit_name: fruitName, price: price, qty: 0 };
+        // 장바구니 조율 시 available_day 매핑 보정
+        function adjustOrderFormQty(fruitId, fruitName, price, availableDay, change) {
+            if (!selectedItems[fruitId]) selectedItems[fruitId] = { fruit_id: fruitId, fruit_name: fruitName, price: price, available_day: availableDay || 'today', qty: 0 };
             let newQty = selectedItems[fruitId].qty + change;
             if (newQty < 0) newQty = 0;
             selectedItems[fruitId].qty = newQty;
@@ -1074,6 +1071,11 @@
         function scrollToOrderForm() {
             const formBox = document.getElementById('buyerKakao');
             if (formBox) { formBox.scrollIntoView({ behavior: 'smooth', block: 'center' }); formBox.focus(); }
+        }
+
+        function scrollToMyOrdersDash() {
+            const dashBox = document.getElementById('mainMyOrdersDash');
+            if (dashBox) { dashBox.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
         }
 
         function openThumbModal(imgUrl) { document.getElementById('thumbModalImg').src = imgUrl; document.getElementById('thumbModal').classList.remove('hidden'); }
