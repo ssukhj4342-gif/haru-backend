@@ -45,7 +45,7 @@
         }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-900 min-h-screen">
+<body class="bg-gray-50 text-gray-900 min-h-screen relative">
 
     <div id="toastNotification" class="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-gray-900/90 text-white text-xs font-bold px-4 py-2.5 rounded-full shadow-2xl transition-all duration-300 opacity-0 pointer-events-none flex items-center gap-1.5 whitespace-nowrap">
         <span id="toastMsg">📋 클립보드에 복사되었습니다!</span>
@@ -62,7 +62,8 @@
         </div>
     </header>
 
-    <main id="mainContainer" class="max-w-md mx-auto p-3 sm:p-4 pb-44 transition-all duration-300 ease-in-out">
+    <!-- 🌟 하단 가림 완벽 방지를 위해 pb-60 확보 -->
+    <main id="mainContainer" class="max-w-md mx-auto p-3 sm:p-4 pb-60 transition-all duration-300 ease-in-out">
         <section id="customerView" class="space-y-6 transition-all duration-300">
             
             <!-- 📢 데일리 공지 카드 -->
@@ -175,8 +176,8 @@
                 <button id="btnSubmitOrder" onclick="checkMultiDatePopup()" class="w-full bg-orange-500 hover:bg-orange-600 text-white text-lg sm:text-xl font-black py-4 rounded-2xl shadow-xl transition disabled:bg-gray-400 disabled:cursor-not-allowed transform active:scale-95">🍊 일괄 주문 완료하기</button>
             </div>
 
-            <!-- 🔎 주문 내역 확인 대시보드 -->
-            <div id="mainMyOrdersDash" class="bg-gradient-to-br from-gray-900 to-gray-800 text-white p-5 sm:p-6 rounded-3xl shadow-lg space-y-4 border border-gray-700">
+            <!-- 🌟 [수정] 박스 정렬 보정 및 하단 여백 가림 완벽 방지 처리 -->
+            <div id="mainMyOrdersDash" class="bg-gradient-to-br from-gray-900 to-gray-800 text-white p-5 sm:p-6 rounded-3xl shadow-lg space-y-4 border border-gray-700 w-full box-border mb-10">
                 <div class="flex items-center justify-between border-b border-gray-700 pb-3 gap-2">
                     <h3 class="text-base sm:text-lg font-black text-orange-400 flex items-center gap-1.5 whitespace-nowrap">
                         🔎 주문 내역 확인
@@ -184,8 +185,8 @@
                     <span class="text-[11px] text-gray-400 font-bold whitespace-nowrap shrink-0">1초 빠른 조회</span>
                 </div>
                 <div class="space-y-2">
-                    <input type="text" id="dashSearchKakao" placeholder="카톡 닉네임 (예: 래미안1234)" class="w-full p-3 bg-gray-800/90 border border-gray-600 rounded-xl text-xs sm:text-sm font-bold text-white placeholder-gray-400 focus:outline-none focus:border-orange-500 transition">
-                    <input type="text" id="dashSearchName" placeholder="주문자 성함 (예: 박명숙)" class="w-full p-3 bg-gray-800/90 border border-gray-600 rounded-xl text-xs sm:text-sm font-bold text-white placeholder-gray-400 focus:outline-none focus:border-orange-500 transition">
+                    <input type="text" id="dashSearchKakao" placeholder="카톡 닉네임 (예: 래미안1234)" class="w-full p-3 bg-gray-800/90 border border-gray-600 rounded-xl text-xs sm:text-sm font-bold text-white placeholder-gray-400 focus:outline-none focus:border-orange-500 transition box-border">
+                    <input type="text" id="dashSearchName" placeholder="주문자 성함 (예: 박명숙)" class="w-full p-3 bg-gray-800/90 border border-gray-600 rounded-xl text-xs sm:text-sm font-bold text-white placeholder-gray-400 focus:outline-none focus:border-orange-500 transition box-border">
                 </div>
                 <button id="btnDashFetchOrders" onclick="fetchMyOrdersFromDash()" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-3 rounded-xl text-sm shadow-md transition active:scale-95">
                     내 주문 확인하기 🍊
@@ -1530,7 +1531,7 @@
             return { text: `🌱 첫주문`, classes: 'bg-emerald-600 text-white' };
         }
 
-        // 🌟 [수정 완료] 오늘 매출 대시보드 날짜 매칭 정밀 수정 (완료 즉시 바로 반영되도록 완전히 정립)
+        // 오늘 매출 대시보드 정밀 집계
         function updateAdminDashboardSummary() {
             const now = new Date();
             const yyyy = now.getFullYear();
@@ -1737,13 +1738,8 @@
                     let orderDay = extractOrderAvailableDay(order);
                     let reserveTag = (orderDay !== 'today') ? `📅 ${orderDay} 배달` : '🍊 당일배달';
 
-                    // 🌟 [수정 완료] 수령일이 다른 제품 같이 주문했을 때 배달비 2,500원이 무조건 올바르게 더해져서 표기되도록 수식 수정
-                    let basePrice = Number(order.total_price || 0);
-                    let displayPrice = basePrice;
-                    if (order.order_type === '배달' && !order.fruit.includes('배달비')) {
-                        // 기본 금액에 배달비가 안 더해져 온 경우 보정
-                        displayPrice = basePrice + 2500;
-                    }
+                    // 🌟 [핵심 수정] 이중 합산 버그 제거: DB 원본 total_price 사용
+                    let displayPrice = Number(order.total_price || 0);
 
                     deliveryList.innerHTML += `
                         <div class="bg-white p-5 rounded-3xl border border-blue-200 shadow-sm relative flex flex-col justify-between h-full min-h-[200px]">
@@ -1864,14 +1860,13 @@
             finally { if(btnEl) btnEl.disabled = false; }
         }
 
-        // 🌟 완료 클릭 시 상단 실시간 대시보드 리로드 및 렌더링 즉시 반영
         async function triggerCompleteOrder(id, btnEl) {
             if(btnEl) btnEl.disabled = true;
             try {
                 const res = await fetch(`${API_URL}/api/admin/orders/${id}?status=판매완료&password=${PASS}`, { method: 'PUT' });
                 if(res.ok) { 
                     alert('🎉 완료 처리되었습니다!'); 
-                    await loadStoreData(); // DB에서 최신 내역 끌어와 상단 대시보드 즉시 업데이트
+                    await loadStoreData();
                     await renderAdminOrders(); 
                 }
             } catch(e) { alert('처리 실패!'); }
