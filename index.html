@@ -16,7 +16,7 @@
         @page { size: A4 portrait; margin: 5mm; }
         @media print {
             html, body { height: 100% !important; overflow: visible !important; background: white !important; margin: 0 !important; padding: 0 !important; }
-            header, main, #stickyCheckoutBar, #thumbModal, #detailModal, #editFruitModal, #authModal, #bankModal, #toastNotification { display: none !important; }
+            header, main, #stickyCheckoutBar, #thumbModal, #detailModal, #editFruitModal, #authModal, #bankModal, #toastNotification, #multiDateModal { display: none !important; }
             #labelPrintArea { display: block !important; position: absolute !important; left: 0 !important; top: 0 !important; width: 200mm !important; background: white !important; }
             .label-page { 
                 display: grid !important; 
@@ -51,7 +51,7 @@
         <span id="toastMsg">📋 클립보드에 복사되었습니다!</span>
     </div>
 
-    <!-- 헤더 (오른쪽 상단 '내 주문' 버튼 복구 완료) -->
+    <!-- 헤더 -->
     <header class="bg-white sticky top-0 z-40 border-b border-gray-200 px-3 sm:px-6 py-3.5 flex items-center justify-between shadow-xs">
         <h1 class="text-lg sm:text-2xl font-black text-orange-600 tracking-tight cursor-pointer flex items-center gap-1 shrink-0 active:scale-95 transition" onclick="switchView('customer')">
             하루마켓 흑석점 🍊
@@ -172,10 +172,10 @@
                     </div>
                 </div>
 
-                <button id="btnSubmitOrder" onclick="submitOrder()" class="w-full bg-orange-500 hover:bg-orange-600 text-white text-lg sm:text-xl font-black py-4 rounded-2xl shadow-xl transition disabled:bg-gray-400 disabled:cursor-not-allowed transform active:scale-95">🍊 일괄 주문 완료하기</button>
+                <button id="btnSubmitOrder" onclick="checkMultiDatePopup()" class="w-full bg-orange-500 hover:bg-orange-600 text-white text-lg sm:text-xl font-black py-4 rounded-2xl shadow-xl transition disabled:bg-gray-400 disabled:cursor-not-allowed transform active:scale-95">🍊 일괄 주문 완료하기</button>
             </div>
 
-            <!-- 🔎 '주문 내역 확인' 대시보드 (최하단으로 내리기 완료) -->
+            <!-- 🔎 '주문 내역 확인' 대시보드 -->
             <div id="mainMyOrdersDash" class="bg-gradient-to-br from-gray-900 to-gray-800 text-white p-5 sm:p-6 rounded-3xl shadow-lg space-y-4 border border-gray-700">
                 <div class="flex items-center justify-between border-b border-gray-700 pb-3 gap-2">
                     <h3 class="text-base sm:text-lg font-black text-orange-400 flex items-center gap-1.5 whitespace-nowrap">
@@ -310,19 +310,27 @@
                     <div id="orderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch"></div>
                 </div>
 
-                <!-- 🚚 배달 현황 대시보드 -->
+                <!-- 🚚 배달 현황 대시보드 (일자별 선택 열람 및 출력 기능 추가) -->
                 <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-5 sm:p-6 rounded-3xl shadow-sm border border-blue-100 space-y-4">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-blue-200/60 pb-3 gap-3">
                         <div>
                             <h2 class="text-lg sm:text-xl font-extrabold text-blue-900 flex items-center gap-2">🚚 실시간 배달 대시보드 (<span id="deliveryOrderCount" class="text-blue-600">0</span>건)</h2>
-                            <p class="text-xs text-blue-600 font-bold mt-0.5">입금 확인 후 배달 전표 라벨지를 일괄 출력하세요.</p>
+                            <p class="text-xs text-blue-600 font-bold mt-0.5">수령일자별로 선택하여 열람 및 라벨 전표를 일괄 출력하세요.</p>
                         </div>
-                        <button onclick="printAllDeliveryLabels()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow-md transition active:scale-95 self-stretch sm:self-auto justify-center">🖨️ 전체 배달 라벨 인쇄 (A4 10칸)</button>
+                        
+                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+                            <!-- 배달일자 필터 셀렉터 -->
+                            <select id="adminDeliveryDateFilter" onchange="renderAdminOrders()" class="p-2.5 bg-white border-2 border-blue-300 text-blue-900 rounded-xl text-xs font-bold focus:outline-none focus:border-indigo-500 transition">
+                                <option value="all">📅 전체 날짜 보기</option>
+                            </select>
+
+                            <button onclick="printAllDeliveryLabels()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow-md transition active:scale-95 justify-center">🖨️ 배달 라벨 인쇄 (A4 10칸)</button>
+                        </div>
                     </div>
 
                     <div id="deliverySummaryBox" class="bg-amber-100/80 border border-amber-300 p-4 rounded-2xl hidden">
                         <h3 class="text-xs font-black text-amber-900 mb-2 flex items-center gap-1">
-                            📦 오늘 배달 나갈 과일 총 포장 수량 (실시간 집계)
+                            📦 선택 날짜 배달 나갈 과일 총 포장 수량 (실시간 집계)
                         </h3>
                         <div id="deliverySummaryItems" class="flex flex-wrap gap-2"></div>
                     </div>
@@ -405,6 +413,22 @@
         </div>
     </div>
 
+    <!-- 🚨 수령일자 다중 선택 시 안내 팝업 모달 -->
+    <div id="multiDateModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 text-center shadow-2xl transform transition-all">
+            <div id="multiDateIcon" class="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-3xl mx-auto font-black">🚚</div>
+            <div class="space-y-1">
+                <h3 id="multiDateTitle" class="text-xl font-black text-gray-900">수령일자 확인 안내</h3>
+                <p id="multiDateSubText" class="text-xs text-gray-500 font-bold"></p>
+            </div>
+            <div id="multiDateDetails" class="bg-gray-50 p-4 rounded-2xl border border-gray-200 text-left text-xs font-semibold space-y-1.5 text-gray-700"></div>
+            <div class="flex gap-2">
+                <button onclick="closeMultiDateModal()" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 rounded-xl text-sm transition">주문 수정하기</button>
+                <button onclick="confirmAndSubmitOrder()" class="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-black py-3 rounded-xl text-sm shadow-md transition">네, 주문 진행합니다</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 하단 Floating 장바구니 바 -->
     <div id="stickyCheckoutBar" class="fixed bottom-0 left-0 right-0 z-30 bg-gray-900 text-white border-t border-gray-800 shadow-2xl p-4 transition-all duration-300">
         <div class="max-w-md mx-auto flex items-center justify-between gap-2">
@@ -419,6 +443,7 @@
         </div>
     </div>
 
+    <!-- 계좌 안내 모달 -->
     <div id="bankModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden p-4">
         <div class="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 text-center shadow-2xl transform transition-all">
             <div class="w-16 h-16 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-3xl mx-auto font-black">💰</div>
@@ -450,6 +475,7 @@
         </div>
     </div>
 
+    <!-- 이미지 확대 모달 -->
     <div id="thumbModal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center hidden p-4" onclick="closeThumbModal()">
         <div class="max-w-md w-full relative bg-transparent flex flex-col items-center">
             <button onclick="closeThumbModal()" class="absolute -top-10 right-0 text-white text-3xl font-black">✕</button>
@@ -457,6 +483,7 @@
         </div>
     </div>
 
+    <!-- 과일 상세 모달 -->
     <div id="detailModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center hidden p-4" onclick="if(event.target == this) closeDetailModal()">
         <div class="bg-white w-full max-w-md rounded-3xl p-6 space-y-4 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
             <div class="flex justify-between items-center border-b pb-3">
@@ -478,6 +505,7 @@
         </div>
     </div>
 
+    <!-- 사장님 인증 모달 -->
     <div id="authModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center hidden">
         <div class="bg-white w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl mx-4">
             <div class="text-center">
@@ -699,16 +727,21 @@
         function setupAdminDateDropdowns() {
             const addSelect = document.getElementById('newFruitAvailableDay');
             const editSelect = document.getElementById('editFruitAvailableDay');
+            const filterSelect = document.getElementById('adminDeliveryDateFilter');
 
             let optionsHtml = `<option value="today">🍊 당일 입금/즉시판매</option>`;
+            let filterHtml = `<option value="all">📅 전체 날짜 보기</option><option value="today">🍊 당일 수령건</option>`;
+
             tenDaysList.forEach(t => {
                 if (t.key !== 'today') {
                     optionsHtml += `<option value="${t.key}">📅 ${t.label} 예약</option>`;
+                    filterHtml += `<option value="${t.key}">📅 ${t.label} 예약건</option>`;
                 }
             });
 
             if (addSelect) addSelect.innerHTML = optionsHtml;
             if (editSelect) editSelect.innerHTML = optionsHtml;
+            if (filterSelect) filterSelect.innerHTML = filterHtml;
         }
 
         function setupFileListeners() {
@@ -872,7 +905,6 @@
                 let reserveBadge = (item.available_day && item.available_day !== 'today') 
                     ? `<span class="bg-indigo-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md">📅 ${item.available_day} 예약</span>` : '';
 
-                // 장바구니 담기 시 수령 날짜 정보(available_day)를 함께 전달!
                 userListEl.innerHTML += `
                     <div class="${boxClass}">
                         ${imgHtmlContainer}
@@ -1018,7 +1050,6 @@
             finally { if(btnEl) btnEl.disabled = false; }
         }
 
-        // 장바구니 조율 시 available_day 매핑 보정
         function adjustOrderFormQty(fruitId, fruitName, price, availableDay, change) {
             if (!selectedItems[fruitId]) selectedItems[fruitId] = { fruit_id: fruitId, fruit_name: fruitName, price: price, available_day: availableDay || 'today', qty: 0 };
             let newQty = selectedItems[fruitId].qty + change;
@@ -1149,6 +1180,82 @@
             }
         }
 
+        // 🚨 수령일자 다중 선택 시 안내 팝업 검사 함수
+        function checkMultiDatePopup() {
+            let itemsToOrder = Object.values(selectedItems).filter(item => item.qty > 0);
+            
+            if(itemsToOrder.length === 0) { alert('주문하실 과일의 수량을 1개 이상 선택해 주세요!'); window.scrollTo({ top: 300, behavior: 'smooth' }); return; }
+            
+            const kakao = document.getElementById('buyerKakao').value;
+            const name = document.getElementById('buyerName').value;
+            const address = document.getElementById('buyerAddress').value;
+
+            if(!kakao || !name) { alert('카톡 닉네임과 성함을 꼭 입력해주세요!'); return; }
+            if(selectedOrderType === '배달' && !address) { alert('배달 상세 주소를 적어주세요!'); return; }
+
+            // 담긴 상품들의 수령일자 종류 추출
+            const uniqueDays = [...new Set(itemsToOrder.map(item => item.available_day || 'today'))];
+
+            if (uniqueDays.length > 1) {
+                // 수령일이 2개 이상 선택된 경우 팝업 띄우기
+                const modal = document.getElementById('multiDateModal');
+                const titleEl = document.getElementById('multiDateTitle');
+                const subTextEl = document.getElementById('multiDateSubText');
+                const detailsEl = document.getElementById('multiDateDetails');
+                const iconEl = document.getElementById('multiDateIcon');
+
+                detailsEl.innerHTML = '';
+
+                if (selectedOrderType === '배달') {
+                    iconEl.innerText = '🚚';
+                    iconEl.className = 'w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-3xl mx-auto font-black';
+                    titleEl.innerText = '배달비 각각 발생 안내';
+                    subTextEl.innerText = '수령일자가 다른 물품을 동시에 배달 주문하셨습니다.';
+
+                    let itemsGrouped = {};
+                    itemsToOrder.forEach(item => {
+                        let dayKey = item.available_day || 'today';
+                        let dayLabel = dayKey === 'today' ? '오늘' : dayKey;
+                        if (!itemsGrouped[dayLabel]) itemsGrouped[dayLabel] = [];
+                        itemsGrouped[dayLabel].push(`${item.fruit_name} ${item.qty}개`);
+                    });
+
+                    Object.entries(itemsGrouped).forEach(([day, items]) => {
+                        detailsEl.innerHTML += `<div class="pb-1"><span class="font-bold text-blue-600">[${day} 배달]</span> ${items.join(', ')}</div>`;
+                    });
+
+                    detailsEl.innerHTML += `<p class="pt-2 border-t text-red-600 font-extrabold text-[11px]">⚠️ 날짜별 개별 배달로 진행되어, 배달비가 총 ${uniqueDays.length}회 발생합니다.</p>`;
+                } else {
+                    iconEl.innerText = '🏢';
+                    iconEl.className = 'w-16 h-16 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-3xl mx-auto font-black';
+                    titleEl.innerText = '품목별 수령일자 안내';
+                    subTextEl.innerText = '수령일자가 다른 물품을 동시에 픽업 예약하셨습니다.';
+
+                    itemsToOrder.forEach(item => {
+                        let dayKey = item.available_day || 'today';
+                        let dayLabel = dayKey === 'today' ? '오늘' : dayKey;
+                        detailsEl.innerHTML += `<div>• <strong>[${item.fruit_name}]</strong> 수령일: <span class="text-orange-600 font-bold">'${dayLabel}'</span>입니다.</div>`;
+                    });
+
+                    detailsEl.innerHTML += `<p class="pt-2 border-t text-gray-500 font-bold text-[11px]">지정한 수령 일자에 맞춰 매장에 방문해 주시기 바랍니다.</p>`;
+                }
+
+                modal.classList.remove('hidden');
+            } else {
+                // 수령일이 1개면 바로 제출 진행
+                submitOrder();
+            }
+        }
+
+        function closeMultiDateModal() {
+            document.getElementById('multiDateModal').classList.add('hidden');
+        }
+
+        function confirmAndSubmitOrder() {
+            closeMultiDateModal();
+            submitOrder();
+        }
+
         async function submitOrder() {
             if(isSubmitting) return;
             const submitBtn = document.getElementById('btnSubmitOrder');
@@ -1160,7 +1267,7 @@
 
             let itemsToOrder = Object.values(selectedItems).filter(item => item.qty > 0);
 
-            if(itemsToOrder.length === 0) { alert('주문하실 과일의 수량을 1개 이상 선택해 주세요!'); window.scrollTo({ top: 300, behavior: 'smooth' }); return; }
+            if(itemsToOrder.length === 0) { alert('주문하실 과일의 수량을 1개 이상 선택해 주세요!'); return; }
             if(!kakao || !name) { alert('카톡 닉네임과 성함을 꼭 입력해주세요!'); return; }
             if(selectedOrderType === '배달' && !address) { alert('배달 상세 주소를 적어주세요!'); return; }
 
@@ -1174,8 +1281,10 @@
                 });
                 const resData = await res.json();
                 if(res.ok) {
+                    const uniqueDaysCount = new Set(itemsToOrder.map(i => i.available_day || 'today')).size;
                     let totalFruitPrice = itemsToOrder.reduce((sum, i) => sum + (i.price * i.qty), 0);
-                    let finalAmount = totalFruitPrice + ((selectedOrderType === '배달') ? 2500 : 0);
+                    let deliveryFeeTotal = (selectedOrderType === '배달') ? (2500 * uniqueDaysCount) : 0;
+                    let finalAmount = totalFruitPrice + deliveryFeeTotal;
 
                     if(method === '계좌이체') {
                         document.getElementById('bankModalAccount').innerText = storeMeta.account || '등록된 계좌 없음';
@@ -1391,6 +1500,38 @@
             }
         }
 
+        function getStrictCustomerOrderCount(kakaoNickname) {
+            if (!kakaoNickname) return 0;
+            const pureTarget = kakaoNickname.trim().toLowerCase();
+            return (globalOrders || []).filter(o => o.kakao_nickname && o.kakao_nickname.trim().toLowerCase() === pureTarget).length;
+        }
+
+        function getBadgeStyleByCount(count) {
+            if (count >= 5) return { text: `🔥 VVIP (${count}회)`, classes: 'bg-purple-600 text-white' };
+            if (count >= 2) return { text: `⭐️ 단골 (${count}회)`, classes: 'bg-amber-500 text-white' };
+            return { text: `🌱 첫주문`, classes: 'bg-emerald-600 text-white' };
+        }
+
+        function updateAdminDashboardSummary() {
+            const todayStr = new Date().toLocaleDateString('ko-KR');
+            const summaryDateEl = document.getElementById('summaryTodayDate');
+            if (summaryDateEl) summaryDateEl.innerText = todayStr;
+
+            const todayCompleted = rawCompletedOrders.filter(o => {
+                const timeStr = o.status_changed_time || o.time_str || '';
+                return timeStr.includes(todayStr) || timeStr.startsWith(new Date().toISOString().slice(0, 10));
+            });
+
+            const totalSales = todayCompleted.reduce((sum, o) => sum + (o.total_price || 0), 0);
+            const pickupCount = todayCompleted.filter(o => o.order_type !== '배달').length;
+            const deliveryCount = todayCompleted.filter(o => o.order_type === '배달').length;
+
+            document.getElementById('summaryTodaySales').innerText = totalSales.toLocaleString() + '원';
+            document.getElementById('summaryTodayCount').innerText = todayCompleted.length + '건';
+            document.getElementById('summaryTodayPickup').innerText = pickupCount + '건';
+            document.getElementById('summaryTodayDelivery').innerText = deliveryCount + '건';
+        }
+
         async function renderAdminOrders(isBackgroundCheck = false) {
             try {
                 const res = await fetch(`${API_URL}/api/admin/orders?password=${PASS}`);
@@ -1398,8 +1539,7 @@
                 const data = await res.json();
 
                 let pendingPickup = (data.pending || []).filter(o => o.order_type !== '배달');
-                const deliveryOrders = data.delivery_orders || [];
-                currentAdminDeliveryOrders = deliveryOrders; 
+                let deliveryOrders = data.delivery_orders || [];
                 rawCompletedOrders = data.completed || [];
 
                 const allCurrentOrders = [...pendingPickup, ...deliveryOrders];
@@ -1423,6 +1563,7 @@
 
                 updateAdminDashboardSummary();
 
+                // 픽업 요약
                 let pickupFruitSummary = {};
                 pendingPickup.forEach(order => {
                     let rawFruitStr = order.fruit_name || order.fruit || "";
@@ -1466,8 +1607,21 @@
                     );
                 }
 
+                // 배달 필터링 (선택된 배달 수령일자에 맞춤)
+                const deliveryDateFilterEl = document.getElementById('adminDeliveryDateFilter');
+                const selectedDeliveryDate = deliveryDateFilterEl ? deliveryDateFilterEl.value : 'all';
+
+                let filteredDeliveryOrders = deliveryOrders;
+                if (selectedDeliveryDate !== 'all') {
+                    filteredDeliveryOrders = deliveryOrders.filter(o => {
+                        let orderAvailDay = o.available_day || 'today';
+                        return orderAvailDay === selectedDeliveryDate;
+                    });
+                }
+                currentAdminDeliveryOrders = filteredDeliveryOrders;
+
                 let deliveryFruitSummary = {};
-                deliveryOrders.forEach(order => {
+                filteredDeliveryOrders.forEach(order => {
                     let rawFruitStr = order.fruit_name || order.fruit || "";
                     let fruitItemsList = rawFruitStr.split(',').map(s => s.trim()).filter(s => s);
 
@@ -1533,18 +1687,20 @@
                 document.getElementById('orderCount').innerText = pendingPickup.length;
 
                 const deliveryList = document.getElementById('deliveryOrderList'); deliveryList.innerHTML = '';
-                deliveryOrders.forEach(order => {
+                filteredDeliveryOrders.forEach(order => {
                     const historyCount = getStrictCustomerOrderCount(order.kakao_nickname);
                     const badgeStyle = getBadgeStyleByCount(historyCount);
                     let deliveryActionBtn = order.status === '입금대기'
                         ? `<button onclick="triggerUpdateStatus(${order.id}, '접수완료', this)" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl text-xs font-black active:scale-95 transition">💵 입금확인</button>`
                         : `<button onclick="triggerCompleteOrder(${order.id}, this)" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl text-xs font-black active:scale-95 transition">🚚 배달 완료 처리</button>`;
 
+                    let reserveTag = (order.available_day && order.available_day !== 'today') ? `📅 ${order.available_day}` : '🍊 당일배달';
+
                     deliveryList.innerHTML += `
                         <div class="bg-white p-5 rounded-3xl border border-blue-200 shadow-sm relative flex flex-col justify-between h-full min-h-[200px]">
                             <div class="space-y-2">
                                 <div class="flex justify-between items-center pr-20">
-                                    <span class="bg-blue-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md">🚚 배달 [${order.status}]</span>
+                                    <span class="bg-blue-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md">🚚 배달 [${order.status}] (${reserveTag})</span>
                                 </div>
                                 <span class="absolute right-5 top-5 text-xs font-black px-2 py-1 rounded-md ${badgeStyle.classes}">${badgeStyle.text}</span>
                                 <div>
@@ -1567,7 +1723,7 @@
                             </div>
                         </div>`;
                 });
-                document.getElementById('deliveryOrderCount').innerText = deliveryOrders.length;
+                document.getElementById('deliveryOrderCount').innerText = filteredDeliveryOrders.length;
                 filterAndRenderCompletedOrders();
             } catch(e) { console.error("장부 조회 에러", e); }
         }
