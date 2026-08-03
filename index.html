@@ -7,13 +7,18 @@
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        /* 📱 모바일 단어 단위 깨짐 방지 및 터치 감도 최적화 */
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            word-break: keep-all;
+            overflow-wrap: break-word;
+        }
         
-        /* 🖨️ A4 용지 규격 2x5 (10칸) 절대 고ㅇ정 출력 스타일 */
+        /* 🖨️ A4 용지 규격 2x5 (10칸) 절대 고정 출력 스타일 */
         @page { size: A4 portrait; margin: 5mm; }
         @media print {
             html, body { height: 100% !important; overflow: visible !important; background: white !important; margin: 0 !important; padding: 0 !important; }
-            header, main, #stickyCheckoutBar, #thumbModal, #detailModal, #myOrdersModal, #authModal, #bankModal, #toastNotification { display: none !important; }
+            header, main, #stickyCheckoutBar, #thumbModal, #detailModal, #myOrdersModal, #editFruitModal, #authModal, #bankModal, #toastNotification { display: none !important; }
             #labelPrintArea { display: block !important; position: absolute !important; left: 0 !important; top: 0 !important; width: 200mm !important; background: white !important; }
             .label-page { 
                 display: grid !important; 
@@ -44,38 +49,40 @@
 </head>
 <body class="bg-gray-50 text-gray-900 min-h-screen">
 
-    <div id="toastNotification" class="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-gray-900/90 text-white text-xs font-bold px-4 py-2.5 rounded-full shadow-2xl transition-all duration-300 opacity-0 pointer-events-none flex items-center gap-1.5">
+    <div id="toastNotification" class="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-gray-900/90 text-white text-xs font-bold px-4 py-2.5 rounded-full shadow-2xl transition-all duration-300 opacity-0 pointer-events-none flex items-center gap-1.5 whitespace-nowrap">
         <span id="toastMsg">📋 클립보드에 복사되었습니다!</span>
     </div>
 
     <!-- 헤더 모바일 레이아웃 최적화 -->
-    <header class="bg-white sticky top-0 z-40 border-b border-gray-200 px-4 sm:px-6 py-3.5 flex items-center justify-between shadow-xs">
+    <header class="bg-white sticky top-0 z-40 border-b border-gray-200 px-3 sm:px-6 py-3.5 flex items-center justify-between shadow-xs">
         <h1 class="text-lg sm:text-2xl font-black text-orange-600 tracking-tight cursor-pointer flex items-center gap-1 shrink-0 active:scale-95 transition" onclick="switchView('customer')">
             하루마켓 흑석점 🍊
         </h1>
         <div class="flex items-center gap-1.5 shrink-0">
-            <button onclick="openMyOrdersModal()" class="bg-gray-100 text-gray-700 px-2.5 sm:px-3.5 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 active:scale-95 transition whitespace-nowrap">🔎 내 주문</button>
+            <button onclick="scrollToMyOrdersDash()" class="bg-gray-100 text-gray-700 px-2.5 sm:px-3.5 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 active:scale-95 transition whitespace-nowrap">🔎 내 주문</button>
             <button id="toggleBtn" onclick="openAdminAuthModal()" class="bg-orange-100 text-orange-700 px-2.5 sm:px-3.5 py-2 rounded-xl text-xs font-bold transition hover:bg-orange-200 active:scale-95 whitespace-nowrap">👨‍🌾 사장님</button>
         </div>
     </header>
 
-    <main id="mainContainer" class="max-w-md mx-auto p-4 pb-32 transition-all duration-300 ease-in-out">
+    <main id="mainContainer" class="max-w-md mx-auto p-3 sm:p-4 pb-32 transition-all duration-300 ease-in-out">
         <section id="customerView" class="space-y-6 transition-all duration-300">
-            <div class="bg-gradient-to-br from-orange-50/80 to-white p-6 rounded-3xl shadow-xs border border-orange-100/80 space-y-3">
+            
+            <!-- 📢 데일리 공지 카드 (사진 크기에 맞게 가변 크기 조정) -->
+            <div class="bg-gradient-to-br from-orange-50/80 to-white p-5 sm:p-6 rounded-3xl shadow-xs border border-orange-100/80 space-y-3">
                 <div class="flex items-center space-x-2">
                     <span class="bg-orange-500 text-white text-xs font-black px-2.5 py-1 rounded-md shadow-xs">📢 데일리 공지</span>
                 </div>
-                <div id="displayNoticeImgContainer" class="w-full max-h-60 bg-gray-50 rounded-2xl overflow-hidden hidden flex items-center justify-center border border-gray-100 shadow-inner">
-                    <img id="displayNoticeImg" src="" class="w-full h-full object-cover">
+                <div id="displayNoticeImgContainer" class="w-full bg-gray-50 rounded-2xl overflow-hidden hidden flex items-center justify-center border border-gray-100 p-1">
+                    <img id="displayNoticeImg" src="" class="w-full h-auto max-h-96 object-contain rounded-xl">
                 </div>
                 <p id="displayDailyNotice" class="text-sm font-semibold text-gray-800 leading-relaxed whitespace-pre-line">로딩 중...</p>
             </div>
 
-            <!-- 토스 송금 버튼이 포함된 계좌 안내 카드 -->
+            <!-- 토스 송금 연동 계좌 카드 -->
             <div class="bg-orange-50 p-5 rounded-3xl border border-orange-100 space-y-2">
                 <span class="bg-orange-600 text-white text-xs font-bold px-2.5 py-1 rounded-md">💰 입금 계좌안내</span>
-                <p id="displayAccount" onclick="copyToClipboard(this.innerText.replace('(클릭시 복사)', '').trim(), '입금 계좌번호가 복사되었습니다!')" class="text-lg font-black text-orange-900 pt-1 cursor-pointer hover:underline flex items-center gap-1.5" title="클릭하여 복사">로딩 중...</p>
-                <p id="displayAccountOwner" class="text-sm text-orange-700 font-bold">로딩 중...</p>
+                <p id="displayAccount" onclick="copyToClipboard(this.innerText.replace('(클릭시 복사)', '').trim(), '입금 계좌번호가 복사되었습니다!')" class="text-base sm:text-lg font-black text-orange-900 pt-1 cursor-pointer hover:underline flex items-center gap-1.5" title="클릭하여 복사">로딩 중...</p>
+                <p id="displayAccountOwner" class="text-xs sm:text-sm text-orange-700 font-bold">로딩 중...</p>
                 <button onclick="openTossRemit()" class="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs py-2.5 rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 active:scale-95">
                     <span>💸 토스 앱으로 1초 송금하기</span>
                 </button>
@@ -84,16 +91,32 @@
             <div class="bg-white p-5 rounded-3xl shadow-xs border border-gray-100 flex items-center justify-between">
                 <div>
                     <span class="bg-amber-100 text-amber-800 text-xs font-bold px-2.5 py-1 rounded-md">⏰ 오늘 영업 시간</span>
-                    <p id="displayHours" class="text-lg font-extrabold text-gray-800 mt-2">로딩 중...</p>
+                    <p id="displayHours" class="text-base sm:text-lg font-extrabold text-gray-800 mt-2">로딩 중...</p>
                 </div>
                 <span class="text-3xl">🏪</span>
             </div>
 
-            <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
+            <!-- 📅 요일별 예약/오늘 주문 탭 선택 -->
+            <div class="bg-white p-2 rounded-2xl shadow-xs border border-gray-200 flex gap-1">
+                <button id="tabTodayFruit" onclick="switchFruitTab('today')" class="flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-black transition bg-orange-500 text-white shadow-xs">
+                    🍊 오늘 입고 당일 주문
+                </button>
+                <button id="tabReserveFruit" onclick="switchFruitTab('reserve')" class="flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-black transition bg-gray-100 text-gray-600 hover:bg-gray-200">
+                    📅 입고 예정 요일 예약
+                </button>
+            </div>
+
+            <!-- 요일 선택 서브 바 (예약 탭 선택시만 노출) -->
+            <div id="daySelectorContainer" class="hidden bg-orange-50/60 p-3 rounded-2xl border border-orange-200/80 space-y-2">
+                <p class="text-xs font-bold text-orange-900">🗓️ 수령 희망 요일을 선택해 주세요</p>
+                <div id="dayButtonsList" class="flex items-center gap-1.5 overflow-x-auto pb-1"></div>
+            </div>
+
+            <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
                 <div class="flex justify-between items-center border-b pb-3">
                     <div>
-                        <h2 class="text-xl font-black text-gray-900">🛒 1. 과일 수량 선택</h2>
-                        <p class="text-xs text-gray-400 font-bold mt-0.5">구매하실 수량을 조절하면 금액이 자동 계산됩니다.</p>
+                        <h2 id="fruitListTitle" class="text-lg sm:text-xl font-black text-gray-900">🛒 1. 과일 수량 선택</h2>
+                        <p class="text-xs text-gray-400 font-bold mt-0.5">수량을 조절하면 총 금액이 자동 계산됩니다.</p>
                     </div>
                 </div>
                 <div id="customerFruitList" class="space-y-4">
@@ -101,8 +124,8 @@
                 </div>
             </div>
 
-            <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-5">
-                <h2 class="text-xl font-black text-gray-900 border-b pb-3">📝 2. 수령 및 고객 정보 입력</h2>
+            <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 space-y-5">
+                <h2 class="text-lg sm:text-xl font-black text-gray-900 border-b pb-3">📝 2. 수령 및 고객 정보 입력</h2>
                 <div class="space-y-2">
                     <label class="block text-xs font-bold text-gray-400">💡 수령 방식 선택</label>
                     <div class="grid grid-cols-2 gap-2">
@@ -155,14 +178,34 @@
                     </div>
                 </div>
 
-                <button id="btnSubmitOrder" onclick="submitOrder()" class="w-full bg-orange-500 hover:bg-orange-600 text-white text-xl font-black py-4 rounded-2xl shadow-xl transition disabled:bg-gray-400 disabled:cursor-not-allowed transform active:scale-95">🍊 일괄 주문 완료하기</button>
+                <button id="btnSubmitOrder" onclick="submitOrder()" class="w-full bg-orange-500 hover:bg-orange-600 text-white text-lg sm:text-xl font-black py-4 rounded-2xl shadow-xl transition disabled:bg-gray-400 disabled:cursor-not-allowed transform active:scale-95">🍊 일괄 주문 완료하기</button>
             </div>
+
+            <!-- 2번 보완: 메인 화면 전면에 노출되는 실시간 내 주문 조회 대시보드 카드 -->
+            <div id="mainMyOrdersDash" class="bg-gradient-to-br from-gray-900 to-gray-800 text-white p-5 sm:p-6 rounded-3xl shadow-lg space-y-4 border border-gray-700">
+                <div class="flex items-center justify-between border-b border-gray-700 pb-3">
+                    <h3 class="text-lg font-black text-orange-400 flex items-center gap-1.5">
+                        🔎 실시간 내 주문 내역 확인 대시보드
+                    </h3>
+                    <span class="text-xs text-gray-400 font-bold">1초 빠른 조회</span>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <input type="text" id="dashSearchKakao" placeholder="카톡 닉네임 (예: 래미안1234)" class="p-3 bg-gray-700/80 border border-gray-600 rounded-xl text-sm font-bold text-white placeholder-gray-400 focus:outline-none focus:border-orange-500 transition">
+                    <input type="text" id="dashSearchName" placeholder="주문자 성함 (예: 박명숙)" class="p-3 bg-gray-700/80 border border-gray-600 rounded-xl text-sm font-bold text-white placeholder-gray-400 focus:outline-none focus:border-orange-500 transition">
+                </div>
+                <button id="btnDashFetchOrders" onclick="fetchMyOrdersFromDash()" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-3 rounded-xl text-sm shadow-md transition active:scale-95">
+                    내 주문 확인하기 🍊
+                </button>
+                <div id="dashMyOrdersResult" class="space-y-3 pt-2 hidden"></div>
+            </div>
+
         </section>
 
+        <!-- 사장님 관리 모드 뷰 -->
         <section id="adminView" class="hidden flex-col md:flex-row gap-6 w-full transition-all duration-300">
-            <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4 h-fit md:sticky md:top-24 w-full md:w-[380px] shrink-0">
+            <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4 h-fit md:sticky md:top-24 w-full md:w-[380px] shrink-0">
                 <div class="flex justify-between items-center border-b pb-2">
-                    <h2 class="text-xl font-extrabold text-gray-800 flex items-center gap-2">⚙️ 하루마켓 흑석점 관리</h2>
+                    <h2 class="text-lg sm:text-xl font-extrabold text-gray-800 flex items-center gap-2">⚙️ 하루마켓 흑석점 관리</h2>
                     <button id="btnEnablePosSound" onclick="toggleOrderNotification()" class="bg-amber-500 hover:bg-amber-600 text-white font-black text-xs px-2.5 py-1.5 rounded-xl shadow-xs transition active:scale-95 flex items-center gap-1">
                         🔔 주문 알림 켜기
                     </button>
@@ -170,106 +213,130 @@
                 <div class="space-y-3">
                     <div>
                         <label class="block text-xs font-bold text-gray-400 mb-1">📋 데일리 공지 수정</label>
-                        <textarea id="inputDailyNotice" rows="3" class="w-full p-3 border border-gray-200 rounded-xl text-base font-medium focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition"></textarea>
+                        <textarea id="inputDailyNotice" rows="3" class="w-full p-3 border border-gray-200 rounded-xl text-sm sm:text-base font-medium focus:outline-none focus:border-orange-500 transition"></textarea>
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-gray-400 mb-1">🖼️ 공지사항 이미지 업로드</label>
-                        <input type="file" id="fileNoticeImg" accept="image/*" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-orange-700">
+                        <input type="file" id="fileNoticeImg" accept="image/*" class="w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:bg-orange-50 file:text-orange-700">
                         <input type="hidden" id="inputNoticeImgUrl">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-gray-400 mb-1">💰 계좌 번호 수정</label>
-                        <input type="text" id="inputAccount" class="w-full p-3 border border-gray-200 rounded-xl text-base font-bold focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition">
+                        <input type="text" id="inputAccount" class="w-full p-3 border border-gray-200 rounded-xl text-sm sm:text-base font-bold focus:outline-none focus:border-orange-500 transition">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-gray-400 mb-1">👤 예금주 명 수정</label>
-                        <input type="text" id="inputAccountOwner" class="w-full p-3 border border-gray-200 rounded-xl text-base font-bold focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition">
+                        <input type="text" id="inputAccountOwner" class="w-full p-3 border border-gray-200 rounded-xl text-sm sm:text-base font-bold focus:outline-none focus:border-orange-500 transition">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-gray-400 mb-1">⏰ 영업 시간 수정</label>
-                        <input type="text" id="inputHours" class="w-full p-3 border border-gray-200 rounded-xl text-base font-bold focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition">
+                        <input type="text" id="inputHours" class="w-full p-3 border border-gray-200 rounded-xl text-sm sm:text-base font-bold focus:outline-none focus:border-orange-500 transition">
                     </div>
                 </div>
-                <button id="btnSaveAdminSettings" onclick="saveAdminSettings()" class="w-full bg-orange-500 text-white font-black py-3.5 rounded-2xl text-base shadow-md hover:bg-orange-600 active:scale-95 transition">기본 정보 저장하기</button>
+                <button id="btnSaveAdminSettings" onclick="saveAdminSettings()" class="w-full bg-orange-500 text-white font-black py-3.5 rounded-2xl text-sm sm:text-base shadow-md hover:bg-orange-600 active:scale-95 transition">기본 정보 저장하기</button>
             </div>
 
-            <div class="flex-1 space-y-6 w-full">
+            <div class="flex-1 space-y-6 w-full min-w-0">
                 <!-- 📊 당일 매출 간단 요약 위젯 -->
-                <div class="bg-gradient-to-br from-orange-500 to-amber-600 text-white p-6 rounded-3xl shadow-lg space-y-3">
+                <div class="bg-gradient-to-br from-orange-500 to-amber-600 text-white p-5 sm:p-6 rounded-3xl shadow-lg space-y-3">
                     <div class="flex justify-between items-center border-b border-orange-400/50 pb-2">
-                        <h3 class="text-base font-black flex items-center gap-1.5">📊 오늘 매출 실시간 요약 대시보드</h3>
+                        <h3 class="text-sm sm:text-base font-black flex items-center gap-1.5">📊 오늘 매출 실시간 요약 대시보드</h3>
                         <span id="summaryTodayDate" class="text-xs font-bold opacity-80"></span>
                     </div>
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1 text-center">
                         <div class="bg-white/10 backdrop-blur-md p-3 rounded-2xl border border-white/20">
                             <p class="text-[11px] font-bold opacity-80">오늘 총 매출액</p>
-                            <p id="summaryTodaySales" class="text-lg font-black text-amber-200 mt-0.5">0원</p>
+                            <p id="summaryTodaySales" class="text-base sm:text-lg font-black text-amber-200 mt-0.5">0원</p>
                         </div>
                         <div class="bg-white/10 backdrop-blur-md p-3 rounded-2xl border border-white/20">
                             <p class="text-[11px] font-bold opacity-80">완료 건수</p>
-                            <p id="summaryTodayCount" class="text-lg font-black mt-0.5">0건</p>
+                            <p id="summaryTodayCount" class="text-base sm:text-lg font-black mt-0.5">0건</p>
                         </div>
                         <div class="bg-white/10 backdrop-blur-md p-3 rounded-2xl border border-white/20">
                             <p class="text-[11px] font-bold opacity-80">매장 픽업 완료</p>
-                            <p id="summaryTodayPickup" class="text-lg font-black text-emerald-200 mt-0.5">0건</p>
+                            <p id="summaryTodayPickup" class="text-base sm:text-lg font-black text-emerald-200 mt-0.5">0건</p>
                         </div>
                         <div class="bg-white/10 backdrop-blur-md p-3 rounded-2xl border border-white/20">
                             <p class="text-[11px] font-bold opacity-80">배달 완료</p>
-                            <p id="summaryTodayDelivery" class="text-lg font-black text-blue-200 mt-0.5">0건</p>
+                            <p id="summaryTodayDelivery" class="text-base sm:text-lg font-black text-blue-200 mt-0.5">0건</p>
                         </div>
                     </div>
                 </div>
 
-                <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
+                <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
                     <div class="flex justify-between items-center border-b pb-3">
-                        <h2 class="text-xl font-extrabold text-gray-800">🍎 당일 판매 품목 편집</h2>
-                        <button onclick="toggleAddForm()" id="addFormBtn" class="bg-orange-500 text-white font-bold text-sm px-3 py-1.5 rounded-xl hover:bg-orange-600 active:scale-95 transition">+ 새 품목 추가하기</button>
+                        <h2 class="text-lg sm:text-xl font-extrabold text-gray-800">🍎 과일 품목 및 요약 세팅</h2>
+                        <button onclick="toggleAddForm()" id="addFormBtn" class="bg-orange-500 text-white font-bold text-xs sm:text-sm px-3 py-1.5 rounded-xl hover:bg-orange-600 active:scale-95 transition">+ 새 품목 추가하기</button>
                     </div>
                     <div id="itemAddForm" class="hidden bg-gray-50 p-4 rounded-2xl border border-gray-200 space-y-3">
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
                             <input type="text" id="newFruitName" placeholder="과일 품목명" class="p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition">
                             <input type="number" id="newFruitPrice" placeholder="판매 가격 (숫자만)" class="p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition">
                             <input type="number" id="newFruitStock" placeholder="초기 재고량" class="p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition">
+                            <select id="newFruitAvailableDay" class="p-3 border border-gray-300 rounded-xl text-sm bg-white font-bold focus:outline-none focus:border-orange-500 transition">
+                                <option value="today">당일 입금/즉시판매</option>
+                                <option value="월요일">월요일 입고예약</option>
+                                <option value="화요일">화요일 입고예약</option>
+                                <option value="수요일">수요일 입고예약</option>
+                                <option value="목요일">목요일 입고예약</option>
+                                <option value="금요일">금요일 입고예약</option>
+                                <option value="토요일">토요일 입고예약</option>
+                                <option value="일요일">일요일 입고예약</option>
+                            </select>
                         </div>
                         <textarea id="newFruitDesc" rows="2" placeholder="상품 상세 설명을 입력하세요 (선택)" class="w-full p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition"></textarea>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
                             <div>
-                                <label class="block text-xs font-bold text-gray-400 mb-1">🖼️ 메인 썸네일 1장 (목록 표시용)</label>
+                                <label class="block text-xs font-bold text-gray-400 mb-1">🖼️ 메인 썸네일 1장</label>
                                 <input type="file" id="fileFruitImg" accept="image/*" class="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:bg-gray-200">
                                 <input type="hidden" id="newFruitImg">
                             </div>
                             <div>
-                                <label class="block text-xs font-bold text-gray-400 mb-1">📷 상세설명 다중 이미지 (여러장 가능)</label>
+                                <label class="block text-xs font-bold text-gray-400 mb-1">📷 상세설명 다중 이미지</label>
                                 <input type="file" id="fileFruitDetailImgs" accept="image/*" multiple class="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:bg-gray-200">
                             </div>
                         </div>
                         <div class="flex justify-between items-center pt-2">
                             <label class="flex items-center gap-2 cursor-pointer font-bold text-xs text-gray-600">
-                                <input type="checkbox" id="newFruitHideStock" class="accent-orange-500 w-4 h-4"> 이 품목의 손님 화면 재고 수량 숨기기
+                                <input type="checkbox" id="newFruitHideStock" class="accent-orange-500 w-4 h-4"> 이 품목 재고 수량 숨기기
                             </label>
-                            <button id="btnAddNewFruit" onclick="addNewFruitItem()" class="bg-gray-900 text-white font-black px-8 py-3 rounded-xl text-sm active:scale-95 transition">진짜 추가</button>
+                            <button id="btnAddNewFruit" onclick="addNewFruitItem()" class="bg-gray-900 text-white font-black px-6 py-2.5 rounded-xl text-xs sm:text-sm active:scale-95 transition">품목 등록하기</button>
                         </div>
                     </div>
                     <div id="adminFruitList" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
                 </div>
 
-                <div class="space-y-3">
-                    <div class="bg-white p-4 rounded-2xl border border-gray-100">
-                        <h2 class="text-xl font-extrabold text-gray-800">🏢 매장 픽업 예약 현황 (<span id="orderCount" class="text-orange-500">0</span>건)</h2>
+                <!-- 🏢 매장 픽업 현황 대시보드 (3번: 픽업 제품 카운팅 + 5번: 이름/닉네임 실시간 검색 기능 추가) -->
+                <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-3 gap-2">
+                        <h2 class="text-lg sm:text-xl font-extrabold text-gray-800">🏢 매장 픽업 예약 현황 (<span id="orderCount" class="text-orange-500">0</span>건)</h2>
+                        <!-- 5번 보완: 사장님 픽업 주문 실시간 빠른 검색 입력창 -->
+                        <div class="relative w-full sm:w-64">
+                            <input type="text" id="pickupSearchKeyword" oninput="renderAdminOrders()" placeholder="🔍 손님 성함 / 카톡 닉네임 검색..." class="w-full p-2.5 text-xs font-bold bg-gray-50 border border-gray-300 rounded-xl focus:outline-none focus:border-orange-500 transition">
+                        </div>
                     </div>
+
+                    <!-- 3번 보완: 매장 픽업 품목별 실시간 총 수량 카운팅 집계 위젯 -->
+                    <div id="pickupSummaryBox" class="bg-orange-100/80 border border-orange-300 p-4 rounded-2xl hidden">
+                        <h3 class="text-xs font-black text-orange-900 mb-2 flex items-center gap-1">
+                            📦 오늘 매장 픽업 나갈 과일 총 포장 수량 (실시간 집계)
+                        </h3>
+                        <div id="pickupSummaryItems" class="flex flex-wrap gap-2"></div>
+                    </div>
+
                     <div id="orderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch"></div>
                 </div>
 
-                <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-3xl shadow-sm border border-blue-100 space-y-4">
+                <!-- 🚚 배달 현황 대시보드 -->
+                <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-5 sm:p-6 rounded-3xl shadow-sm border border-blue-100 space-y-4">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-blue-200/60 pb-3 gap-3">
                         <div>
-                            <h2 class="text-xl font-extrabold text-blue-900 flex items-center gap-2">🚚 실시간 배달 대시보드 (<span id="deliveryOrderCount" class="text-blue-600">0</span>건)</h2>
-                            <p class="text-xs text-blue-600 font-bold mt-0.5">입금 확인 후 배달 전표 라벨지를 A4 용지 규격에 일괄 출력하세요.</p>
+                            <h2 class="text-lg sm:text-xl font-extrabold text-blue-900 flex items-center gap-2">🚚 실시간 배달 대시보드 (<span id="deliveryOrderCount" class="text-blue-600">0</span>건)</h2>
+                            <p class="text-xs text-blue-600 font-bold mt-0.5">입금 확인 후 배달 전표 라벨지를 일괄 출력하세요.</p>
                         </div>
-                        <button onclick="printAllDeliveryLabels()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow-md transition active:scale-95 self-stretch sm:self-auto justify-center">🖨️ 전체 배달 라벨 일괄 인쇄 (A4 10칸)</button>
+                        <button onclick="printAllDeliveryLabels()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow-md transition active:scale-95 self-stretch sm:self-auto justify-center">🖨️ 전체 배달 라벨 인쇄 (A4 10칸)</button>
                     </div>
 
-                    <!-- 📦 오늘 배달 나갈 과일 품목별 총 수량 실시간 집계 위젯 -->
                     <div id="deliverySummaryBox" class="bg-amber-100/80 border border-amber-300 p-4 rounded-2xl hidden">
                         <h3 class="text-xs font-black text-amber-900 mb-2 flex items-center gap-1">
                             📦 오늘 배달 나갈 과일 총 포장 수량 (실시간 집계)
@@ -280,9 +347,9 @@
                     <div id="deliveryOrderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch"></div>
                 </div>
 
-                <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
+                <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
                     <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b pb-4">
-                        <h2 class="text-xl font-extrabold text-gray-800 flex items-center gap-2">✅ 판매완료 장부 (<span id="completedCount" class="text-green-600">0</span>건)</h2>
+                        <h2 class="text-lg sm:text-xl font-extrabold text-gray-800 flex items-center gap-2">✅ 판매완료 장부 (<span id="completedCount" class="text-green-600">0</span>건)</h2>
                         <div class="flex flex-wrap gap-2">
                             <button onclick="downloadExcel('all')" class="bg-green-700 hover:bg-green-800 text-white font-bold text-xs px-3 py-2.5 rounded-xl flex items-center gap-1 shadow-xs transition active:scale-95">📊 전체 기간 장부 엑셀</button>
                             <div class="flex items-center gap-1 bg-green-50 p-1 border border-green-200 rounded-xl">
@@ -305,7 +372,66 @@
         </section>
     </main>
 
-    <!-- Floating 바 (담은 품목 퀵 요약 추가) -->
+    <!-- ✏️ 1번 보완: 과일 품목 상세 정보 편집 모달 (가격/제품명/설명/이미지 등 자유 수정) -->
+    <div id="editFruitModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden p-4" onclick="if(event.target == this) closeEditFruitModal()">
+        <div class="bg-white w-full max-w-lg rounded-3xl p-5 sm:p-6 space-y-4 shadow-2xl overflow-y-auto max-h-[90vh]">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-lg sm:text-xl font-black text-gray-900">✏️ 과일 품목 상세 정보 수정</h3>
+                <button onclick="closeEditFruitModal()" class="text-gray-400 text-2xl font-bold hover:text-gray-600 px-2">✕</button>
+            </div>
+            <input type="hidden" id="editFruitId">
+            <div class="space-y-3 text-xs sm:text-sm">
+                <div>
+                    <label class="block font-bold text-gray-500 mb-1">과일 품목명</label>
+                    <input type="text" id="editFruitName" class="w-full p-3 border border-gray-300 rounded-xl font-bold focus:outline-none focus:border-orange-500">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block font-bold text-gray-500 mb-1">정상 가격 (원)</label>
+                        <input type="number" id="editFruitPrice" class="w-full p-3 border border-gray-300 rounded-xl font-bold focus:outline-none focus:border-orange-500">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-gray-500 mb-1">이벤트 특가 (원)</label>
+                        <input type="number" id="editFruitEventPrice" class="w-full p-3 border border-gray-300 rounded-xl font-bold focus:outline-none focus:border-orange-500">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block font-bold text-gray-500 mb-1">현재 재고량</label>
+                        <input type="number" id="editFruitStock" class="w-full p-3 border border-gray-300 rounded-xl font-bold focus:outline-none focus:border-orange-500">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-gray-500 mb-1">판매 수령 구분</label>
+                        <select id="editFruitAvailableDay" class="w-full p-3 border border-gray-300 rounded-xl font-bold focus:outline-none focus:border-orange-500">
+                            <option value="today">당일 입금/즉시판매</option>
+                            <option value="월요일">월요일 입고예약</option>
+                            <option value="화요일">화요일 입고예약</option>
+                            <option value="수요일">수요일 입고예약</option>
+                            <option value="목요일">목요일 입고예약</option>
+                            <option value="금요일">금요일 입고예약</option>
+                            <option value="토요일">토요일 입고예약</option>
+                            <option value="일요일">일요일 입고예약</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block font-bold text-gray-500 mb-1">상품 상세 설명</label>
+                    <textarea id="editFruitDesc" rows="3" class="w-full p-3 border border-gray-300 rounded-xl font-medium focus:outline-none focus:border-orange-500"></textarea>
+                </div>
+                <div>
+                    <label class="block font-bold text-gray-500 mb-1">🖼️ 메인 썸네일 새로 변경 (선택)</label>
+                    <input type="file" id="editFileFruitImg" accept="image/*" class="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:bg-gray-200">
+                    <input type="hidden" id="editFruitImgUrl">
+                </div>
+            </div>
+            <div class="flex gap-2 pt-2">
+                <button onclick="closeEditFruitModal()" class="flex-1 bg-gray-200 text-gray-700 font-bold py-3 rounded-xl active:scale-95 transition">취소</button>
+                <button id="btnSaveFruitEdit" onclick="saveFruitEdit()" class="flex-1 bg-orange-500 text-white font-black py-3 rounded-xl shadow-md hover:bg-orange-600 active:scale-95 transition">수정 완료 저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 하단 Floating 장바구니 바 -->
     <div id="stickyCheckoutBar" class="fixed bottom-0 left-0 right-0 z-30 bg-gray-900 text-white border-t border-gray-800 shadow-2xl p-4 transition-all duration-300">
         <div class="max-w-md mx-auto flex items-center justify-between gap-2">
             <div class="min-w-0 flex-1">
@@ -350,10 +476,11 @@
         </div>
     </div>
 
+    <!-- 4번 보완: 사진 원본 크기에 맞춰 박스 크기가 자연스럽게 조율되는 이미지 모달 -->
     <div id="thumbModal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center hidden p-4" onclick="closeThumbModal()">
         <div class="max-w-md w-full relative bg-transparent flex flex-col items-center">
             <button onclick="closeThumbModal()" class="absolute -top-10 right-0 text-white text-3xl font-black">✕</button>
-            <img id="thumbModalImg" src="" class="w-full max-h-[80vh] object-contain rounded-2xl shadow-2xl">
+            <img id="thumbModalImg" src="" class="w-full h-auto max-h-[85vh] object-contain rounded-2xl shadow-2xl">
         </div>
     </div>
 
@@ -378,25 +505,6 @@
         </div>
     </div>
 
-    <div id="myOrdersModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center hidden p-4" onclick="if(event.target == this) closeMyOrdersModal()">
-        <div class="bg-white w-full max-w-md rounded-3xl p-6 space-y-4 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
-            <div class="flex justify-between items-center border-b pb-3">
-                <h3 class="text-xl font-black text-gray-800">🔎 내 주문 내역 조회</h3>
-                <button onclick="closeMyOrdersModal()" class="text-gray-400 text-2xl font-bold px-2 hover:text-gray-600">✕</button>
-            </div>
-            <div class="space-y-2">
-                <div class="grid grid-cols-2 gap-2">
-                    <input type="text" id="searchMyKakao" placeholder="카톡 닉네임" class="p-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:border-orange-500 transition">
-                    <input type="text" id="searchMyName" placeholder="성함" class="p-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:border-orange-500 transition">
-                </div>
-                <button id="btnFetchMyOrders" onclick="fetchMyOrders()" class="w-full bg-orange-500 text-white font-bold py-2.5 rounded-xl text-sm disabled:bg-gray-400 active:scale-95 transition">조회하기</button>
-            </div>
-            <div id="myOrdersResult" class="overflow-y-auto space-y-3 flex-1 pr-1 border-t pt-3">
-                <p class="text-center text-gray-400 text-xs py-8 font-bold">성함과 카톡 닉네임을 모두 일치하게 입력해 주세요.</p>
-            </div>
-        </div>
-    </div>
-
     <div id="authModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center hidden">
         <div class="bg-white w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl mx-4">
             <div class="text-center">
@@ -417,7 +525,6 @@
         const API_URL = "https://haru-market-api.onrender.com"; 
         const PASS = "788599"; 
 
-        // ☁️ Cloudinary 설정
         const CLOUD_NAME = "w9ilodii"; 
         const UPLOAD_PRESET = "haru_preset"; 
 
@@ -436,6 +543,8 @@
         }
 
         let currentView = 'customer';
+        let activeFruitTab = 'today'; // 'today' 또는 'reserve'
+        let selectedReserveDay = ''; // 선택된 수령 희망 요일
         let fruitItems = [];
         let storeMeta = {};
         let globalOrders = []; 
@@ -447,12 +556,12 @@
         let isSubmitting = false; 
         let selectedItems = {};
 
-        // 🔔 [실시간 주문 띵동 알림 전역 변수]
         let orderSoundEnabled = false;
         let knownOrderIds = new Set();
         let isFirstLoad = true;
 
-        // Web Audio API 기반 '띵동~' 실시간 청각 소리 생성기
+        const WEEK_DAYS = ['월요일', '화요일', '수요일', '목요일', '금요일', '토요일', '일요일'];
+
         function playChimeSound() {
             try {
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -463,7 +572,7 @@
                 const osc1 = ctx.createOscillator();
                 const gain1 = ctx.createGain();
                 osc1.type = 'sine';
-                osc1.frequency.setValueAtTime(659.25, now); // E5
+                osc1.frequency.setValueAtTime(659.25, now);
                 gain1.gain.setValueAtTime(0.3, now);
                 gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
                 osc1.connect(gain1);
@@ -474,7 +583,7 @@
                 const osc2 = ctx.createOscillator();
                 const gain2 = ctx.createGain();
                 osc2.type = 'sine';
-                osc2.frequency.setValueAtTime(880, now + 0.15); // A5
+                osc2.frequency.setValueAtTime(880, now + 0.15);
                 gain2.gain.setValueAtTime(0.3, now + 0.15);
                 gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
                 osc2.connect(gain2);
@@ -484,12 +593,11 @@
             } catch(e) { console.error("소리 재생 오류", e); }
         }
 
-        // 🔔 주문 알림 ON/OFF 토글 처리 함수
         function toggleOrderNotification() {
             const btn = document.getElementById('btnEnablePosSound');
             if (!orderSoundEnabled) {
                 orderSoundEnabled = true;
-                playChimeSound(); // 알림 켤 때 확인 테스트음 재생
+                playChimeSound();
                 showToast("🔔 주문 알림이 켜졌습니다! 새 주문 시 띵동 소리가 울립니다.");
                 if (btn) {
                     btn.innerText = "🔕 주문 알림 끄기";
@@ -515,7 +623,6 @@
             });
         }
 
-        // 💸 토스 앱 1초 송금 연동 함수
         function openTossRemit() {
             if (!storeMeta.account) { alert('등록된 계좌가 없습니다.'); return; }
             let pureAccount = storeMeta.account.replace(/[^0-9]/g, '');
@@ -555,18 +662,65 @@
         window.onload = function() {
             loadStoreData();
             setupFileListeners();
+            setupDaySelectorButtons();
             const today = new Date();
             const yyyy = today.getFullYear();
             const mm = String(today.getMonth() + 1).padStart(2, '0');
             document.getElementById('excelMonthPicker').value = `${yyyy}-${mm}`;
 
-            // ⏱️ 3초 주기 사장님 화면 실시간 신규 주문 자동 체크
             setInterval(() => {
                 if (currentView === 'admin') {
                     renderAdminOrders(true);
                 }
             }, 3000);
         };
+
+        // 6번 보완: 요일 선택 서브 버튼 생성기
+        function setupDaySelectorButtons() {
+            const container = document.getElementById('dayButtonsList');
+            if (!container) return;
+            container.innerHTML = '';
+            
+            const todayIdx = new Date().getDay(); // 0:일, 1:월 ...
+            let orderedDays = ['월요일', '화요일', '수요일', '목요일', '금요일', '토요일', '일요일'];
+            if (!selectedReserveDay) selectedReserveDay = orderedDays[0];
+
+            orderedDays.forEach(day => {
+                let isSelected = day === selectedReserveDay;
+                let btnClass = isSelected 
+                    ? "bg-orange-500 text-white font-black text-xs px-3 py-1.5 rounded-xl shrink-0 shadow-2xs transition"
+                    : "bg-white text-gray-700 font-bold text-xs px-3 py-1.5 rounded-xl shrink-0 border border-gray-200 hover:bg-orange-100 transition";
+
+                container.innerHTML += `<button onclick="selectReserveDay('${day}')" class="${btnClass}">${day}</button>`;
+            });
+        }
+
+        function selectReserveDay(day) {
+            selectedReserveDay = day;
+            setupDaySelectorButtons();
+            refreshMainDisplay();
+        }
+
+        function switchFruitTab(tab) {
+            activeFruitTab = tab;
+            const btnToday = document.getElementById('tabTodayFruit');
+            const btnReserve = document.getElementById('tabReserveFruit');
+            const dayContainer = document.getElementById('daySelectorContainer');
+            const titleEl = document.getElementById('fruitListTitle');
+
+            if (tab === 'today') {
+                btnToday.className = "flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-black transition bg-orange-500 text-white shadow-xs";
+                btnReserve.className = "flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-black transition bg-gray-100 text-gray-600 hover:bg-gray-200";
+                dayContainer.classList.add('hidden');
+                titleEl.innerText = "🛒 1. 오늘의 당일 입고 과일 수량 선택";
+            } else {
+                btnReserve.className = "flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-black transition bg-orange-500 text-white shadow-xs";
+                btnToday.className = "flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-black transition bg-gray-100 text-gray-600 hover:bg-gray-200";
+                dayContainer.classList.remove('hidden');
+                titleEl.innerText = `📅 [${selectedReserveDay}] 입고 예정 예약 과일 선택`;
+            }
+            refreshMainDisplay();
+        }
 
         function setupFileListeners() {
             document.getElementById('fileNoticeImg').addEventListener('change', async function(e) {
@@ -589,6 +743,18 @@
                         const imgUrl = await uploadToCloudinary(file);
                         document.getElementById('newFruitImg').value = imgUrl;
                         showToast("메인 썸네일 업로드 완료!");
+                    } catch(err) { alert("이미지 업로드에 실패했습니다."); }
+                }
+            });
+
+            document.getElementById('editFileFruitImg').addEventListener('change', async function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    try {
+                        showToast("새 썸네일 업로드 중...");
+                        const imgUrl = await uploadToCloudinary(file);
+                        document.getElementById('editFruitImgUrl').value = imgUrl;
+                        showToast("새 썸네일 업로드 완료!");
                     } catch(err) { alert("이미지 업로드에 실패했습니다."); }
                 }
             });
@@ -630,7 +796,6 @@
             } catch (e) { console.error("네트워크 통신 오류:", e); }
         }
 
-        // 📊 사장님 당일 매출 간단 요약 위젯 계산 함수
         function updateAdminDashboardSummary() {
             const today = new Date();
             const yyyy = today.getFullYear();
@@ -707,8 +872,21 @@
                 return;
             }
 
-            // 🎉 이벤트(is_event) 진행 중인 과일 최상단 우선 정렬 -> 품절 상품 맨 아래 정렬
-            const sortedFruitItems = [...fruitItems].sort((a, b) => {
+            // 6번 보완: 탭(당일 vs 요일예약) 및 선택된 요일에 맞게 과일 필터링
+            let targetFruitItems = fruitItems.filter(item => {
+                let availDay = item.available_day || 'today';
+                if (activeFruitTab === 'today') {
+                    return availDay === 'today' || !availDay;
+                } else {
+                    return availDay === selectedReserveDay;
+                }
+            });
+
+            if (targetFruitItems.length === 0) {
+                userListEl.innerHTML = `<p class="text-center text-gray-400 py-10 font-bold">${activeFruitTab === 'today' ? '오늘 판매 중인 과일이 없습니다.' : `[${selectedReserveDay}] 입고 예약 가능한 과일이 없습니다.`} 🍎</p>`;
+            }
+
+            const sortedFruitItems = [...targetFruitItems].sort((a, b) => {
                 if (a.is_event && !b.is_event) return -1;
                 if (!a.is_event && b.is_event) return 1;
                 if (a.stock <= 0 && b.stock > 0) return 1;
@@ -722,18 +900,18 @@
                 let isSoldOut = item.stock <= 0;
                 let isEvent = item.is_event && item.event_price > 0;
 
-                // 실적용 가격 결정
                 let activePrice = isEvent ? item.event_price : item.price;
 
                 let eventBadge = isEvent ? `<span class="bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md animate-pulse flex items-center gap-0.5 shadow-sm">🎉 특가 이벤트</span>` : '';
                 let badge = isUrgent ? `<span class="bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-md animate-bounce flex items-center gap-1">🔥 품절 임박!</span>` : '';
                 if(isSoldOut) badge = `<span class="bg-gray-700 text-white text-[10px] font-black px-2 py-0.5 rounded-md">완판 (SOLD OUT)</span>`;
 
+                // 4번 보완: 사진 자름 없이 박스 크기가 유연하게 조정되도록 고침
                 let imgHtmlContainer = '';
                 if (item.img && item.img.trim() !== "") {
-                    imgHtmlContainer = `<div class="w-full h-36 bg-gray-100 rounded-2xl overflow-hidden flex items-center justify-center cursor-pointer relative" onclick="openThumbModal('${item.img}')">
-                        <img src="${item.img}" class="w-full h-full object-cover ${isSoldOut ? 'grayscale brightness-75' : ''}">
-                        ${isSoldOut ? `<div class="absolute inset-0 bg-black/40 flex items-center justify-center"><span class="text-white text-base font-black tracking-widest border-2 border-white px-3 py-1 rounded-xl">SOLD OUT</span></div>` : ''}
+                    imgHtmlContainer = `<div class="w-full bg-gray-100 rounded-2xl overflow-hidden flex items-center justify-center cursor-pointer relative p-1" onclick="openThumbModal('${item.img}')">
+                        <img src="${item.img}" class="w-full h-auto max-h-64 object-contain rounded-xl ${isSoldOut ? 'grayscale brightness-75' : ''}">
+                        ${isSoldOut ? `<div class="absolute inset-0 bg-black/40 flex items-center justify-center rounded-xl"><span class="text-white text-base font-black tracking-widest border-2 border-white px-3 py-1 rounded-xl">SOLD OUT</span></div>` : ''}
                     </div>`;
                 }
 
@@ -743,20 +921,21 @@
 
                 let currentQty = selectedItems[item.id] ? selectedItems[item.id].qty : 0;
 
-                // 가격 표시 UI (이벤트시 취소선 + 특가 강조)
                 let priceDisplayHtml = isEvent 
                     ? `<div class="flex items-center gap-2">
                         <span class="text-gray-400 line-through text-xs font-bold">${Number(item.price).toLocaleString()}원</span>
-                        <span class="text-red-600 text-xl font-black">${Number(item.event_price).toLocaleString()}원</span>
+                        <span class="text-red-600 text-lg sm:text-xl font-black">${Number(item.event_price).toLocaleString()}원</span>
                        </div>`
-                    : `<p class="text-orange-600 text-lg font-black">${Number(item.price).toLocaleString()}원</p>`;
+                    : `<p class="text-orange-600 text-base sm:text-lg font-black">${Number(item.price).toLocaleString()}원</p>`;
 
-                // 🎨 이벤트 진행 중인 제품 박스 배경색 및 테두리 강렬하게 강조!
                 let boxClass = isEvent 
                     ? 'bg-gradient-to-br from-red-50 via-rose-50 to-orange-50 p-4 rounded-2xl border-2 border-red-500 shadow-md space-y-3 relative' 
                     : isSoldOut 
                         ? 'bg-gray-50/80 p-4 rounded-2xl border border-gray-300 opacity-60 space-y-3 relative' 
                         : 'bg-gray-50/80 p-4 rounded-2xl border border-gray-200 space-y-3 relative';
+
+                let reserveBadge = (item.available_day && item.available_day !== 'today') 
+                    ? `<span class="bg-indigo-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md">📅 ${item.available_day} 수령예약</span>` : '';
 
                 userListEl.innerHTML += `
                     <div class="${boxClass}">
@@ -765,7 +944,8 @@
                             <div class="space-y-1 min-w-0 flex-1">
                                 <div class="flex items-center gap-1.5 flex-wrap">
                                     ${eventBadge}
-                                    <h3 class="text-base font-black text-gray-800 truncate cursor-pointer" onclick="openDetailModal(${originalIndex})">${item.name}</h3>
+                                    ${reserveBadge}
+                                    <h3 class="text-base font-black text-gray-800 leading-snug cursor-pointer" onclick="openDetailModal(${originalIndex})">${item.name}</h3>
                                     ${badge}
                                 </div>
                                 ${priceDisplayHtml}
@@ -774,7 +954,7 @@
                             </div>
                             <div class="flex flex-col items-end gap-2 shrink-0">
                                 <button onclick="openDetailModal(${originalIndex})" class="px-2.5 py-1 bg-white border border-gray-200 text-gray-600 font-bold rounded-xl text-xs shadow-2xs hover:bg-gray-100 active:scale-95 transition">🔍 상세사진</button>
-                                <div class="flex items-center space-x-1.5 border-2 ${isEvent ? 'border-red-400 bg-white' : isSoldOut ? 'border-gray-200 bg-gray-100' : 'border-orange-300 bg-white'} rounded-xl p-1 shadow-2xs">
+                                <div class="flex items-center space-x-1 border-2 ${isEvent ? 'border-red-400 bg-white' : isSoldOut ? 'border-gray-200 bg-gray-100' : 'border-orange-300 bg-white'} rounded-xl p-1 shadow-2xs">
                                     <button onclick="adjustOrderFormQty(${item.id}, '${item.name}', ${activePrice}, -1)" ${isSoldOut ? 'disabled' : ''} class="w-7 h-7 bg-orange-50 border border-orange-200 rounded-lg text-sm font-black text-orange-900 active:scale-90 transition disabled:opacity-40">-</button>
                                     <span id="orderQty-${item.id}" class="w-6 text-center font-black text-sm text-gray-800">${currentQty}</span>
                                     <button onclick="adjustOrderFormQty(${item.id}, '${item.name}', ${activePrice}, 1)" ${isSoldOut ? 'disabled' : ''} class="w-7 h-7 ${isEvent ? 'bg-red-600 border-red-700' : 'bg-orange-500 border-orange-600'} rounded-lg text-sm font-black text-white active:scale-90 transition disabled:bg-gray-300 disabled:cursor-not-allowed">+</button>
@@ -782,30 +962,36 @@
                             </div>
                         </div>
                     </div>`;
+            });
 
+            // 사장님 모드 품목 리스트
+            fruitItems.forEach((item, originalIndex) => {
                 let hideBtnText = item.hide_stock ? "재고 숨김 🙈" : "재고 노출 👁️";
                 let hideBtnClass = item.hide_stock ? "bg-gray-600 text-white font-bold text-xs px-2.5 py-1.5 rounded-xl active:scale-95 transition" : "bg-orange-500 text-white font-bold text-xs px-2.5 py-1.5 rounded-xl active:scale-95 transition";
                 
                 let eventBtnText = item.is_event ? "🏷️ 이벤트 해제" : "🎉 이벤트 하기";
-                let eventBtnClass = item.is_event ? "bg-red-600 text-white font-bold text-xs px-3 py-1.5 rounded-xl active:scale-95 transition shadow-xs" : "bg-rose-100 text-rose-700 border border-rose-300 font-bold text-xs px-3 py-1.5 rounded-xl hover:bg-rose-200 active:scale-95 transition";
+                let eventBtnClass = item.is_event ? "bg-red-600 text-white font-bold text-xs px-2.5 py-1.5 rounded-xl active:scale-95 transition shadow-xs" : "bg-rose-100 text-rose-700 border border-rose-300 font-bold text-xs px-2.5 py-1.5 rounded-xl hover:bg-rose-200 active:scale-95 transition";
+
+                let dayText = (item.available_day && item.available_day !== 'today') ? `📅 ${item.available_day} 예약` : '🍊 당일 즉시판매';
 
                 adminListEl.innerHTML += `
-                    <div class="bg-gray-50 p-5 rounded-2xl border ${item.is_event ? 'border-red-400 bg-red-50/40 shadow-xs' : 'border-gray-200'} flex flex-col justify-between space-y-3">
-                        <div class="flex justify-between items-start w-full">
+                    <div class="bg-gray-50 p-4 rounded-2xl border ${item.is_event ? 'border-red-400 bg-red-50/40 shadow-xs' : 'border-gray-200'} flex flex-col justify-between space-y-3">
+                        <div class="flex justify-between items-start w-full gap-2">
                             <div class="min-w-0 flex-1">
                                 <div class="flex items-center gap-1.5 flex-wrap">
+                                    <span class="bg-gray-800 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">${dayText}</span>
                                     ${item.is_event ? '<span class="bg-red-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded animate-pulse">이벤트 중</span>' : ''}
-                                    <h4 class="font-black text-gray-800 text-base leading-snug">${item.name}</h4>
+                                    <h4 class="font-black text-gray-800 text-sm sm:text-base leading-snug">${item.name}</h4>
                                 </div>
-                                <div class="flex items-center gap-2 mt-0.5">
-                                    <span class="text-sm font-bold text-gray-600">정상가: ${Number(item.price).toLocaleString()}원</span>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <span class="text-xs font-bold text-gray-600">정상가: ${Number(item.price).toLocaleString()}원</span>
                                     ${item.is_event && item.event_price ? `<span class="text-xs font-black text-red-600">(특가: ${Number(item.event_price).toLocaleString()}원)</span>` : ''}
                                 </div>
                             </div>
-                            <div class="flex items-center gap-1">
-                                <button onclick="moveFruitOrder(${originalIndex}, -1)" class="bg-white border border-gray-300 text-gray-700 px-2 py-1 rounded-lg text-xs font-bold hover:bg-gray-100">⬆️</button>
-                                <button onclick="moveFruitOrder(${originalIndex}, 1)" class="bg-white border border-gray-300 text-gray-700 px-2 py-1 rounded-lg text-xs font-bold hover:bg-gray-100">⬇️</button>
-                                <button onclick="deleteFruitItem(${item.id}, this)" class="bg-red-50 text-red-600 font-bold text-xs px-2.5 py-1.5 rounded-xl ml-1 hover:bg-red-100 active:scale-95 transition">삭제</button>
+                            <!-- 1번 보완: ✏️ 상세 정보 수정 버튼 연동 -->
+                            <div class="flex items-center gap-1 shrink-0">
+                                <button onclick="openEditFruitModal(${item.id})" class="bg-blue-600 text-white font-bold text-xs px-2.5 py-1.5 rounded-xl hover:bg-blue-700 active:scale-95 transition shadow-2xs">✏️ 수정</button>
+                                <button onclick="deleteFruitItem(${item.id}, this)" class="bg-red-50 text-red-600 font-bold text-xs px-2 py-1.5 rounded-xl hover:bg-red-100 active:scale-95 transition">삭제</button>
                             </div>
                         </div>
 
@@ -825,13 +1011,61 @@
             updateStickyCheckoutBar();
         }
 
-        // 🎉 원클릭 이벤트 하기 / 해제 통합 처리 함수
+        // 1번 보완: 과일 품목 상세 정보 수정 모달 열기/닫기/저장
+        function openEditFruitModal(fruitId) {
+            const item = fruitItems.find(f => f.id === fruitId);
+            if (!item) return;
+
+            document.getElementById('editFruitId').value = item.id;
+            document.getElementById('editFruitName').value = item.name || '';
+            document.getElementById('editFruitPrice').value = item.price || 0;
+            document.getElementById('editFruitEventPrice').value = item.event_price || 0;
+            document.getElementById('editFruitStock').value = item.stock || 0;
+            document.getElementById('editFruitAvailableDay').value = item.available_day || 'today';
+            document.getElementById('editFruitDesc').value = item.description || '';
+            document.getElementById('editFruitImgUrl').value = item.img || '';
+            document.getElementById('editFileFruitImg').value = '';
+
+            document.getElementById('editFruitModal').classList.remove('hidden');
+        }
+
+        function closeEditFruitModal() {
+            document.getElementById('editFruitModal').classList.add('hidden');
+        }
+
+        async function saveFruitEdit() {
+            const btn = document.getElementById('btnSaveFruitEdit');
+            const fruitId = document.getElementById('editFruitId').value;
+            const name = document.getElementById('editFruitName').value;
+            const price = parseInt(document.getElementById('editFruitPrice').value);
+            const eventPrice = parseInt(document.getElementById('editFruitEventPrice').value) || 0;
+            const stock = parseInt(document.getElementById('editFruitStock').value);
+            const availableDay = document.getElementById('editFruitAvailableDay').value;
+            const desc = document.getElementById('editFruitDesc').value;
+            const img = document.getElementById('editFruitImgUrl').value;
+
+            if(!name || isNaN(price) || isNaN(stock)) { alert('정보를 정확히 입력해주세요!'); return; }
+            btn.disabled = true; btn.innerText = "저장 중...";
+
+            try {
+                const res = await fetch(`${API_URL}/api/admin/fruits/${fruitId}?password=${PASS}`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, price, event_price: eventPrice, stock, available_day: availableDay, description: desc, img })
+                });
+                if (res.ok) {
+                    alert('과일 품목 정보가 성공적으로 수정되었습니다! 🎉');
+                    closeEditFruitModal();
+                    loadStoreData();
+                } else { alert('수정 저장 실패!'); }
+            } catch(e) { alert('서버 통신 오류!'); }
+            finally { btn.disabled = false; btn.innerText = "수정 완료 저장"; }
+        }
+
         async function handleEventToggle(fruitId, enableEvent, normalPrice, btnEl) {
             let eventPrice = 0;
-
             if (enableEvent) {
                 let input = prompt(`🎉 [${fruitItems.find(f=>f.id===fruitId)?.name}] 이벤트 특가를 입력하세요.\n(현재 정상가: ${Number(normalPrice).toLocaleString()}원)`, normalPrice);
-                if (input === null) return; // 취소
+                if (input === null) return;
                 eventPrice = parseInt(input);
                 if (isNaN(eventPrice) || eventPrice <= 0) {
                     alert("⚠️ 올바른 숫자를 입력해 주세요!");
@@ -845,25 +1079,9 @@
                     method: 'PUT', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ is_event: enableEvent, event_price: eventPrice })
                 });
-                if(res.ok) { 
-                    alert(enableEvent ? '🎉 특가 이벤트가 시작되었습니다! 최상단에 빨간색 박스로 강조 표시됩니다.' : '🏷️ 이벤트가 해제되었습니다.'); 
-                    await loadStoreData(); 
-                } else { alert('이벤트 변경 실패!'); }
-            } catch(e) { alert('이벤트 설정 서버 통신 실패!'); }
+                if(res.ok) { alert(enableEvent ? '🎉 특가 이벤트가 시작되었습니다!' : '🏷️ 이벤트가 해제되었습니다.'); await loadStoreData(); }
+            } catch(e) { alert('서버 통신 실패!'); }
             finally { if(btnEl) btnEl.disabled = false; }
-        }
-
-        // ⬆️⬇️ 상품 순서 바꾸기 함수
-        async function moveFruitOrder(index, direction) {
-            let targetIndex = index + direction;
-            if (targetIndex < 0 || targetIndex >= fruitItems.length) return;
-            
-            const temp = fruitItems[index];
-            fruitItems[index] = fruitItems[targetIndex];
-            fruitItems[targetIndex] = temp;
-
-            refreshMainDisplay();
-            showToast("상품 순서가 변경되었습니다!");
         }
 
         function adjustOrderFormQty(fruitId, fruitName, price, change) {
@@ -876,7 +1094,6 @@
             updateStickyCheckoutBar();
         }
 
-        // 🛒 Floating 바 (담은 품목 요약 텍스트 연동)
         function updateStickyCheckoutBar() {
             let totalQty = 0; let totalFruitPrice = 0;
             let summaryTextArr = [];
@@ -889,7 +1106,6 @@
                 }
             });
 
-            // 💰 배달비 2,500원 적용
             let deliveryFee = (selectedOrderType === '배달' && totalQty > 0) ? 2500 : 0;
             let finalPrice = totalFruitPrice + deliveryFee;
 
@@ -922,6 +1138,11 @@
             if (formBox) { formBox.scrollIntoView({ behavior: 'smooth', block: 'center' }); formBox.focus(); }
         }
 
+        function scrollToMyOrdersDash() {
+            const dashBox = document.getElementById('mainMyOrdersDash');
+            if (dashBox) { dashBox.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+        }
+
         function openThumbModal(imgUrl) { document.getElementById('thumbModalImg').src = imgUrl; document.getElementById('thumbModal').classList.remove('hidden'); }
         function closeThumbModal() { document.getElementById('thumbModal').classList.add('hidden'); }
 
@@ -943,7 +1164,7 @@
 
             if(Array.isArray(detailImgs) && detailImgs.length > 0) {
                 detailImgs.forEach(imgUrl => {
-                    if(imgUrl) imgsContainer.innerHTML += `<div class="w-full bg-gray-100 rounded-2xl overflow-hidden border border-gray-200"><img src="${imgUrl}" class="w-full h-auto object-cover"></div>`;
+                    if(imgUrl) imgsContainer.innerHTML += `<div class="w-full bg-gray-100 rounded-2xl overflow-hidden border border-gray-200 p-1"><img src="${imgUrl}" class="w-full h-auto object-contain rounded-xl"></div>`;
                 });
             }
             document.getElementById('detailModal').classList.remove('hidden');
@@ -953,7 +1174,6 @@
         function selectOrderType(type) {
             if (type === '배달' && !isDeliveryAvailable) { alert("⏰ 금일 배달 주문이 마감되었습니다. (오후 12시 30분 이전까지만 가능)"); return; }
             
-            // 🏠 [새 기능] 배달 주문 버튼을 눌렀을 때 주택/빌라 배달 불가 양해 메세지 안내
             if (type === '배달') {
                 alert("⚠️ [배달 안내]\n\n차량 진입 문제로 인해 주택 및 빌라는 배달이 불가합니다.\n양해 부탁드립니다.");
             }
@@ -1020,7 +1240,6 @@
                 const resData = await res.json();
                 if(res.ok) {
                     let totalFruitPrice = itemsToOrder.reduce((sum, i) => sum + (i.price * i.qty), 0);
-                    // 💰 배달비 2,500원 계산 적용
                     let finalAmount = totalFruitPrice + ((selectedOrderType === '배달') ? 2500 : 0);
 
                     if(method === '계좌이체') {
@@ -1040,49 +1259,56 @@
         }
 
         function closeBankModal() { document.getElementById('bankModal').classList.add('hidden'); }
-        function openMyOrdersModal() { document.getElementById('myOrdersModal').classList.remove('hidden'); }
-        function closeMyOrdersModal() { document.getElementById('myOrdersModal').classList.add('hidden'); }
 
-        async function fetchMyOrders() {
-            const kakao = document.getElementById('searchMyKakao').value.trim();
-            const name = document.getElementById('searchMyName').value.trim();
-            const btn = document.getElementById('btnFetchMyOrders');
+        // 2번 보완: 메인 대시보드 내 주문 실시간 조회 기능
+        async function fetchMyOrdersFromDash() {
+            const kakao = document.getElementById('dashSearchKakao').value.trim();
+            const name = document.getElementById('dashSearchName').value.trim();
+            const btn = document.getElementById('btnDashFetchOrders');
+            const resultBox = document.getElementById('dashMyOrdersResult');
 
             if(!kakao || !name) { alert('성함과 카톡 닉네임을 모두 정확히 입력해 주세요!'); return; }
-            btn.disabled = true; btn.innerText = "조회 중...";
+            btn.disabled = true; btn.innerText = "🔍 주문 내역 조회 중...";
 
             try {
                 const res = await fetch(`${API_URL}/api/my-orders?kakao_nickname=${encodeURIComponent(kakao)}&name=${encodeURIComponent(name)}`);
-                if(res.ok) { const data = await res.json(); renderMyOrders(data.orders || [], kakao, name); }
+                if(res.ok) { 
+                    const data = await res.json(); 
+                    renderDashMyOrders(data.orders || [], kakao, name); 
+                    resultBox.classList.remove('hidden');
+                }
             } catch(e) { alert('주문 조회 실패!'); }
-            finally { btn.disabled = false; btn.innerText = "조회하기"; }
+            finally { btn.disabled = false; btn.innerText = "내 주문 확인하기 🍊"; }
         }
 
-        function renderMyOrders(orders, kakao, name) {
-            const box = document.getElementById('myOrdersResult'); box.innerHTML = '';
+        function renderDashMyOrders(orders, kakao, name) {
+            const box = document.getElementById('dashMyOrdersResult'); box.innerHTML = '';
             const strictlyMatched = orders.filter(o => o.name && o.name.trim() === name && o.kakao_nickname && o.kakao_nickname.trim() === kakao);
 
-            if(strictlyMatched.length === 0) { box.innerHTML = `<p class="text-center text-gray-400 text-xs py-8 font-bold">일치하는 본인 주문 내역이 없습니다.</p>`; return; }
+            if(strictlyMatched.length === 0) { 
+                box.innerHTML = `<p class="text-center text-gray-400 text-xs py-4 font-bold bg-gray-900/50 rounded-2xl border border-gray-700">일치하는 본인 주문 내역이 없습니다.</p>`; 
+                return; 
+            }
 
             strictlyMatched.forEach(o => {
                 let canCancel = o.status === '입금대기' || o.status === '접수완료';
                 let cancelBtnHtml = canCancel 
-                    ? `<button onclick="cancelMyOrder(${o.id}, '${kakao}', '${name}', this)" class="bg-red-50 text-red-600 font-bold text-xs px-2.5 py-1.5 rounded-xl hover:bg-red-100 active:scale-95 transition">주문 취소</button>`
-                    : `<span class="text-xs text-gray-400 font-bold">취소 불가</span>`;
+                    ? `<button onclick="cancelMyOrder(${o.id}, '${kakao}', '${name}', this)" class="bg-red-500/20 text-red-400 font-bold text-xs px-2.5 py-1.5 rounded-xl hover:bg-red-500/30 transition">주문 취소</button>`
+                    : `<span class="text-xs text-gray-500 font-bold">취소 불가</span>`;
 
                 box.innerHTML += `
-                    <div class="bg-gray-50 p-4 rounded-2xl border border-gray-200 space-y-2">
+                    <div class="bg-gray-900/90 p-4 rounded-2xl border border-gray-700 space-y-2 text-left">
                         <div class="flex justify-between items-start">
                             <div>
-                                <span class="bg-orange-100 text-orange-800 text-[10px] font-black px-2 py-0.5 rounded-md">${o.order_type || '픽업'}</span>
-                                <h4 class="font-black text-gray-800 text-base mt-1">${o.fruit}</h4>
+                                <span class="bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-md">${o.order_type || '픽업'}</span>
+                                <h4 class="font-black text-white text-base mt-1">${o.fruit}</h4>
                             </div>
-                            <span class="bg-blue-100 text-blue-800 text-xs font-black px-2 py-0.5 rounded-md">${o.status}</span>
+                            <span class="bg-blue-500/30 text-blue-300 text-xs font-black px-2 py-0.5 rounded-md border border-blue-400/30">${o.status}</span>
                         </div>
-                        <p class="text-xs text-gray-500 font-bold">결제금액: ${Number(o.total_price).toLocaleString()}원 (${o.method})</p>
-                        ${o.address ? `<p class="text-xs text-blue-700 font-bold">주소: ${o.address}</p>` : ''}
-                        ${o.door_password ? `<p class="text-xs text-red-600 font-bold">공동현관 비번: ${o.door_password}</p>` : ''}
-                        <div class="flex justify-between items-center pt-2 border-t border-gray-200/60">
+                        <p class="text-xs text-gray-300 font-bold">결제금액: ${Number(o.total_price).toLocaleString()}원 (${o.method})</p>
+                        ${o.address ? `<p class="text-xs text-blue-300 font-bold">주소: ${o.address}</p>` : ''}
+                        ${o.door_password ? `<p class="text-xs text-red-400 font-bold">공동현관 비번: ${o.door_password}</p>` : ''}
+                        <div class="flex justify-between items-center pt-2 border-t border-gray-800">
                             <span class="text-[10px] text-gray-400">접수일시: ${o.time_str || ''}</span>
                             ${cancelBtnHtml}
                         </div>
@@ -1095,7 +1321,7 @@
                 if(btnEl) btnEl.disabled = true;
                 try {
                     const res = await fetch(`${API_URL}/api/my-orders/${orderId}?kakao_nickname=${encodeURIComponent(kakao)}&name=${encodeURIComponent(name)}`, { method: 'DELETE' });
-                    if(res.ok) { alert('주문이 취소되었습니다.'); fetchMyOrders(); loadStoreData(); }
+                    if(res.ok) { alert('주문이 취소되었습니다.'); fetchMyOrdersFromDash(); loadStoreData(); }
                     else { const errData = await res.json(); alert(errData.detail || '취소할 수 없습니다.'); }
                 } catch(e) { alert('취소 통신 오류!'); }
                 finally { if(btnEl) btnEl.disabled = false; }
@@ -1173,18 +1399,20 @@
             const nameInput = document.getElementById('newFruitName'); const priceInput = document.getElementById('newFruitPrice');
             const stockInput = document.getElementById('newFruitStock'); const descInput = document.getElementById('newFruitDesc');
             const hideStockInput = document.getElementById('newFruitHideStock');
+            const availableDayInput = document.getElementById('newFruitAvailableDay');
 
             const name = nameInput.value; const price = parseInt(priceInput.value); 
             const stock = parseInt(stockInput.value);
+            const availableDay = availableDayInput.value;
             const img = document.getElementById('newFruitImg').value; const desc = descInput.value; const hideStock = hideStockInput.checked;
 
             if(!name || isNaN(price) || isNaN(stock)) { alert('정보를 올바르게 입력해주세요!'); return; }
-            btn.disabled = true; btn.innerText = "추가 중...";
+            btn.disabled = true; btn.innerText = "등록 중...";
 
             try {
                 const res = await fetch(`${API_URL}/api/admin/fruits?password=${PASS}`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, price, stock, img, detail_imgs: uploadedDetailImgs, description: desc, hide_stock: hideStock })
+                    body: JSON.stringify({ name, price, stock, available_day: availableDay, img, detail_imgs: uploadedDetailImgs, description: desc, hide_stock: hideStock })
                 });
                 if(res.ok) {
                     alert('새 품목 추가 완료! 🍓');
@@ -1197,7 +1425,7 @@
                     alert(errData.detail || '품목 추가 실패!');
                 }
             } catch(e) { alert('품목 추가 실패!'); }
-            finally { btn.disabled = false; btn.innerText = "진짜 추가"; }
+            finally { btn.disabled = false; btn.innerText = "품목 등록하기"; }
         }
 
         async function updateStock(id, btnEl) {
@@ -1224,19 +1452,18 @@
             }
         }
 
-        // 🖼️ 사장님 카드 렌더링 (실시간 신규 주문 감지 및 3초 주기 자동 동기화)
+        // 🖼️ 사장님 카드 렌더링 (3번: 픽업 수량 카운팅 + 5번: 닉네임/성함 빠른 실시간 검색)
         async function renderAdminOrders(isBackgroundCheck = false) {
             try {
                 const res = await fetch(`${API_URL}/api/admin/orders?password=${PASS}`);
                 if(!res.ok) return;
                 const data = await res.json();
 
-                const pendingPickup = (data.pending || []).filter(o => o.order_type !== '배달');
+                let pendingPickup = (data.pending || []).filter(o => o.order_type !== '배달');
                 const deliveryOrders = data.delivery_orders || [];
                 currentAdminDeliveryOrders = deliveryOrders; 
                 rawCompletedOrders = data.completed || [];
 
-                // 🔔 [3초 실시간 감지] 새 주문 ID가 들어오면 '알림 ON' 상태일 때 띵동 소리 재생!
                 const allCurrentOrders = [...pendingPickup, ...deliveryOrders];
                 let hasNewOrder = false;
 
@@ -1252,13 +1479,58 @@
                 if (isFirstLoad) { isFirstLoad = false; }
 
                 if (hasNewOrder && orderSoundEnabled) {
-                    playChimeSound(); // 🔊 '띵동~' 소리 재생
+                    playChimeSound();
                     showToast("🔔 새 주문이 접수되었습니다!");
                 }
 
                 updateAdminDashboardSummary();
 
-                // 📦 배달 나갈 과일 실시간 종합 수량 카운팅 로직
+                // 3번 보완: 오늘 매장 픽업 나갈 과일 품목별 실시간 총 수량 카운팅
+                let pickupFruitSummary = {};
+                pendingPickup.forEach(order => {
+                    let rawFruitStr = order.fruit_name || order.fruit || "";
+                    let fruitItemsList = rawFruitStr.split(',').map(s => s.trim()).filter(s => s);
+
+                    fruitItemsList.forEach(itemStr => {
+                        let pureName = itemStr.replace(/\s*x\d+개/g, "").replace(/\s*\([\d,]+원\)/g, "").trim();
+                        let qtyMatch = itemStr.match(/x(\d+)개/);
+                        let itemQty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
+
+                        if (!pickupFruitSummary[pureName]) {
+                            pickupFruitSummary[pureName] = 0;
+                        }
+                        pickupFruitSummary[pureName] += itemQty;
+                    });
+                });
+
+                const pickupSummaryBox = document.getElementById('pickupSummaryBox');
+                const pickupSummaryItemsEl = document.getElementById('pickupSummaryItems');
+
+                if (Object.keys(pickupFruitSummary).length > 0 && pickupSummaryBox && pickupSummaryItemsEl) {
+                    pickupSummaryItemsEl.innerHTML = '';
+                    Object.entries(pickupFruitSummary).forEach(([name, qty]) => {
+                        pickupSummaryItemsEl.innerHTML += `
+                            <span class="bg-white border border-orange-300 text-orange-950 font-black text-xs px-3 py-1.5 rounded-xl shadow-2xs">
+                                ${name}: <span class="text-red-600 text-sm font-black">${qty}개</span>
+                            </span>`;
+                    });
+                    pickupSummaryBox.classList.remove('hidden');
+                } else if (pickupSummaryBox) {
+                    pickupSummaryBox.classList.add('hidden');
+                }
+
+                // 5번 보완: 사장님 픽업 주문 실시간 빠른 검색 필터링
+                const pickupSearchInput = document.getElementById('pickupSearchKeyword');
+                const pickupKeyword = pickupSearchInput ? pickupSearchInput.value.trim().toLowerCase() : '';
+
+                if (pickupKeyword) {
+                    pendingPickup = pendingPickup.filter(o => 
+                        (o.name && o.name.toLowerCase().includes(pickupKeyword)) ||
+                        (o.kakao_nickname && o.kakao_nickname.toLowerCase().includes(pickupKeyword))
+                    );
+                }
+
+                // 배달 품목별 실시간 총 수량 카운팅
                 let deliveryFruitSummary = {};
                 deliveryOrders.forEach(order => {
                     let rawFruitStr = order.fruit_name || order.fruit || "";
@@ -1365,7 +1637,6 @@
             } catch(e) { console.error("장부 조회 에러", e); }
         }
 
-        // 📦 배달 전표 포장 체크리스트 인쇄 로직
         function printAllDeliveryLabels() {
             let deliveryOrders = [...currentAdminDeliveryOrders];
             
@@ -1424,7 +1695,6 @@
             setTimeout(() => { window.print(); printArea.style.display = 'none'; }, 300);
         }
 
-        // 입금 확인 / 완료 후 실시간 리로드 연동
         async function triggerUpdateStatus(id, status, btnEl) {
             if(btnEl) btnEl.disabled = true;
             try {
