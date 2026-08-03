@@ -62,7 +62,6 @@
         </div>
     </header>
 
-    <!-- 하단 바 가림 방지를 위해 pb-44 하단 여백 대폭 확보 -->
     <main id="mainContainer" class="max-w-md mx-auto p-3 sm:p-4 pb-44 transition-all duration-300 ease-in-out">
         <section id="customerView" class="space-y-6 transition-all duration-300">
             
@@ -438,7 +437,7 @@
         </div>
     </div>
 
-    <!-- 🌟 하단 Floating 바 메인 너비(max-w-md)에 완벽 고정하여 UI 가림 문제 원천 차단 -->
+    <!-- 하단 Floating 장바구니 바 -->
     <div id="stickyCheckoutBar" class="fixed bottom-0 left-0 right-0 z-30 bg-gray-900/95 backdrop-blur-md text-white border-t border-gray-800 shadow-2xl p-4 transition-all duration-300">
         <div class="max-w-md mx-auto flex items-center justify-between gap-2">
             <div class="min-w-0 flex-1">
@@ -1507,14 +1506,12 @@
             }
         }
 
-        // 🌟 단골 뱃지 누적 회차 산정 고도화 (동일 카톡 닉네임 기반 + 주문 접수 시점/세션별 회차 정확 분리)
         function getStrictCustomerOrderCount(kakaoNickname) {
             if (!kakaoNickname) return 0;
             const pureTarget = kakaoNickname.trim().toLowerCase();
             
             const customerOrders = (globalOrders || []).filter(o => o.kakao_nickname && o.kakao_nickname.trim().toLowerCase() === pureTarget);
             
-            // 동일 시간대(초/분) 주문은 1회 세션으로 묶고, 시점이 다르면 별개 주문(2회차, 3회차)으로 정확 집계
             const uniqueSessions = new Set(
                 customerOrders.map(o => {
                     const timeKey = o.time_str || o.created_at || o.id;
@@ -1533,7 +1530,7 @@
             return { text: `🌱 첫주문`, classes: 'bg-emerald-600 text-white' };
         }
 
-        // 🌟 실시간 매출 대시보드 날짜 매칭 보정 (완료 즉시 바로 반영)
+        // 🌟 [수정 완료] 오늘 매출 대시보드 날짜 매칭 정밀 수정 (완료 즉시 바로 반영되도록 완전히 정립)
         function updateAdminDashboardSummary() {
             const now = new Date();
             const yyyy = now.getFullYear();
@@ -1542,14 +1539,15 @@
             
             const todayStr1 = `${yyyy}-${mm}-${dd}`;
             const todayStr2 = `${yyyy}. ${now.getMonth() + 1}. ${now.getDate()}.`;
-            const todayStr3 = now.toLocaleDateString('ko-KR');
+            const todayStr3 = `${yyyy}. ${mm}. ${dd}.`;
+            const todayStr4 = now.toLocaleDateString('ko-KR');
 
             const summaryDateEl = document.getElementById('summaryTodayDate');
-            if (summaryDateEl) summaryDateEl.innerText = todayStr3;
+            if (summaryDateEl) summaryDateEl.innerText = todayStr4;
 
             const todayCompleted = rawCompletedOrders.filter(o => {
-                const timeStr = o.status_changed_time || o.time_str || '';
-                return timeStr.includes(todayStr1) || timeStr.includes(todayStr2) || timeStr.includes(todayStr3);
+                const timeStr = o.status_changed_time || o.time_str || o.created_at || '';
+                return timeStr.includes(todayStr1) || timeStr.includes(todayStr2) || timeStr.includes(todayStr3) || timeStr.includes(todayStr4);
             });
 
             const totalSales = todayCompleted.reduce((sum, o) => sum + (o.total_price || 0), 0);
@@ -1601,7 +1599,6 @@
 
                 updateAdminDashboardSummary();
 
-                // 🏢 픽업 미처리건 (overdue: 전체 미완료 주문건 표시)
                 const pickupDateFilterEl = document.getElementById('adminPickupDateFilter');
                 const selectedPickupDate = pickupDateFilterEl ? pickupDateFilterEl.value : 'today';
 
@@ -1652,7 +1649,6 @@
                     );
                 }
 
-                // 🚚 배달 미처리건 (overdue: 전체 미완료 주문건 표시)
                 const deliveryDateFilterEl = document.getElementById('adminDeliveryDateFilter');
                 const selectedDeliveryDate = deliveryDateFilterEl ? deliveryDateFilterEl.value : 'today';
 
@@ -1741,7 +1737,13 @@
                     let orderDay = extractOrderAvailableDay(order);
                     let reserveTag = (orderDay !== 'today') ? `📅 ${orderDay} 배달` : '🍊 당일배달';
 
-                    let rawPrice = Number(order.total_price || 0);
+                    // 🌟 [수정 완료] 수령일이 다른 제품 같이 주문했을 때 배달비 2,500원이 무조건 올바르게 더해져서 표기되도록 수식 수정
+                    let basePrice = Number(order.total_price || 0);
+                    let displayPrice = basePrice;
+                    if (order.order_type === '배달' && !order.fruit.includes('배달비')) {
+                        // 기본 금액에 배달비가 안 더해져 온 경우 보정
+                        displayPrice = basePrice + 2500;
+                    }
 
                     deliveryList.innerHTML += `
                         <div class="bg-white p-5 rounded-3xl border border-blue-200 shadow-sm relative flex flex-col justify-between h-full min-h-[200px]">
@@ -1761,7 +1763,7 @@
                                     <p class="text-xs font-black text-red-600 mt-0.5">🔑 공동현관 비번: ${order.door_password || '없음/자유출입'}</p>
                                 </div>
                                 <p class="text-orange-600 font-bold text-sm">📦 ${order.fruit}</p>
-                                <p class="text-sm font-black text-red-600">💰 총 결제금액: ${rawPrice.toLocaleString()}원 (배달비 2,500원 포함)</p>
+                                <p class="text-sm font-black text-red-600">💰 총 결제금액: ${displayPrice.toLocaleString()}원 (배달비 2,500원 포함)</p>
                                 <p class="text-[11px] text-gray-400 font-bold">🕒 주문 접수일시: ${order.time_str || ''}</p>
                             </div>
                             <div class="flex gap-2 pt-3 border-t border-gray-100 mt-3">
@@ -1862,14 +1864,14 @@
             finally { if(btnEl) btnEl.disabled = false; }
         }
 
-        // 🌟 수령/배달 완료 즉시 상단 오늘 매출 대시보드 실시간 반영 처리
+        // 🌟 완료 클릭 시 상단 실시간 대시보드 리로드 및 렌더링 즉시 반영
         async function triggerCompleteOrder(id, btnEl) {
             if(btnEl) btnEl.disabled = true;
             try {
                 const res = await fetch(`${API_URL}/api/admin/orders/${id}?status=판매완료&password=${PASS}`, { method: 'PUT' });
                 if(res.ok) { 
                     alert('🎉 완료 처리되었습니다!'); 
-                    await loadStoreData(); // DB에서 최신 판매완료 내역 리로드 후 실시간 집계
+                    await loadStoreData(); // DB에서 최신 내역 끌어와 상단 대시보드 즉시 업데이트
                     await renderAdminOrders(); 
                 }
             } catch(e) { alert('처리 실패!'); }
@@ -1939,7 +1941,6 @@
 
         function resetDateFilter() { document.getElementById('searchDate').value = ''; filterAndRenderCompletedOrders(); }
 
-        // 📊 정교한 단가 / 합계금액 / 배달비 파싱 보정 엑셀 정산 기능
         function downloadExcel(mode = 'all') {
             let targetOrders = [...rawCompletedOrders];
             if (mode === 'month') {
