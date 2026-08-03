@@ -1589,13 +1589,11 @@
             return totalFruitPrice;
         }
 
-        // 🌟 동일 주문 그룹 전체의 '최종 송금 금액(총 입금 금액)'을 계산하는 헬퍼 함수
         function getGroupTotalDepositAmount(order) {
             if (!order || !order.time_str || !order.name || !order.kakao_nickname) {
                 return Number(order.total_price || 0);
             }
             
-            //同一 주문 세션으로 묶인 전체 주문 조회
             const groupOrders = (globalOrders || []).filter(o => 
                 o.time_str === order.time_str && 
                 o.name === order.name && 
@@ -1603,13 +1601,16 @@
             );
 
             if (groupOrders.length <= 1) {
-                return Number(order.total_price || 0);
+                let p = Number(order.total_price || 0);
+                let baseP = calculateOrderFruitBasePrice(order.fruit || order.fruit_name || "");
+                if (order.order_type === '배달' && baseP > 0 && p === baseP) {
+                    p += 2500;
+                }
+                return p;
             }
 
-            // 동일 그룹 전체 주문의 총 결제금액 합산
             return groupOrders.reduce((sum, o) => {
                 let price = Number(o.total_price || 0);
-                // 배달 주문시 혹시라도 배달비 누락 저장된 데이터 보정
                 let baseP = calculateOrderFruitBasePrice(o.fruit || o.fruit_name || "");
                 if (o.order_type === '배달' && baseP > 0 && price === baseP) {
                     price += 2500;
@@ -1752,7 +1753,6 @@
                     let orderDay = extractOrderAvailableDay(order);
                     let pickupReserveTag = (orderDay !== 'today') ? `📅 ${orderDay} 수령` : '🍊 당일수령';
 
-                    // 🌟 손님이 주문 시 송금한 최종 총 입금액 계산
                     let totalDepositAmount = getGroupTotalDepositAmount(order);
                     let groupDepositBadge = (totalDepositAmount > Number(order.total_price || 0)) 
                         ? `<p class="text-xs font-black text-blue-700 bg-blue-50 p-2 rounded-xl border border-blue-200 mt-1">💳 손님 실제 최종 입금액: <span class="text-red-600 text-sm font-black">${totalDepositAmount.toLocaleString()}원</span> (묶음 주문 합산)</p>` 
@@ -1802,7 +1802,6 @@
                         cardPrice = rawPrice + 2500;
                     }
 
-                    // 🌟 손님이 주문 시 송금한 최종 총 입금액 계산 (묶음 주문 합산)
                     let totalDepositAmount = getGroupTotalDepositAmount(order);
                     let groupDepositBadge = (totalDepositAmount > cardPrice) 
                         ? `<div class="bg-blue-50 border border-blue-200 p-2.5 rounded-xl mt-1">
@@ -1843,6 +1842,7 @@
             } catch(e) { console.error("장부 조회 에러", e); }
         }
 
+        // 🌟 [수정 완료] 배달전표 라벨 인쇄 시 배달비 포함 금액 및 과일 단가/수량 체크리스트 상세 보정
         function printAllDeliveryLabels() {
             let deliveryOrders = [...currentAdminDeliveryOrders];
             if (deliveryOrders.length === 0) deliveryOrders = (globalOrders || []).filter(o => o.order_type === '배달' && o.status !== '판매완료');
@@ -1862,12 +1862,31 @@
                     let checklistHtml = "";
 
                     if (fruitItemsList.length > 0) {
-                        checklistHtml = fruitItemsList.map(item => `<div style="display:flex; items-center; justify-content:space-between; margin-top:1px;"><span style="color:#d97706; font-weight:bold; font-size:10px;">▪ ${item}</span> <span style="border:1.5px solid #000; width:10px; height:10px; display:inline-block; border-radius:2px;"></span></div>`).join('');
+                        checklistHtml = fruitItemsList.map(item => {
+                            let pureName = item.replace(/\s*x\d+개/g, "").replace(/\s*\([\d,]+원\)/g, "").replace(/\[[^\]]+\]/g, "").trim();
+                            let qtyMatch = item.match(/x(\d+)개/);
+                            let itemQty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
+                            
+                            let itemPrice = 0;
+                            let foundFruitObj = fruitItems.find(f => f.name === pureName);
+                            if (foundFruitObj) {
+                                itemPrice = (foundFruitObj.is_event ? foundFruitObj.event_price : foundFruitObj.price) * itemQty;
+                            }
+                            let priceText = itemPrice > 0 ? ` (${itemPrice.toLocaleString()}원)` : '';
+
+                            return `<div style="display:flex; align-items:center; justify-content:space-between; margin-top:1px;"><span style="color:#d97706; font-weight:bold; font-size:10px;">▪ ${pureName} x${itemQty}개${priceText}</span> <span style="border:1.5px solid #000; width:10px; height:10px; display:inline-block; border-radius:2px;"></span></div>`;
+                        }).join('');
                     } else {
-                        checklistHtml = `<div style="display:flex; items-center; justify-content:space-between; margin-top:1px;"><span style="color:#d97706; font-weight:bold; font-size:10px;">▪ ${rawFruitStr}</span> <span style="border:1.5px solid #000; width:10px; height:10px; display:inline-block; border-radius:2px;"></span></div>`;
+                        checklistHtml = `<div style="display:flex; align-items:center; justify-content:space-between; margin-top:1px;"><span style="color:#d97706; font-weight:bold; font-size:10px;">▪ ${rawFruitStr}</span> <span style="border:1.5px solid #000; width:10px; height:10px; display:inline-block; border-radius:2px;"></span></div>`;
                     }
 
+                    // 🌟 인쇄용 라벨 배달비 포함 정산 보정
                     let rawPrice = Number(order.total_price || 0);
+                    let baseFruitPrice = calculateOrderFruitBasePrice(rawFruitStr);
+                    let finalPrintPrice = rawPrice;
+                    if (order.order_type === '배달' && baseFruitPrice > 0 && rawPrice === baseFruitPrice) {
+                        finalPrintPrice = rawPrice + 2500;
+                    }
 
                     pageHtml += `
                         <div class="label-card">
@@ -1884,7 +1903,7 @@
                                     ${checklistHtml}
                                 </div>
 
-                                <p style="margin: 1px 0;"><strong>💰 결제금액:</strong> <span style="color: #dc2626; font-weight: bold; font-size: 10px;">${rawPrice.toLocaleString()}원</span> (${order.method || ''})</p>
+                                <p style="margin: 1px 0;"><strong>💰 결제금액:</strong> <span style="color: #dc2626; font-weight: bold; font-size: 10px;">${finalPrintPrice.toLocaleString()}원</span> (${order.method || ''})</p>
                             </div>
                             <p style="font-size: 7.5px; color: #64748b; text-align: right; margin-top: 1px; border-top: 1px solid #f1f5f9; padding-top: 1px;">접수: ${order.time_str || ''}</p>
                         </div>`;
@@ -1958,6 +1977,7 @@
             }
         }
 
+        // 🌟 [수정 완료] 판매완료 장부 카드 렌더링 시 배달 주문건 배달비 2,500원 포함 출력 보정
         function filterAndRenderCompletedOrders() {
             const keyword = document.getElementById('searchKeyword').value.trim().toLowerCase();
             const selectedDate = document.getElementById('searchDate').value; 
@@ -1982,6 +2002,15 @@
             filtered.forEach(order => {
                 const historyCount = getStrictCustomerOrderCount(order.kakao_nickname);
                 const badgeStyle = getBadgeStyleByCount(historyCount);
+
+                // 🌟 장부 카드 배달비 포함 금액 계산 로직
+                let rawPrice = Number(order.total_price || 0);
+                let baseFruitPrice = calculateOrderFruitBasePrice(order.fruit || order.fruit_name || "");
+                let displayCompletedPrice = rawPrice;
+                if (order.order_type === '배달' && baseFruitPrice > 0 && rawPrice === baseFruitPrice) {
+                    displayCompletedPrice = rawPrice + 2500;
+                }
+
                 doneList.innerHTML += `
                     <div class="bg-white p-5 rounded-3xl border border-gray-100 flex flex-col justify-between h-full min-h-[160px] relative">
                         <span class="absolute right-5 top-5 text-xs font-black px-2 py-1 rounded-md ${badgeStyle.classes}">${badgeStyle.text}</span>
@@ -1993,7 +2022,7 @@
                                     💬 ${order.kakao_nickname || ''}
                                 </span>
                             </h4>
-                            <p class="text-orange-600 font-bold text-sm">📦 ${order.fruit} | ${Number(order.total_price).toLocaleString()}원</p>
+                            <p class="text-orange-600 font-bold text-sm">📦 ${order.fruit} | ${Number(displayCompletedPrice).toLocaleString()}원</p>
                             ${order.address ? `<p class="text-xs text-gray-500 font-bold mt-1">🏠 ${order.address}</p>` : ''}
                             <p class="text-[11px] text-gray-400 mt-1">🕒 접수: ${order.time_str || ''} / 완료: ${order.status_changed_time || ''}</p>
                         </div>
