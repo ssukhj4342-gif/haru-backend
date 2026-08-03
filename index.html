@@ -62,8 +62,8 @@
         </div>
     </header>
 
-    <!-- 🌟 하단 가림 완벽 방지를 위해 pb-60 확보 -->
-    <main id="mainContainer" class="max-w-md mx-auto p-3 sm:p-4 pb-60 transition-all duration-300 ease-in-out">
+    <!-- 모바일 최적화 여백 pb-28 설정 -->
+    <main id="mainContainer" class="max-w-md mx-auto p-3 sm:p-4 pb-28 transition-all duration-300 ease-in-out">
         <section id="customerView" class="space-y-6 transition-all duration-300">
             
             <!-- 📢 데일리 공지 카드 -->
@@ -176,8 +176,8 @@
                 <button id="btnSubmitOrder" onclick="checkMultiDatePopup()" class="w-full bg-orange-500 hover:bg-orange-600 text-white text-lg sm:text-xl font-black py-4 rounded-2xl shadow-xl transition disabled:bg-gray-400 disabled:cursor-not-allowed transform active:scale-95">🍊 일괄 주문 완료하기</button>
             </div>
 
-            <!-- 🌟 [수정] 박스 정렬 보정 및 하단 여백 가림 완벽 방지 처리 -->
-            <div id="mainMyOrdersDash" class="bg-gradient-to-br from-gray-900 to-gray-800 text-white p-5 sm:p-6 rounded-3xl shadow-lg space-y-4 border border-gray-700 w-full box-border mb-10">
+            <!-- 주문 내역 확인 대시보드 (하단 가림 방지 및 박스 정렬 보정) -->
+            <div id="mainMyOrdersDash" class="bg-gradient-to-br from-gray-900 to-gray-800 text-white p-5 sm:p-6 rounded-3xl shadow-lg space-y-4 border border-gray-700 w-full box-border">
                 <div class="flex items-center justify-between border-b border-gray-700 pb-3 gap-2">
                     <h3 class="text-base sm:text-lg font-black text-orange-400 flex items-center gap-1.5 whitespace-nowrap">
                         🔎 주문 내역 확인
@@ -1569,6 +1569,30 @@
             return 'today';
         }
 
+        // 과일 품목 및 정가/특가 파싱 헬퍼 함수
+        function calculateOrderFruitBasePrice(fruitStr) {
+            if (!fruitStr) return 0;
+            let totalFruitPrice = 0;
+            let fruitItemsList = fruitStr.split(',').map(s => s.trim()).filter(s => s);
+
+            fruitItemsList.forEach(itemStr => {
+                let pureName = itemStr.replace(/\s*x\d+개/g, "").replace(/\s*\([\d,]+원\)/g, "").replace(/\[[^\]]+\]/g, "").trim();
+                let qtyMatch = itemStr.match(/x(\d+)개/);
+                let itemQty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
+
+                let foundFruit = fruitItems.find(f => f.name === pureName);
+                if (foundFruit) {
+                    let unitP = foundFruit.is_event ? foundFruit.event_price : foundFruit.price;
+                    totalFruitPrice += (unitP * itemQty);
+                } else {
+                    // 품목 매핑 안 될 시 내장 원본 정규식 활용
+                    let priceMatch = itemStr.match(/\(([\d,]+)원\)/);
+                    if (priceMatch) totalFruitPrice += parseInt(priceMatch[1].replace(/,/g, ''));
+                }
+            });
+            return totalFruitPrice;
+        }
+
         async function renderAdminOrders(isBackgroundCheck = false) {
             try {
                 const res = await fetch(`${API_URL}/api/admin/orders?password=${PASS}`);
@@ -1738,8 +1762,17 @@
                     let orderDay = extractOrderAvailableDay(order);
                     let reserveTag = (orderDay !== 'today') ? `📅 ${orderDay} 배달` : '🍊 당일배달';
 
-                    // 🌟 [핵심 수정] 이중 합산 버그 제거: DB 원본 total_price 사용
-                    let displayPrice = Number(order.total_price || 0);
+                    // 🌟 [수정 완료] 수령일별 개별 배달 주문건 금액 보정 로직
+                    let rawPrice = Number(order.total_price || 0);
+                    let baseFruitPrice = calculateOrderFruitBasePrice(order.fruit || order.fruit_name || "");
+                    
+                    let displayPrice = rawPrice;
+                    if (order.order_type === '배달') {
+                        // DB 수량이 금액과 1:1 매칭되어 배달비가 포함 안 된 경우 보정 (과일값 합산과 원본 total_price가 같을 시 2,500원 합산)
+                        if (baseFruitPrice > 0 && (rawPrice === baseFruitPrice)) {
+                            displayPrice = basePrice + 2500;
+                        }
+                    }
 
                     deliveryList.innerHTML += `
                         <div class="bg-white p-5 rounded-3xl border border-blue-200 shadow-sm relative flex flex-col justify-between h-full min-h-[200px]">
