@@ -291,14 +291,13 @@
                     <div id="adminFruitList" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
                 </div>
 
-                <!-- 🏢 매장 픽업 현황 대시보드 (미처리건 전용 필터 적용) -->
+                <!-- 🏢 매장 픽업 현황 대시보드 -->
                 <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-3 gap-2">
                         <div>
                             <h2 class="text-lg sm:text-xl font-extrabold text-gray-800">🏢 매장 픽업 예약 현황 (<span id="orderCount" class="text-orange-500">0</span>건)</h2>
                         </div>
                         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-                            <!-- 픽업일자 필터 셀렉터 -->
                             <select id="adminPickupDateFilter" onchange="renderAdminOrders()" class="p-2.5 bg-white border-2 border-orange-300 text-orange-900 rounded-xl text-xs font-bold focus:outline-none focus:border-orange-500 transition">
                                 <option value="overdue">🚨 미처리건</option>
                                 <option value="today" selected>🍊 당일 수령건</option>
@@ -319,7 +318,7 @@
                     <div id="orderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch"></div>
                 </div>
 
-                <!-- 🚚 배달 현황 대시보드 (미처리건 전용 필터 적용) -->
+                <!-- 🚚 배달 현황 대시보드 -->
                 <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-5 sm:p-6 rounded-3xl shadow-sm border border-blue-100 space-y-4">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-blue-200/60 pb-3 gap-3">
                         <div>
@@ -328,7 +327,6 @@
                         </div>
                         
                         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-                            <!-- 배달일자 필터 셀렉터 -->
                             <select id="adminDeliveryDateFilter" onchange="renderAdminOrders()" class="p-2.5 bg-white border-2 border-blue-300 text-blue-900 rounded-xl text-xs font-bold focus:outline-none focus:border-indigo-500 transition">
                                 <option value="overdue">🚨 미처리건</option>
                                 <option value="today" selected>🍊 당일 수령건</option>
@@ -1510,13 +1508,20 @@
             }
         }
 
-        // 동시 주문 세션 중복 제거 후 엄격한 주문 회차 계산
+        // 🌟 주문일시 + 고객 성함 + 카톡 닉네임이 완전히 동일한 주문 묶음을 '1회 주문 세션'으로 간주하여 회차 계산
         function getStrictCustomerOrderCount(kakaoNickname) {
             if (!kakaoNickname) return 0;
             const pureTarget = kakaoNickname.trim().toLowerCase();
+            
+            // 동일 고객의 모든 주문건 추출
             const customerOrders = (globalOrders || []).filter(o => o.kakao_nickname && o.kakao_nickname.trim().toLowerCase() === pureTarget);
-            const uniqueSessions = new Set(customerOrders.map(o => o.time_str || o.created_at || o.id));
-            return uniqueSessions.size;
+            
+            // 주문일시 + 성함 + 카톡닉네임 조합으로 고유 주문 세션 구하기 (동일 주문시 묶음 처리)
+            const uniqueOrderSessions = new Set(
+                customerOrders.map(o => `${o.time_str || o.created_at}_${o.name}_${o.kakao_nickname}`)
+            );
+            
+            return uniqueOrderSessions.size;
         }
 
         function getBadgeStyleByCount(count) {
@@ -1546,7 +1551,6 @@
             document.getElementById('summaryTodayDelivery').innerText = deliveryCount + '건';
         }
 
-        // 🔍 주문 내역의 과일 문자열에서 수령 날짜 추출 헬퍼 함수
         function extractOrderAvailableDay(order) {
             if (order.available_day && order.available_day !== 'today') return order.available_day;
             const str = order.fruit || order.fruit_name || "";
@@ -1586,7 +1590,6 @@
 
                 updateAdminDashboardSummary();
 
-                // 🏢 픽업 수령일자 및 미처리건(Overdue) 필터링
                 const pickupDateFilterEl = document.getElementById('adminPickupDateFilter');
                 const selectedPickupDate = pickupDateFilterEl ? pickupDateFilterEl.value : 'today';
 
@@ -1641,7 +1644,6 @@
                     );
                 }
 
-                // 🚚 배달 수령일자 및 미처리건(Overdue) 필터링
                 const deliveryDateFilterEl = document.getElementById('adminDeliveryDateFilter');
                 const selectedDeliveryDate = deliveryDateFilterEl ? deliveryDateFilterEl.value : 'today';
 
@@ -1830,14 +1832,10 @@
             setTimeout(() => { window.print(); printArea.style.display = 'none'; }, 300);
         }
 
-        // 🌟 주문일시 + 이름 + 카톡닉네임이 일치하는 그룹을 찾아 입금확인 일괄 처리 적용
         async function triggerUpdateStatus(id, status, btnEl) {
             if(btnEl) btnEl.disabled = true;
             try {
-                // 클릭한 대상 주문 찾기
                 const targetOrder = globalOrders.find(o => o.id === id);
-                
-                // 동일 주문 판단 조건 (주문일시, 성함, 카톡닉네임)
                 let groupOrders = [id];
                 if (targetOrder && targetOrder.time_str && targetOrder.name && targetOrder.kakao_nickname) {
                     groupOrders = globalOrders
@@ -1850,7 +1848,6 @@
 
                 if (groupOrders.length === 0) groupOrders = [id];
 
-                // 동일 그룹 주문건 일괄 상태 변경 요청 실행
                 const updatePromises = groupOrders.map(orderId => 
                     fetch(`${API_URL}/api/admin/orders/${orderId}?status=${status}&password=${PASS}`, { method: 'PUT' })
                 );
@@ -1945,7 +1942,7 @@
 
         function resetDateFilter() { document.getElementById('searchDate').value = ''; filterAndRenderCompletedOrders(); }
 
-        // 📊 수령일자(available_day) 및 수령일자 단위 배달비 2,500원 정산 반영 엑셀 다운로드
+        // 📊 수령일자(available_day) 및 수령일자 단위 배달비 2,500원 정산 반영 엑셀 다운로드 (단가/품목금액/배달비합산 수식 완벽 수정)
         function downloadExcel(mode = 'all') {
             let targetOrders = [...rawCompletedOrders];
             if (mode === 'month') {
@@ -2061,6 +2058,8 @@
                 </tr>`;
 
             let rowSeq = 1;
+            let currentRowIndex = calcEndRow + 3; // 데이터 시작 행 번호
+
             targetOrders.forEach(order => {
                 const orderUserCount = getStrictCustomerOrderCount(order.kakao_nickname);
                 let rawFruitStr = order.fruit_name || order.fruit || "";
@@ -2076,10 +2075,12 @@
                         
                         let priceMatch = itemStr.match(/\(([\d,]+)원\)/);
                         let itemPrice = priceMatch ? parseInt(priceMatch[1].replace(/,/g, '')) : (soldFruitMap[pureName]?.price || order.price || 0);
-                        let itemTotal = itemPrice * itemQty;
                         let isFirst = itemIdx === 0;
 
-                        let calculatedTotalPrice = isFirst ? (order.total_price || (itemTotal + deliveryFeeVal)) : itemTotal;
+                        // 🌟 [수정 핵심] m8 셀 등 첫 번째 품목 행에서 품목 합계금액(K열) + 배달비(L열)가 정확히 합산되어 M열에 입력되도록 엑셀 수식 및 값 반영
+                        let formulaTotalPrice = isFirst 
+                            ? `=K${currentRowIndex}+L${currentRowIndex}` 
+                            : `=K${currentRowIndex}`;
 
                         html += `
                         <tr>
@@ -2088,14 +2089,15 @@
                             <td>${isFirst ? (order.kakao_nickname || "") : ''}</td><td>${isFirst ? (order.name || "") : ''}</td>
                             <td class="center">${isFirst ? (orderUserCount + '회차') : ''}</td><td>${isFirst ? (order.address || "-") : ''}</td>
                             <td class="text-cell">${pureName}</td><td class="num">${itemPrice}</td><td class="num">${itemQty}</td>
-                            <td class="num">${itemTotal}</td><td class="num">${isFirst ? deliveryFeeVal : ''}</td>
-                            <td class="num" style="${isFirst ? 'font-weight:bold; color:#dc2626;' : ''}">${isFirst ? calculatedTotalPrice : ''}</td>
+                            <td class="num">=I${currentRowIndex}*J${currentRowIndex}</td>
+                            <td class="num">${isFirst ? deliveryFeeVal : 0}</td>
+                            <td class="num" style="${isFirst ? 'font-weight:bold; color:#dc2626;' : ''}">${formulaTotalPrice}</td>
                             <td class="center">${isFirst ? (order.method || "계좌이체") : ''}</td><td class="center">${isFirst ? (order.door_password || "-") : ''}</td>
                             <td class="center">${isFirst ? (order.time_str || "") : ''}</td><td class="center">${isFirst ? (order.status_changed_time || "") : ''}</td>
                         </tr>`;
+                        currentRowIndex++;
                     });
                 } else {
-                    let calculatedTotalPrice = order.total_price || ((order.price || 0) * (order.qty || 1) + deliveryFeeVal);
                     html += `
                     <tr>
                         <td class="center">${rowSeq++}</td><td class="center">${order.order_type || "픽업"}</td>
@@ -2103,11 +2105,14 @@
                         <td>${order.kakao_nickname || ""}</td><td>${order.name || ""}</td>
                         <td class="center">${orderUserCount}회차</td><td>${order.address || "-"}</td>
                         <td class="text-cell">${rawFruitStr}</td><td class="num">${order.price || 0}</td>
-                        <td class="num">${order.qty || 1}</td><td class="num">${(order.price || 0) * (order.qty || 1)}</td>
-                        <td class="num">${deliveryFeeVal}</td><td class="num" style="font-weight:bold; color:#dc2626;">${calculatedTotalPrice}</td>
+                        <td class="num">${order.qty || 1}</td>
+                        <td class="num">=I${currentRowIndex}*J${currentRowIndex}</td>
+                        <td class="num">${deliveryFeeVal}</td>
+                        <td class="num" style="font-weight:bold; color:#dc2626;">=K${currentRowIndex}+L${currentRowIndex}</td>
                         <td class="center">${order.method || "계좌이체"}</td><td class="center">${order.door_password || "-"}</td>
                         <td class="center">${order.time_str || ""}</td><td class="center">${order.status_changed_time || ""}</td>
                     </tr>`;
+                    currentRowIndex++;
                 }
             });
 
