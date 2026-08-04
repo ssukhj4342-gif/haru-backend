@@ -307,7 +307,7 @@
                     <div id="adminFruitList" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
                 </div>
 
-                <!-- 🏢 매장 픽업 현황 대시보드 (수령일 정렬 필터 추가) -->
+                <!-- 🏢 매장 픽업 현황 대시보드 -->
                 <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-3 gap-2">
                         <div>
@@ -338,7 +338,7 @@
                     <div id="orderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch"></div>
                 </div>
 
-                <!-- 🚚 배달 현황 대시보드 (수령일 정렬 필터 추가) -->
+                <!-- 🚚 배달 현황 대시보드 -->
                 <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-5 sm:p-6 rounded-3xl shadow-sm border border-blue-100 space-y-4">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-blue-200/60 pb-3 gap-3">
                         <div>
@@ -370,7 +370,7 @@
                     <div id="deliveryOrderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch"></div>
                 </div>
 
-                <!-- 🤝 공구 장소 수령 현황 대시보드 (수령일 정렬 필터 추가) -->
+                <!-- 🤝 공구 장소 수령 현황 대시보드 -->
                 <div class="bg-gradient-to-r from-purple-50 to-pink-50 p-5 sm:p-6 rounded-3xl shadow-sm border border-purple-200 space-y-4">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-purple-200 pb-3 gap-3">
                         <div>
@@ -743,7 +743,7 @@
                 if (currentView === 'admin') {
                     renderAdminOrders(true);
                 }
-            }, 3000);
+            }, 5000); // 5초 주기 폴링
         };
 
         function setupTenDaysToggleList() {
@@ -1527,7 +1527,8 @@
             finally { if(btnEl) btnEl.disabled = false; }
         }
 
-        async saveAdminSettings() {
+        // 🌟 [수정 오타 복구] function 키워드 원복
+        async function saveAdminSettings() {
             const btn = document.getElementById('btnSaveAdminSettings'); btn.disabled = true; btn.innerText = "저장 중...";
             const requestData = {
                 notice: document.getElementById('inputDailyNotice').value, account: document.getElementById('inputAccount').value,
@@ -1664,9 +1665,8 @@
             return 'today';
         }
 
-        // 🌟 수령일 날짜 정렬용 가중치 변환 헬퍼 함수
         function getAvailableDayWeight(dayStr) {
-            if (!dayStr || dayStr === 'today') return 0; // 당일 수령 최우선
+            if (!dayStr || dayStr === 'today') return 0;
             const match = dayStr.match(/(\d+)\/(\d+)/);
             if (match) {
                 const m = parseInt(match[1]);
@@ -1728,7 +1728,6 @@
             }, 0);
         }
 
-        // 🌟 [수정] 수령일 기준 오름차순/내림차순 정렬 로직 적용
         async function renderAdminOrders(isBackgroundCheck = false) {
             try {
                 const res = await fetch(`${API_URL}/api/admin/orders?password=${PASS}`);
@@ -1762,7 +1761,6 @@
 
                 updateAdminDashboardSummary();
 
-                // 🏢 픽업 수령일 필터 & 정렬
                 const pickupDateFilterEl = document.getElementById('adminPickupDateFilter');
                 const pickupSortEl = document.getElementById('pickupSortOrder');
                 const selectedPickupDate = pickupDateFilterEl ? pickupDateFilterEl.value : 'today';
@@ -1821,7 +1819,6 @@
                     );
                 }
 
-                // 🚚 배달 수령일 필터 & 정렬
                 const deliveryDateFilterEl = document.getElementById('adminDeliveryDateFilter');
                 const deliverySortEl = document.getElementById('deliverySortOrder');
                 const selectedDeliveryDate = deliveryDateFilterEl ? deliveryDateFilterEl.value : 'today';
@@ -1970,7 +1967,6 @@
                 });
                 document.getElementById('deliveryOrderCount').innerText = filteredDeliveryOrders.length;
 
-                // 🤝 공구 수령 수령일 필터 & 정렬
                 const groupSortEl = document.getElementById('groupSortOrder');
                 const groupSortOrder = groupSortEl ? groupSortEl.value : 'asc';
 
