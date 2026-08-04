@@ -117,7 +117,7 @@
                 </div>
             </div>
 
-            <!-- 수령 정보 입력 -->
+            <!-- 수령 정보 입력 (총 3가지 주문 방식) -->
             <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 space-y-5">
                 <h2 class="text-lg sm:text-xl font-black text-gray-900 border-b pb-3">📝 2. 수령 및 고객 정보 입력</h2>
                 <div class="space-y-2">
@@ -307,13 +307,17 @@
                     <div id="adminFruitList" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
                 </div>
 
-                <!-- 🏢 매장 픽업 현황 대시보드 -->
+                <!-- 🏢 매장 픽업 현황 대시보드 (수령일 정렬 필터 추가) -->
                 <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-3 gap-2">
                         <div>
                             <h2 class="text-lg sm:text-xl font-extrabold text-gray-800">🏢 매장 픽업 예약 현황 (<span id="orderCount" class="text-orange-500">0</span>건)</h2>
                         </div>
                         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+                            <select id="pickupSortOrder" onchange="renderAdminOrders()" class="p-2.5 bg-gray-100 border border-gray-300 text-gray-800 rounded-xl text-xs font-bold focus:outline-none transition">
+                                <option value="asc" selected>📅 수령일 오름차순</option>
+                                <option value="desc">📅 수령일 내림차순</option>
+                            </select>
                             <select id="adminPickupDateFilter" onchange="renderAdminOrders()" class="p-2.5 bg-white border-2 border-orange-300 text-orange-900 rounded-xl text-xs font-bold focus:outline-none focus:border-orange-500 transition">
                                 <option value="overdue">🚨 미처리건 (기간 무관)</option>
                                 <option value="today" selected>🍊 당일 수령건</option>
@@ -334,7 +338,7 @@
                     <div id="orderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch"></div>
                 </div>
 
-                <!-- 🚚 배달 현황 대시보드 (입금확인 파란색, 배달완료 보라색으로 시인성 명확화) -->
+                <!-- 🚚 배달 현황 대시보드 (수령일 정렬 필터 추가) -->
                 <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-5 sm:p-6 rounded-3xl shadow-sm border border-blue-100 space-y-4">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-blue-200/60 pb-3 gap-3">
                         <div>
@@ -343,6 +347,10 @@
                         </div>
                         
                         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+                            <select id="deliverySortOrder" onchange="renderAdminOrders()" class="p-2.5 bg-white border border-blue-200 text-blue-900 rounded-xl text-xs font-bold focus:outline-none transition">
+                                <option value="asc" selected>📅 수령일 오름차순</option>
+                                <option value="desc">📅 수령일 내림차순</option>
+                            </select>
                             <select id="adminDeliveryDateFilter" onchange="renderAdminOrders()" class="p-2.5 bg-white border-2 border-blue-300 text-blue-900 rounded-xl text-xs font-bold focus:outline-none focus:border-indigo-500 transition">
                                 <option value="overdue">🚨 미처리건 (기간 무관)</option>
                                 <option value="today" selected>🍊 당일 수령건</option>
@@ -362,20 +370,23 @@
                     <div id="deliveryOrderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch"></div>
                 </div>
 
-                <!-- 🤝 공구 장소 수령 현황 대시보드 -->
+                <!-- 🤝 공구 장소 수령 현황 대시보드 (수령일 정렬 필터 추가) -->
                 <div class="bg-gradient-to-r from-purple-50 to-pink-50 p-5 sm:p-6 rounded-3xl shadow-sm border border-purple-200 space-y-4">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-purple-200 pb-3 gap-3">
                         <div>
                             <h2 class="text-lg sm:text-xl font-extrabold text-purple-900 flex items-center gap-2">🤝 실시간 공지스팟 수령 대시보드 (<span id="groupOrderCount" class="text-purple-600">0</span>건)</h2>
                             <p class="text-xs text-purple-600 font-bold mt-0.5">아파트별 지정 스팟 차량 수령 주문건 현황입니다.</p>
                         </div>
+                        <select id="groupSortOrder" onchange="renderAdminOrders()" class="p-2.5 bg-white border border-purple-300 text-purple-900 rounded-xl text-xs font-bold focus:outline-none transition">
+                            <option value="asc" selected>📅 수령일 오름차순</option>
+                            <option value="desc">📅 수령일 내림차순</option>
+                        </select>
                     </div>
                     <div id="groupOrderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch">
                         <p class="text-center text-gray-400 py-6 font-bold col-span-full">아직 접수된 공구 수령 주문이 없습니다. 🤝</p>
                     </div>
                 </div>
 
-                <!-- ✅ 판매완료 장부 대시보드 (픽업 주황, 배달 파랑, 공구스팟 보라 색상 구분) -->
                 <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
                     <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b pb-4">
                         <h2 class="text-lg sm:text-xl font-extrabold text-gray-800 flex items-center gap-2">✅ 판매완료 장부 (<span id="completedCount" class="text-green-600">0</span>건)</h2>
@@ -1386,7 +1397,6 @@
             finally { isSubmitting = false; submitBtn.disabled = false; submitBtn.innerText = originalBtnText; }
         }
 
-        // 🌟 [수정] 수령 및 배달 주문 계좌 확인 완료 팝업 안내 문구 개선
         function closeBankModal() { 
             document.getElementById('bankModal').classList.add('hidden'); 
             
@@ -1517,7 +1527,7 @@
             finally { if(btnEl) btnEl.disabled = false; }
         }
 
-        async function saveAdminSettings() {
+        async saveAdminSettings() {
             const btn = document.getElementById('btnSaveAdminSettings'); btn.disabled = true; btn.innerText = "저장 중...";
             const requestData = {
                 notice: document.getElementById('inputDailyNotice').value, account: document.getElementById('inputAccount').value,
@@ -1654,6 +1664,18 @@
             return 'today';
         }
 
+        // 🌟 수령일 날짜 정렬용 가중치 변환 헬퍼 함수
+        function getAvailableDayWeight(dayStr) {
+            if (!dayStr || dayStr === 'today') return 0; // 당일 수령 최우선
+            const match = dayStr.match(/(\d+)\/(\d+)/);
+            if (match) {
+                const m = parseInt(match[1]);
+                const d = parseInt(match[2]);
+                return m * 100 + d;
+            }
+            return 9999;
+        }
+
         function calculateOrderFruitBasePrice(fruitStr) {
             if (!fruitStr) return 0;
             let totalFruitPrice = 0;
@@ -1706,6 +1728,7 @@
             }, 0);
         }
 
+        // 🌟 [수정] 수령일 기준 오름차순/내림차순 정렬 로직 적용
         async function renderAdminOrders(isBackgroundCheck = false) {
             try {
                 const res = await fetch(`${API_URL}/api/admin/orders?password=${PASS}`);
@@ -1739,13 +1762,22 @@
 
                 updateAdminDashboardSummary();
 
+                // 🏢 픽업 수령일 필터 & 정렬
                 const pickupDateFilterEl = document.getElementById('adminPickupDateFilter');
+                const pickupSortEl = document.getElementById('pickupSortOrder');
                 const selectedPickupDate = pickupDateFilterEl ? pickupDateFilterEl.value : 'today';
+                const pickupSortOrder = pickupSortEl ? pickupSortEl.value : 'asc';
 
                 let filteredPickupOrders = pendingPickup.filter(o => {
                     if (selectedPickupDate === 'overdue') return !o.status || o.status !== '판매완료';
                     let orderDay = extractOrderAvailableDay(o);
                     return orderDay === selectedPickupDate;
+                });
+
+                filteredPickupOrders.sort((a, b) => {
+                    const wA = getAvailableDayWeight(extractOrderAvailableDay(a));
+                    const wB = getAvailableDayWeight(extractOrderAvailableDay(b));
+                    return pickupSortOrder === 'asc' ? wA - wB : wB - wA;
                 });
 
                 let pickupFruitSummary = {};
@@ -1789,14 +1821,24 @@
                     );
                 }
 
+                // 🚚 배달 수령일 필터 & 정렬
                 const deliveryDateFilterEl = document.getElementById('adminDeliveryDateFilter');
+                const deliverySortEl = document.getElementById('deliverySortOrder');
                 const selectedDeliveryDate = deliveryDateFilterEl ? deliveryDateFilterEl.value : 'today';
+                const deliverySortOrder = deliverySortEl ? deliverySortEl.value : 'asc';
 
                 let filteredDeliveryOrders = deliveryOrders.filter(o => {
                     if (selectedDeliveryDate === 'overdue') return !o.status || o.status !== '판매완료';
                     let orderDay = extractOrderAvailableDay(o);
                     return orderDay === selectedDeliveryDate;
                 });
+
+                filteredDeliveryOrders.sort((a, b) => {
+                    const wA = getAvailableDayWeight(extractOrderAvailableDay(a));
+                    const wB = getAvailableDayWeight(extractOrderAvailableDay(b));
+                    return deliverySortOrder === 'asc' ? wA - wB : wB - wA;
+                });
+
                 currentAdminDeliveryOrders = filteredDeliveryOrders;
 
                 let deliveryFruitSummary = {};
@@ -1872,7 +1914,6 @@
                 });
                 document.getElementById('orderCount').innerText = filteredPickupOrders.length;
 
-                // 🌟 [수정] 배달 현황 대시보드 버튼 색상 구별 (입금확인: 파란색, 배달완료: 보라색)
                 const deliveryList = document.getElementById('deliveryOrderList'); deliveryList.innerHTML = '';
                 filteredDeliveryOrders.forEach(order => {
                     const historyCount = getStrictCustomerOrderCount(order.kakao_nickname);
@@ -1928,6 +1969,16 @@
                         </div>`;
                 });
                 document.getElementById('deliveryOrderCount').innerText = filteredDeliveryOrders.length;
+
+                // 🤝 공구 수령 수령일 필터 & 정렬
+                const groupSortEl = document.getElementById('groupSortOrder');
+                const groupSortOrder = groupSortEl ? groupSortEl.value : 'asc';
+
+                groupOrders.sort((a, b) => {
+                    const wA = getAvailableDayWeight(extractOrderAvailableDay(a));
+                    const wB = getAvailableDayWeight(extractOrderAvailableDay(b));
+                    return groupSortOrder === 'asc' ? wA - wB : wB - wA;
+                });
 
                 const groupList = document.getElementById('groupOrderList'); 
                 document.getElementById('groupOrderCount').innerText = groupOrders.length;
@@ -2108,7 +2159,6 @@
             }
         }
 
-        // 🌟 [수정 완료] 판매완료 장부 카드 픽업/배달/스팟별 뱃지 색상 구별
         function filterAndRenderCompletedOrders() {
             const keyword = document.getElementById('searchKeyword').value.trim().toLowerCase();
             const selectedDate = document.getElementById('searchDate').value; 
@@ -2141,7 +2191,6 @@
                     displayCompletedPrice = rawPrice + 2500;
                 }
 
-                // 🌟 수령 방식별 색상 구별 뱃지
                 let typeBadgeClass = "bg-orange-500 text-white";
                 let typeText = "🏢 픽업 완료";
                 if (order.order_type === '배달') {
