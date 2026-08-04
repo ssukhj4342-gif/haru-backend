@@ -856,7 +856,9 @@
                 return;
             }
 
+            // 🌟 [수정] is_hidden (상품 숨김) 처리된 항목은 손님 화면에서 제외
             let targetFruitItems = fruitItems.filter(item => {
+                if (item.is_hidden) return false;
                 let availDay = item.available_day || 'today';
                 return availDay === selectedDateKey;
             });
@@ -942,22 +944,27 @@
                     </div>`;
             });
 
+            // 🌟 [수정] 사장님 모드 품목 카드에 '상품 숨김/노출' 토글 버튼 추가
             fruitItems.forEach((item) => {
                 let hideBtnText = item.hide_stock ? "재고 숨김 🙈" : "재고 노출 👁️";
                 let hideBtnClass = item.hide_stock ? "bg-gray-600 text-white font-bold text-xs px-2.5 py-1.5 rounded-xl active:scale-95 transition" : "bg-orange-500 text-white font-bold text-xs px-2.5 py-1.5 rounded-xl active:scale-95 transition";
                 
+                let visibleBtnText = item.is_hidden ? "🙈 상품 숨김중" : "👁️ 상품 노출중";
+                let visibleBtnClass = item.is_hidden ? "bg-purple-600 text-white font-bold text-xs px-2.5 py-1.5 rounded-xl active:scale-95 transition shadow-xs" : "bg-slate-200 text-slate-700 font-bold text-xs px-2.5 py-1.5 rounded-xl hover:bg-slate-300 active:scale-95 transition";
+
                 let eventBtnText = item.is_event ? "🏷️ 이벤트 해제" : "🎉 이벤트 하기";
                 let eventBtnClass = item.is_event ? "bg-red-600 text-white font-bold text-xs px-2.5 py-1.5 rounded-xl active:scale-95 transition shadow-xs" : "bg-rose-100 text-rose-700 border border-rose-300 font-bold text-xs px-2.5 py-1.5 rounded-xl hover:bg-rose-200 active:scale-95 transition";
 
                 let dayText = (item.available_day && item.available_day !== 'today') ? `📅 ${item.available_day} 예약` : '🍊 당일 즉시판매';
 
                 adminListEl.innerHTML += `
-                    <div class="bg-gray-50 p-4 rounded-2xl border ${item.is_event ? 'border-red-400 bg-red-50/40 shadow-xs' : 'border-gray-200'} flex flex-col justify-between space-y-3">
+                    <div class="bg-gray-50 p-4 rounded-2xl border ${item.is_hidden ? 'border-purple-300 bg-purple-50/30' : item.is_event ? 'border-red-400 bg-red-50/40 shadow-xs' : 'border-gray-200'} flex flex-col justify-between space-y-3">
                         <div class="flex justify-between items-start w-full gap-2 border-b border-gray-200/60 pb-2">
                             <div class="min-w-0 flex-1 space-y-1">
                                 <div class="flex items-center gap-1.5 flex-wrap">
                                     <span class="bg-gray-800 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">${dayText}</span>
                                     ${item.is_event ? '<span class="bg-red-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded animate-pulse">이벤트 중</span>' : ''}
+                                    ${item.is_hidden ? '<span class="bg-purple-700 text-white text-[10px] font-black px-1.5 py-0.5 rounded">숨김 상품</span>' : ''}
                                 </div>
                                 <h4 class="font-black text-gray-800 text-sm sm:text-base leading-snug">${item.name}</h4>
                                 <div class="flex items-center gap-1.5">
@@ -973,6 +980,7 @@
 
                         <div class="flex items-center justify-between text-xs gap-1 flex-wrap pt-1">
                             <div class="flex items-center gap-1 flex-wrap">
+                                <button onclick="toggleItemVisibility(${item.id}, ${!item.is_hidden}, this)" class="${visibleBtnClass}">${visibleBtnText}</button>
                                 <button onclick="handleEventToggle(${item.id}, ${!item.is_event}, ${item.price}, this)" class="${eventBtnClass}">${eventBtnText}</button>
                                 <button onclick="toggleItemHideStock(${item.id}, ${!item.hide_stock}, this)" class="${hideBtnClass}">${hideBtnText}</button>
                             </div>
@@ -985,6 +993,22 @@
                     </div>`;
             });
             updateStickyCheckoutBar();
+        }
+
+        // 🌟 상품 숨김/노출 상태 변경 토글 함수
+        async function toggleItemVisibility(fruitId, newHiddenState, btnEl) {
+            if(btnEl) btnEl.disabled = true;
+            try {
+                const res = await fetch(`${API_URL}/api/admin/fruits/${fruitId}?password=${PASS}`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ is_hidden: newHiddenState })
+                });
+                if(res.ok) { 
+                    alert(newHiddenState ? '🙈 상품을 목록에서 숨깁니다.' : '👁️ 상품을 손님 화면에 노출합니다.'); 
+                    loadStoreData(); 
+                }
+            } catch(e) { alert('상품 숨김 설정 변경 실패!'); }
+            finally { if(btnEl) btnEl.disabled = false; }
         }
 
         function openEditFruitModal(fruitId) {
@@ -1201,6 +1225,20 @@
 
             if(!kakao || !name) { alert('카톡 닉네임과 성함을 꼭 입력해주세요!'); return; }
             if(selectedOrderType === '배달' && !address) { alert('배달 상세 주소를 적어주세요!'); return; }
+
+            // 🌟 [추가] 오후 12시 30분 이후 당일 배달 상품 주문 시 팝업 띄우고 차단
+            if (selectedOrderType === '배달') {
+                const now = new Date();
+                const currentMinutes = now.getHours() * 60 + now.getMinutes();
+                const deadlineMinutes = 12 * 60 + 30; // 12시 30분 = 750분
+
+                const hasTodayItems = itemsToOrder.some(i => (i.available_day || 'today') === 'today');
+
+                if (hasTodayItems && currentMinutes >= deadlineMinutes) {
+                    alert("⏰ 금일 수령 상품의 배달 마감 시간(오후 12시 30분)이 지나 당일 배달 주문이 불가합니다.\n(직접 방문 수령만 가능하며, 내일 이후 예약 상품은 정상 배달 가능합니다.)");
+                    return;
+                }
+            }
 
             const uniqueDays = [...new Set(itemsToOrder.map(item => item.available_day || 'today'))];
 
@@ -1842,7 +1880,6 @@
             } catch(e) { console.error("장부 조회 에러", e); }
         }
 
-        // 🌟 [수정 완료] 배달전표 라벨 인쇄 시 배달비 포함 금액 및 과일 단가/수량 체크리스트 상세 보정
         function printAllDeliveryLabels() {
             let deliveryOrders = [...currentAdminDeliveryOrders];
             if (deliveryOrders.length === 0) deliveryOrders = (globalOrders || []).filter(o => o.order_type === '배달' && o.status !== '판매완료');
@@ -1880,7 +1917,6 @@
                         checklistHtml = `<div style="display:flex; align-items:center; justify-content:space-between; margin-top:1px;"><span style="color:#d97706; font-weight:bold; font-size:10px;">▪ ${rawFruitStr}</span> <span style="border:1.5px solid #000; width:10px; height:10px; display:inline-block; border-radius:2px;"></span></div>`;
                     }
 
-                    // 🌟 인쇄용 라벨 배달비 포함 정산 보정
                     let rawPrice = Number(order.total_price || 0);
                     let baseFruitPrice = calculateOrderFruitBasePrice(rawFruitStr);
                     let finalPrintPrice = rawPrice;
@@ -1977,7 +2013,6 @@
             }
         }
 
-        // 🌟 [수정 완료] 판매완료 장부 카드 렌더링 시 배달 주문건 배달비 2,500원 포함 출력 보정
         function filterAndRenderCompletedOrders() {
             const keyword = document.getElementById('searchKeyword').value.trim().toLowerCase();
             const selectedDate = document.getElementById('searchDate').value; 
@@ -2003,7 +2038,6 @@
                 const historyCount = getStrictCustomerOrderCount(order.kakao_nickname);
                 const badgeStyle = getBadgeStyleByCount(historyCount);
 
-                // 🌟 장부 카드 배달비 포함 금액 계산 로직
                 let rawPrice = Number(order.total_price || 0);
                 let baseFruitPrice = calculateOrderFruitBasePrice(order.fruit || order.fruit_name || "");
                 let displayCompletedPrice = rawPrice;
