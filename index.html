@@ -117,7 +117,7 @@
                 </div>
             </div>
 
-            <!-- 수령 정보 입력 (총 3가지 주문 방식) -->
+            <!-- 수령 정보 입력 -->
             <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 space-y-5">
                 <h2 class="text-lg sm:text-xl font-black text-gray-900 border-b pb-3">📝 2. 수령 및 고객 정보 입력</h2>
                 <div class="space-y-2">
@@ -314,10 +314,6 @@
                             <h2 class="text-lg sm:text-xl font-extrabold text-gray-800">🏢 매장 픽업 예약 현황 (<span id="orderCount" class="text-orange-500">0</span>건)</h2>
                         </div>
                         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-                            <select id="pickupSortOrder" onchange="renderAdminOrders()" class="p-2.5 bg-gray-100 border border-gray-300 text-gray-800 rounded-xl text-xs font-bold focus:outline-none transition">
-                                <option value="asc" selected>📅 수령일 오름차순</option>
-                                <option value="desc">📅 수령일 내림차순</option>
-                            </select>
                             <select id="adminPickupDateFilter" onchange="renderAdminOrders()" class="p-2.5 bg-white border-2 border-orange-300 text-orange-900 rounded-xl text-xs font-bold focus:outline-none focus:border-orange-500 transition">
                                 <option value="overdue">🚨 미처리건 (기간 무관)</option>
                                 <option value="today" selected>🍊 당일 수령건</option>
@@ -347,10 +343,6 @@
                         </div>
                         
                         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-                            <select id="deliverySortOrder" onchange="renderAdminOrders()" class="p-2.5 bg-white border border-blue-200 text-blue-900 rounded-xl text-xs font-bold focus:outline-none transition">
-                                <option value="asc" selected>📅 수령일 오름차순</option>
-                                <option value="desc">📅 수령일 내림차순</option>
-                            </select>
                             <select id="adminDeliveryDateFilter" onchange="renderAdminOrders()" class="p-2.5 bg-white border-2 border-blue-300 text-blue-900 rounded-xl text-xs font-bold focus:outline-none focus:border-indigo-500 transition">
                                 <option value="overdue">🚨 미처리건 (기간 무관)</option>
                                 <option value="today" selected>🍊 당일 수령건</option>
@@ -377,16 +369,13 @@
                             <h2 class="text-lg sm:text-xl font-extrabold text-purple-900 flex items-center gap-2">🤝 실시간 공지스팟 수령 대시보드 (<span id="groupOrderCount" class="text-purple-600">0</span>건)</h2>
                             <p class="text-xs text-purple-600 font-bold mt-0.5">아파트별 지정 스팟 차량 수령 주문건 현황입니다.</p>
                         </div>
-                        <select id="groupSortOrder" onchange="renderAdminOrders()" class="p-2.5 bg-white border border-purple-300 text-purple-900 rounded-xl text-xs font-bold focus:outline-none transition">
-                            <option value="asc" selected>📅 수령일 오름차순</option>
-                            <option value="desc">📅 수령일 내림차순</option>
-                        </select>
                     </div>
                     <div id="groupOrderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch">
                         <p class="text-center text-gray-400 py-6 font-bold col-span-full">아직 접수된 공구 수령 주문이 없습니다. 🤝</p>
                     </div>
                 </div>
 
+                <!-- ✅ 판매완료 장부 (🌟 실제 수령 완료시간 오름차순/내림차순 정렬 드롭다운 필터 추가) -->
                 <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
                     <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b pb-4">
                         <h2 class="text-lg sm:text-xl font-extrabold text-gray-800 flex items-center gap-2">✅ 판매완료 장부 (<span id="completedCount" class="text-green-600">0</span>건)</h2>
@@ -398,13 +387,20 @@
                             </div>
                         </div>
                     </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-gray-50 p-3 rounded-2xl border border-gray-200">
+                    <div class="grid grid-cols-1 sm:grid-cols-5 gap-3 bg-gray-50 p-3 rounded-2xl border border-gray-200">
                         <div class="sm:col-span-2 relative">
                             <input type="text" id="searchKeyword" oninput="filterAndRenderCompletedOrders()" placeholder="🔍 이름, 닉네임, 품목명 검색..." class="w-full p-2.5 pr-8 bg-white border border-gray-300 rounded-xl text-sm font-bold focus:outline-none focus:border-orange-500 transition">
                             <button onclick="clearSearchInput('searchKeyword')" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-bold bg-gray-100 hover:bg-gray-200 rounded-full w-5 h-5 flex items-center justify-center">✕</button>
                         </div>
                         <div><input type="date" id="searchDate" onchange="filterAndRenderCompletedOrders()" class="w-full p-2.5 bg-white border border-gray-300 rounded-xl text-sm font-bold text-gray-700 focus:outline-none focus:border-orange-500 transition"></div>
-                        <div><button onclick="resetDateFilter()" class="w-full p-2.5 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded-xl text-sm transition active:scale-95">🔄 전체 날짜 보기</button></div>
+                        <!-- 🌟 실제 수령/배달 완료시간 기준 정렬 선택 필터 -->
+                        <div>
+                            <select id="completedSortOrder" onchange="filterAndRenderCompletedOrders()" class="w-full p-2.5 bg-white border border-gray-300 rounded-xl text-xs font-bold text-gray-800 focus:outline-none focus:border-green-500 transition">
+                                <option value="desc" selected>🕒 완료시간 내림차순 (최신순)</option>
+                                <option value="asc">🕒 완료시간 오름차순 (과거순)</option>
+                            </select>
+                        </div>
+                        <div><button onclick="resetDateFilter()" class="w-full p-2.5 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded-xl text-sm transition active:scale-95">🔄 전체 보기</button></div>
                     </div>
                     <div id="completedOrderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch"></div>
                 </div>
@@ -743,7 +739,7 @@
                 if (currentView === 'admin') {
                     renderAdminOrders(true);
                 }
-            }, 5000); // 5초 주기 폴링
+            }, 5000);
         };
 
         function setupTenDaysToggleList() {
@@ -1527,7 +1523,6 @@
             finally { if(btnEl) btnEl.disabled = false; }
         }
 
-        // 🌟 [수정 오타 복구] function 키워드 원복
         async function saveAdminSettings() {
             const btn = document.getElementById('btnSaveAdminSettings'); btn.disabled = true; btn.innerText = "저장 중...";
             const requestData = {
@@ -1665,17 +1660,6 @@
             return 'today';
         }
 
-        function getAvailableDayWeight(dayStr) {
-            if (!dayStr || dayStr === 'today') return 0;
-            const match = dayStr.match(/(\d+)\/(\d+)/);
-            if (match) {
-                const m = parseInt(match[1]);
-                const d = parseInt(match[2]);
-                return m * 100 + d;
-            }
-            return 9999;
-        }
-
         function calculateOrderFruitBasePrice(fruitStr) {
             if (!fruitStr) return 0;
             let totalFruitPrice = 0;
@@ -1762,20 +1746,12 @@
                 updateAdminDashboardSummary();
 
                 const pickupDateFilterEl = document.getElementById('adminPickupDateFilter');
-                const pickupSortEl = document.getElementById('pickupSortOrder');
                 const selectedPickupDate = pickupDateFilterEl ? pickupDateFilterEl.value : 'today';
-                const pickupSortOrder = pickupSortEl ? pickupSortEl.value : 'asc';
 
                 let filteredPickupOrders = pendingPickup.filter(o => {
                     if (selectedPickupDate === 'overdue') return !o.status || o.status !== '판매완료';
                     let orderDay = extractOrderAvailableDay(o);
                     return orderDay === selectedPickupDate;
-                });
-
-                filteredPickupOrders.sort((a, b) => {
-                    const wA = getAvailableDayWeight(extractOrderAvailableDay(a));
-                    const wB = getAvailableDayWeight(extractOrderAvailableDay(b));
-                    return pickupSortOrder === 'asc' ? wA - wB : wB - wA;
                 });
 
                 let pickupFruitSummary = {};
@@ -1820,20 +1796,12 @@
                 }
 
                 const deliveryDateFilterEl = document.getElementById('adminDeliveryDateFilter');
-                const deliverySortEl = document.getElementById('deliverySortOrder');
                 const selectedDeliveryDate = deliveryDateFilterEl ? deliveryDateFilterEl.value : 'today';
-                const deliverySortOrder = deliverySortEl ? deliverySortEl.value : 'asc';
 
                 let filteredDeliveryOrders = deliveryOrders.filter(o => {
                     if (selectedDeliveryDate === 'overdue') return !o.status || o.status !== '판매완료';
                     let orderDay = extractOrderAvailableDay(o);
                     return orderDay === selectedDeliveryDate;
-                });
-
-                filteredDeliveryOrders.sort((a, b) => {
-                    const wA = getAvailableDayWeight(extractOrderAvailableDay(a));
-                    const wB = getAvailableDayWeight(extractOrderAvailableDay(b));
-                    return deliverySortOrder === 'asc' ? wA - wB : wB - wA;
                 });
 
                 currentAdminDeliveryOrders = filteredDeliveryOrders;
@@ -1966,15 +1934,6 @@
                         </div>`;
                 });
                 document.getElementById('deliveryOrderCount').innerText = filteredDeliveryOrders.length;
-
-                const groupSortEl = document.getElementById('groupSortOrder');
-                const groupSortOrder = groupSortEl ? groupSortEl.value : 'asc';
-
-                groupOrders.sort((a, b) => {
-                    const wA = getAvailableDayWeight(extractOrderAvailableDay(a));
-                    const wB = getAvailableDayWeight(extractOrderAvailableDay(b));
-                    return groupSortOrder === 'asc' ? wA - wB : wB - wA;
-                });
 
                 const groupList = document.getElementById('groupOrderList'); 
                 document.getElementById('groupOrderCount').innerText = groupOrders.length;
@@ -2155,9 +2114,13 @@
             }
         }
 
+        // 🌟 [수정 완료] 판매완료 장부실제 고객 수령완료 시간(status_changed_time) 기준 오름차순/내림차순 정렬 적용
         function filterAndRenderCompletedOrders() {
             const keyword = document.getElementById('searchKeyword').value.trim().toLowerCase();
             const selectedDate = document.getElementById('searchDate').value; 
+            const completedSortEl = document.getElementById('completedSortOrder');
+            const completedSortOrder = completedSortEl ? completedSortEl.value : 'desc';
+
             const doneList = document.getElementById('completedOrderList'); doneList.innerHTML = '';
 
             let filtered = rawCompletedOrders.filter(o => {
@@ -2171,6 +2134,18 @@
                     matchesDate = orderTimeStr.includes(targetFormattedDate) || orderTimeStr.startsWith(selectedDate);
                 }
                 return matchesKeyword && matchesDate;
+            });
+
+            // 🌟 실제 고객 수령 완료 시간(status_changed_time) 기준 오름차순/내림차순 정렬
+            filtered.sort((a, b) => {
+                const timeA = new Date(a.status_changed_time || a.time_str || a.created_at || 0).getTime();
+                const timeB = new Date(b.status_changed_time || b.time_str || b.created_at || 0).getTime();
+                
+                if (completedSortOrder === 'asc') {
+                    return timeA - timeB; // 오래된순 (오름차순)
+                } else {
+                    return timeB - timeA; // 최신순 (내림차순)
+                }
             });
 
             document.getElementById('completedCount').innerText = filtered.length;
