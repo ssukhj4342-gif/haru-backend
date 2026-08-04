@@ -117,7 +117,7 @@
                 </div>
             </div>
 
-            <!-- 수령 정보 입력 -->
+            <!-- 수령 정보 입력 (총 3가지 주문 방식) -->
             <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 space-y-5">
                 <h2 class="text-lg sm:text-xl font-black text-gray-900 border-b pb-3">📝 2. 수령 및 고객 정보 입력</h2>
                 <div class="space-y-2">
@@ -375,7 +375,7 @@
                     </div>
                 </div>
 
-                <!-- ✅ 판매완료 장부 (🌟 실제 수령 완료시간 오름차순/내림차순 정렬 드롭다운 필터 추가) -->
+                <!-- ✅ 판매완료 장부 (🌟 실제 고객 수령완료 시간 기준 최신순 / 과거순 선택 정렬) -->
                 <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
                     <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b pb-4">
                         <h2 class="text-lg sm:text-xl font-extrabold text-gray-800 flex items-center gap-2">✅ 판매완료 장부 (<span id="completedCount" class="text-green-600">0</span>건)</h2>
@@ -393,11 +393,11 @@
                             <button onclick="clearSearchInput('searchKeyword')" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-bold bg-gray-100 hover:bg-gray-200 rounded-full w-5 h-5 flex items-center justify-center">✕</button>
                         </div>
                         <div><input type="date" id="searchDate" onchange="filterAndRenderCompletedOrders()" class="w-full p-2.5 bg-white border border-gray-300 rounded-xl text-sm font-bold text-gray-700 focus:outline-none focus:border-orange-500 transition"></div>
-                        <!-- 🌟 실제 수령/배달 완료시간 기준 정렬 선택 필터 -->
+                        <!-- 🌟 [수정 완료] 수령 완료 시간 기준 '최신순' / '과거순' 정렬 선택 드롭다운 -->
                         <div>
                             <select id="completedSortOrder" onchange="filterAndRenderCompletedOrders()" class="w-full p-2.5 bg-white border border-gray-300 rounded-xl text-xs font-bold text-gray-800 focus:outline-none focus:border-green-500 transition">
-                                <option value="desc" selected>🕒 완료시간 내림차순 (최신순)</option>
-                                <option value="asc">🕒 완료시간 오름차순 (과거순)</option>
+                                <option value="desc" selected>🕒 최신순 (최근 완료건)</option>
+                                <option value="asc">🕒 과거순 (이전 완료건)</option>
                             </select>
                         </div>
                         <div><button onclick="resetDateFilter()" class="w-full p-2.5 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded-xl text-sm transition active:scale-95">🔄 전체 보기</button></div>
@@ -2114,7 +2114,36 @@
             }
         }
 
-        // 🌟 [수정 완료] 판매완료 장부실제 고객 수령완료 시간(status_changed_time) 기준 오름차순/내림차순 정렬 적용
+        // 🌟 [핵심] 한국어 날짜/시간 문자열("2026. 08. 03. 오후 11:34")을 정확한 타임스탬프 숫자로 파싱하는 헬퍼 함수
+        function parseCustomTimeString(timeStr) {
+            if (!timeStr) return 0;
+            try {
+                // "2026. 08. 03. 오후 11:34" 형태 매칭
+                const regex = /(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(오전|오후)\s*(\d{1,2}):(\d{1,2})/;
+                const match = timeStr.match(regex);
+                if (match) {
+                    let year = parseInt(match[1]);
+                    let month = parseInt(match[2]) - 1;
+                    let day = parseInt(match[3]);
+                    let ampm = match[4];
+                    let hour = parseInt(match[5]);
+                    let minute = parseInt(match[6]);
+
+                    if (ampm === '오후' && hour < 12) hour += 12;
+                    if (ampm === '오전' && hour === 12) hour = 0;
+
+                    return new Date(year, month, day, hour, minute).getTime();
+                }
+                
+                // ISO 날짜 형태 보정 ("2026-08-03T...")
+                const parsed = Date.parse(timeStr);
+                return isNaN(parsed) ? 0 : parsed;
+            } catch(e) {
+                return 0;
+            }
+        }
+
+        // 🌟 [수정 완료] 수령 완료시간 파싱 기반 최신순 / 과거순 정렬 작동 보정
         function filterAndRenderCompletedOrders() {
             const keyword = document.getElementById('searchKeyword').value.trim().toLowerCase();
             const selectedDate = document.getElementById('searchDate').value; 
@@ -2136,15 +2165,15 @@
                 return matchesKeyword && matchesDate;
             });
 
-            // 🌟 실제 고객 수령 완료 시간(status_changed_time) 기준 오름차순/내림차순 정렬
+            // 🌟 한국어 타임스탬프 파싱 기반 정밀 최신순/과거순 정렬 실행
             filtered.sort((a, b) => {
-                const timeA = new Date(a.status_changed_time || a.time_str || a.created_at || 0).getTime();
-                const timeB = new Date(b.status_changed_time || b.time_str || b.created_at || 0).getTime();
+                const timeA = parseCustomTimeString(a.status_changed_time || a.time_str);
+                const timeB = parseCustomTimeString(b.status_changed_time || b.time_str);
                 
                 if (completedSortOrder === 'asc') {
-                    return timeA - timeB; // 오래된순 (오름차순)
+                    return timeA - timeB; // 과거순 (오래된 완료건부터)
                 } else {
-                    return timeB - timeA; // 최신순 (내림차순)
+                    return timeB - timeA; // 최신순 (최근 완료건부터)
                 }
             });
 
