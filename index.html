@@ -117,21 +117,38 @@
                 </div>
             </div>
 
-            <!-- 수령 정보 입력 -->
+            <!-- 수령 정보 입력 (총 3가지 주문 방식) -->
             <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 space-y-5">
                 <h2 class="text-lg sm:text-xl font-black text-gray-900 border-b pb-3">📝 2. 수령 및 고객 정보 입력</h2>
                 <div class="space-y-2">
-                    <label class="block text-xs font-bold text-gray-400">💡 수령 방식 선택</label>
-                    <div class="grid grid-cols-2 gap-2">
-                        <button type="button" id="btnTypePickup" onclick="selectOrderType('픽업')" class="h-16 p-2 border-2 border-orange-500 bg-orange-50 text-orange-900 rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-0.5 active:scale-95 transition">
+                    <label class="block text-xs font-bold text-gray-400">💡 수령 방식 선택 (총 3가지)</label>
+                    <div class="grid grid-cols-3 gap-1.5">
+                        <button type="button" id="btnTypePickup" onclick="selectOrderType('픽업')" class="h-16 p-1.5 border-2 border-orange-500 bg-orange-50 text-orange-900 rounded-2xl font-black text-xs flex flex-col items-center justify-center gap-0.5 active:scale-95 transition">
                             <span>🏢 매장 픽업</span>
-                            <span class="text-[10px] font-normal text-orange-700">직접 방문 수령</span>
+                            <span class="text-[9px] font-normal text-orange-700">방문 수령</span>
                         </button>
-                        <button type="button" id="btnTypeDelivery" onclick="selectOrderType('배달')" class="h-16 p-2 border-2 border-gray-200 bg-white text-gray-500 rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-0.5 active:scale-95 transition">
+                        <button type="button" id="btnTypeDelivery" onclick="selectOrderType('배달')" class="h-16 p-1.5 border-2 border-gray-200 bg-white text-gray-500 rounded-2xl font-black text-xs flex flex-col items-center justify-center gap-0.5 active:scale-95 transition">
                             <span>🚚 배달 주문</span>
-                            <span id="deliveryBadgeText" class="text-[10px] font-normal text-gray-400">배달비 2,500원 (12시 30분 마감)</span>
+                            <span id="deliveryBadgeText" class="text-[9px] font-normal text-gray-400">배달비 2.5천원</span>
+                        </button>
+                        <button type="button" id="btnTypeGroup" onclick="selectOrderType('공구')" class="h-16 p-1.5 border-2 border-gray-200 bg-white text-gray-500 rounded-2xl font-black text-xs flex flex-col items-center justify-center gap-0.5 active:scale-95 transition relative overflow-hidden">
+                            <span class="bg-purple-600 text-white text-[8px] font-black px-1 rounded absolute top-1 right-1">준비중</span>
+                            <span>🤝 공구 장소</span>
+                            <span class="text-[9px] font-normal text-gray-400">지정스팟 수령</span>
                         </button>
                     </div>
+                </div>
+
+                <!-- 🤝 공구 장소 및 시간 선택 영역 (준비중 상태 숨김 가능) -->
+                <div id="groupSpotInputBox" class="hidden space-y-3 bg-purple-50/70 p-4 rounded-2xl border border-purple-200">
+                    <label class="block text-xs font-black text-purple-900">📍 공구 수령 장소 및 시간 선택 (17시 이후)</label>
+                    <select id="buyerGroupSpot" class="w-full p-3 border-2 border-purple-300 bg-white rounded-xl text-xs font-bold text-purple-950 focus:outline-none focus:border-purple-500 transition">
+                        <option value="명수대현대아파트 (17:30)">🏢 명수대현대아파트 (17:30 수령)</option>
+                        <option value="흑석한강푸르지오 (18:00)">🏢 흑석한강푸르지오 (18:00 수령)</option>
+                        <option value="아크로리버하임 (18:30)">🏢 아크로리버하임 (18:30 수령)</option>
+                        <option value="흑석자이 (19:00)">🏢 흑석자이 (19:00 수령)</option>
+                        <option value="롯데캐슬에듀포레 (19:30)">🏢 롯데캐슬에듀포레 (19:30 수령)</option>
+                    </select>
                 </div>
 
                 <div class="bg-orange-50/70 p-4 rounded-2xl border border-orange-200 space-y-3">
@@ -344,6 +361,19 @@
                     </div>
 
                     <div id="deliveryOrderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch"></div>
+                </div>
+
+                <!-- 🤝 [신규 추가] 공구 장소 수령 현황 대시보드 -->
+                <div class="bg-gradient-to-r from-purple-50 to-pink-50 p-5 sm:p-6 rounded-3xl shadow-sm border border-purple-200 space-y-4">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-purple-200 pb-3 gap-3">
+                        <div>
+                            <h2 class="text-lg sm:text-xl font-extrabold text-purple-900 flex items-center gap-2">🤝 실시간 공지스팟 수령 대시보드 (<span id="groupOrderCount" class="text-purple-600">0</span>건)</h2>
+                            <p class="text-xs text-purple-600 font-bold mt-0.5">아파트별 지정 스팟 차량 수령 주문건 현황입니다.</p>
+                        </div>
+                    </div>
+                    <div id="groupOrderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch">
+                        <p class="text-center text-gray-400 py-6 font-bold col-span-full">아직 접수된 공구 수령 주문이 없습니다. 🤝</p>
+                    </div>
                 </div>
 
                 <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
@@ -856,7 +886,6 @@
                 return;
             }
 
-            // 🌟 [수정] is_hidden (상품 숨김) 처리된 항목은 손님 화면에서 제외
             let targetFruitItems = fruitItems.filter(item => {
                 if (item.is_hidden) return false;
                 let availDay = item.available_day || 'today';
@@ -944,7 +973,6 @@
                     </div>`;
             });
 
-            // 🌟 [수정] 사장님 모드 품목 카드에 '상품 숨김/노출' 토글 버튼 추가
             fruitItems.forEach((item) => {
                 let hideBtnText = item.hide_stock ? "재고 숨김 🙈" : "재고 노출 👁️";
                 let hideBtnClass = item.hide_stock ? "bg-gray-600 text-white font-bold text-xs px-2.5 py-1.5 rounded-xl active:scale-95 transition" : "bg-orange-500 text-white font-bold text-xs px-2.5 py-1.5 rounded-xl active:scale-95 transition";
@@ -995,7 +1023,6 @@
             updateStickyCheckoutBar();
         }
 
-        // 🌟 상품 숨김/노출 상태 변경 토글 함수
         async function toggleItemVisibility(fruitId, newHiddenState, btnEl) {
             if(btnEl) btnEl.disabled = true;
             try {
@@ -1171,7 +1198,14 @@
         }
         function closeDetailModal() { document.getElementById('detailModal').classList.add('hidden'); }
 
+        // 🌟 [수정] 수령 방식 3가지 제어 (`픽업`, `배달`, `공구`)
         function selectOrderType(type) {
+            // 공구 수령 준비중 상태 안내 팝업 및 차단
+            if (type === '공구') {
+                alert("📢 [공구 장소 수령 준비중]\n\n아직 공식 준비중인 서비스입니다! 빠른 런칭 후 찾아뵙겠습니다. 😊");
+                return;
+            }
+
             if (type === '배달' && !isDeliveryAvailable) { alert("⏰ 금일 배달 주문이 마감되었습니다. (오후 12시 30분 이전까지만 가능)"); return; }
             
             if (type === '배달') {
@@ -1181,17 +1215,21 @@
             selectedOrderType = type;
             const btnPickup = document.getElementById('btnTypePickup');
             const btnDelivery = document.getElementById('btnTypeDelivery');
+            const btnGroup = document.getElementById('btnTypeGroup');
             const addrBox = document.getElementById('addressInputBox');
+            const groupSpotBox = document.getElementById('groupSpotInputBox');
             const payCardLabel = document.getElementById('labelPayCard');
 
             if(type === '픽업') {
-                btnPickup.className = "h-16 p-2 border-2 border-orange-500 bg-orange-50 text-orange-900 rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-0.5 active:scale-95 transition";
-                btnDelivery.className = "h-16 p-2 border-2 border-gray-200 bg-white text-gray-500 rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-0.5 active:scale-95 transition";
-                addrBox.classList.add('hidden'); payCardLabel.classList.remove('hidden');
-            } else {
-                btnDelivery.className = "h-16 p-2 border-2 border-blue-500 bg-blue-50 text-blue-900 rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-0.5 active:scale-95 transition";
-                btnPickup.className = "h-16 p-2 border-2 border-gray-200 bg-white text-gray-500 rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-0.5 active:scale-95 transition";
-                addrBox.classList.remove('hidden');
+                btnPickup.className = "h-16 p-1.5 border-2 border-orange-500 bg-orange-50 text-orange-900 rounded-2xl font-black text-xs flex flex-col items-center justify-center gap-0.5 active:scale-95 transition";
+                btnDelivery.className = "h-16 p-1.5 border-2 border-gray-200 bg-white text-gray-500 rounded-2xl font-black text-xs flex flex-col items-center justify-center gap-0.5 active:scale-95 transition";
+                btnGroup.className = "h-16 p-1.5 border-2 border-gray-200 bg-white text-gray-500 rounded-2xl font-black text-xs flex flex-col items-center justify-center gap-0.5 active:scale-95 transition relative overflow-hidden";
+                addrBox.classList.add('hidden'); groupSpotBox.classList.add('hidden'); payCardLabel.classList.remove('hidden');
+            } else if(type === '배달') {
+                btnDelivery.className = "h-16 p-1.5 border-2 border-blue-500 bg-blue-50 text-blue-900 rounded-2xl font-black text-xs flex flex-col items-center justify-center gap-0.5 active:scale-95 transition";
+                btnPickup.className = "h-16 p-1.5 border-2 border-gray-200 bg-white text-gray-500 rounded-2xl font-black text-xs flex flex-col items-center justify-center gap-0.5 active:scale-95 transition";
+                btnGroup.className = "h-16 p-1.5 border-2 border-gray-200 bg-white text-gray-500 rounded-2xl font-black text-xs flex flex-col items-center justify-center gap-0.5 active:scale-95 transition relative overflow-hidden";
+                addrBox.classList.remove('hidden'); groupSpotBox.classList.add('hidden');
                 document.querySelector('input[name="payMethod"][value="계좌이체"]').checked = true;
                 togglePayMethodView('계좌이체'); payCardLabel.classList.add('hidden');
             }
@@ -1226,11 +1264,10 @@
             if(!kakao || !name) { alert('카톡 닉네임과 성함을 꼭 입력해주세요!'); return; }
             if(selectedOrderType === '배달' && !address) { alert('배달 상세 주소를 적어주세요!'); return; }
 
-            // 🌟 [추가] 오후 12시 30분 이후 당일 배달 상품 주문 시 팝업 띄우고 차단
             if (selectedOrderType === '배달') {
                 const now = new Date();
                 const currentMinutes = now.getHours() * 60 + now.getMinutes();
-                const deadlineMinutes = 12 * 60 + 30; // 12시 30분 = 750분
+                const deadlineMinutes = 12 * 60 + 30;
 
                 const hasTodayItems = itemsToOrder.some(i => (i.available_day || 'today') === 'today');
 
@@ -1305,9 +1342,14 @@
             const submitBtn = document.getElementById('btnSubmitOrder');
             const kakao = document.getElementById('buyerKakao').value;
             const name = document.getElementById('buyerName').value;
-            const address = document.getElementById('buyerAddress').value;
+            let address = document.getElementById('buyerAddress').value;
             const doorPassword = document.getElementById('buyerDoorPassword').value;
             const method = document.querySelector('input[name="payMethod"]:checked').value;
+
+            if (selectedOrderType === '공구') {
+                const spotSelect = document.getElementById('buyerGroupSpot');
+                address = `[공구스팟] ${spotSelect.value}`;
+            }
 
             let itemsToOrder = Object.values(selectedItems).filter(item => item.qty > 0);
 
@@ -1335,7 +1377,7 @@
                         document.getElementById('bankModalOwner').innerText = storeMeta.owner ? `(예금주: ${storeMeta.owner})` : '';
                         document.getElementById('bankModalAmount').innerText = finalAmount.toLocaleString() + "원";
                         document.getElementById('bankModal').classList.remove('hidden');
-                    } else { alert(selectedOrderType === '배달' ? '🚚 배달 주문 접수 완료!' : '🎉 매장 픽업 예약 완료!'); }
+                    } else { alert(selectedOrderType === '배달' ? '🚚 배달 주문 접수 완료!' : '🎉 예약 완료!'); }
 
                     selectedItems = {}; 
                     document.getElementById('buyerKakao').value = ''; document.getElementById('buyerName').value = '';
@@ -1398,7 +1440,7 @@
                             <span class="bg-blue-500/30 text-blue-300 text-xs font-black px-2 py-0.5 rounded-md border border-blue-400/30">${displayStatusText}</span>
                         </div>
                         <p class="text-xs text-gray-300 font-bold">결제금액: ${Number(o.total_price).toLocaleString()}원 (${o.method})</p>
-                        ${o.address ? `<p class="text-xs text-blue-300 font-bold">주소: ${o.address}</p>` : ''}
+                        ${o.address ? `<p class="text-xs text-blue-300 font-bold">수령장소/주소: ${o.address}</p>` : ''}
                         ${o.door_password ? `<p class="text-xs text-red-400 font-bold">공동현관 비번: ${o.door_password}</p>` : ''}
                         <div class="flex justify-between items-center pt-2 border-t border-gray-800">
                             <span class="text-[10px] text-gray-400">접수일시: ${o.time_str || ''}</span>
@@ -1657,17 +1699,20 @@
             }, 0);
         }
 
+        // 🌟 [수정] 공구 장소 수령 현황 대시보드 렌더링 포함
         async function renderAdminOrders(isBackgroundCheck = false) {
             try {
                 const res = await fetch(`${API_URL}/api/admin/orders?password=${PASS}`);
                 if(!res.ok) return;
                 const data = await res.json();
 
-                let pendingPickup = (data.pending || []).filter(o => o.order_type !== '배달');
+                let allPending = data.pending || [];
+                let pendingPickup = allPending.filter(o => o.order_type !== '배달' && o.order_type !== '공구');
+                let groupOrders = allPending.filter(o => o.order_type === '공구');
                 let deliveryOrders = data.delivery_orders || [];
                 rawCompletedOrders = data.completed || [];
 
-                const allCurrentOrders = [...pendingPickup, ...deliveryOrders];
+                const allCurrentOrders = [...pendingPickup, ...deliveryOrders, ...groupOrders];
                 let hasNewOrder = false;
 
                 allCurrentOrders.forEach(o => {
@@ -1876,6 +1921,50 @@
                         </div>`;
                 });
                 document.getElementById('deliveryOrderCount').innerText = filteredDeliveryOrders.length;
+
+                // 🤝 [신규] 공구 수령 대시보드 렌더링
+                const groupList = document.getElementById('groupOrderList'); 
+                document.getElementById('groupOrderCount').innerText = groupOrders.length;
+
+                if (groupOrders.length > 0) {
+                    groupList.innerHTML = '';
+                    groupOrders.forEach(order => {
+                        const historyCount = getStrictCustomerOrderCount(order.kakao_nickname);
+                        const badgeStyle = getBadgeStyleByCount(historyCount);
+                        let groupActionBtn = order.status === '입금대기'
+                            ? `<button onclick="triggerUpdateStatus(${order.id}, '접수완료', this)" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-xl text-xs font-black active:scale-95 transition">💵 입금확인</button>`
+                            : `<button onclick="triggerCompleteOrder(${order.id}, this)" class="flex-1 bg-pink-600 hover:bg-pink-700 text-white py-2.5 rounded-xl text-xs font-black active:scale-95 transition">🤝 수령 완료 처리</button>`;
+
+                        groupList.innerHTML += `
+                            <div class="bg-white p-5 rounded-3xl border border-purple-200 shadow-sm relative flex flex-col justify-between h-full min-h-[180px]">
+                                <div class="space-y-2">
+                                    <div class="flex justify-between items-center pr-20">
+                                        <span class="bg-purple-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md">🤝 공구 [${order.status || '접수대기'}]</span>
+                                    </div>
+                                    <span class="absolute right-5 top-5 text-xs font-black px-2 py-1 rounded-md ${badgeStyle.classes}">${badgeStyle.text}</span>
+                                    <div>
+                                        <h4 class="text-lg font-black text-gray-900 flex items-center gap-1.5">
+                                            ${order.name} 
+                                            <span onclick="copyToClipboard('${order.kakao_nickname}', '카톡 닉네임이 복사되었습니다!')" class="text-xs font-extrabold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-lg border border-purple-200 cursor-pointer hover:bg-purple-100 active:scale-95 transition" title="클릭하여 복사">
+                                                💬 ${order.kakao_nickname || '닉네임없음'}
+                                            </span>
+                                        </h4>
+                                        <p class="text-xs font-extrabold text-purple-800 mt-1">📍 지정 장소: ${order.address || '미지정'}</p>
+                                    </div>
+                                    <p class="text-orange-600 font-bold text-sm">📦 ${order.fruit}</p>
+                                    <p class="text-sm font-black text-red-600">💰 결제금액: ${Number(order.total_price || 0).toLocaleString()}원</p>
+                                    <p class="text-[11px] text-gray-400 font-bold">🕒 주문 접수일시: ${order.time_str || ''}</p>
+                                </div>
+                                <div class="flex gap-2 pt-3 border-t border-gray-100 mt-3">
+                                    ${groupActionBtn}
+                                    <button onclick="cancelAdminOrder(${order.id}, this)" class="bg-gray-100 text-gray-500 px-3 py-2.5 rounded-xl text-xs font-bold active:scale-95 transition">취소</button>
+                                </div>
+                            </div>`;
+                    });
+                } else {
+                    groupList.innerHTML = `<p class="text-center text-gray-400 py-6 font-bold col-span-full">아직 접수된 공구 수령 주문이 없습니다. 🤝</p>`;
+                }
+
                 filterAndRenderCompletedOrders();
             } catch(e) { console.error("장부 조회 에러", e); }
         }
