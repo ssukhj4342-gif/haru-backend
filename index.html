@@ -13,7 +13,7 @@
             overflow-wrap: break-word;
         }
 
-        /* 🌟 한글 IME 키보드 입력 안정화 CSS */
+        /* 한글 IME 키보드 입력 안정화 CSS */
         input[type="text"], textarea {
             ime-mode: auto;
             -webkit-appearance: none;
@@ -124,7 +124,7 @@
                 </div>
             </div>
 
-            <!-- 수령 정보 입력 (한글 입력 방해 속성 차단 옵션 적용) -->
+            <!-- 수령 정보 입력 -->
             <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 space-y-5">
                 <h2 class="text-lg sm:text-xl font-black text-gray-900 border-b pb-3">📝 2. 수령 및 고객 정보 입력</h2>
                 <div class="space-y-2">
@@ -1409,39 +1409,77 @@
             }
         }
 
+        // 🌟 닉네임 보정 헬퍼 함수 (공백 제거)
+        function normalizeKakaoNickname(str) {
+            if (!str) return '';
+            return str.replace(/\s+/g, '').toLowerCase();
+        }
+
+        // 🌟 닉네임에서 숫자만 추출하는 헬퍼 함수
+        function extractNumbers(str) {
+            if (!str) return '';
+            const match = str.match(/\d+/g);
+            return match ? match.join('') : '';
+        }
+
         async function fetchMyOrdersFromDash() {
-            const kakao = document.getElementById('dashSearchKakao').value.trim();
-            const name = document.getElementById('dashSearchName').value.trim();
+            const rawKakao = document.getElementById('dashSearchKakao').value.trim();
+            const rawName = document.getElementById('dashSearchName').value.trim();
             const btn = document.getElementById('btnDashFetchOrders');
             const resultBox = document.getElementById('dashMyOrdersResult');
 
-            if(!kakao || !name) { alert('성함과 카톡 닉네임을 모두 정확히 입력해 주세요!'); return; }
+            if(!rawKakao || !rawName) { alert('성함과 카톡 닉네임을 모두 입력해 주세요!'); return; }
             btn.disabled = true; btn.innerText = "🔍 주문 내역 조회 중...";
 
             try {
-                const res = await fetch(`${API_URL}/api/my-orders?kakao_nickname=${encodeURIComponent(kakao)}&name=${encodeURIComponent(name)}`);
+                const res = await fetch(`${API_URL}/api/my-orders?kakao_nickname=${encodeURIComponent(rawKakao)}&name=${encodeURIComponent(rawName)}`);
                 if(res.ok) { 
                     const data = await res.json(); 
-                    renderDashMyOrders(data.orders || [], kakao, name); 
+                    renderDashMyOrders(data.orders || [], rawKakao, rawName); 
                     resultBox.classList.remove('hidden');
                 }
             } catch(e) { alert('주문 조회 실패!'); }
             finally { btn.disabled = false; btn.innerText = "내 주문 확인하기 🍊"; }
         }
 
-        function renderDashMyOrders(orders, kakao, name) {
+        // 🌟 [수정] 유연한 매칭 로직 적용 (공백 무관 + 숫자+이름 일치 시 조회 허용)
+        function renderDashMyOrders(orders, searchKakao, searchName) {
             const box = document.getElementById('dashMyOrdersResult'); box.innerHTML = '';
-            const strictlyMatched = orders.filter(o => o.name && o.name.trim() === name && o.kakao_nickname && o.kakao_nickname.trim() === kakao);
 
-            if(strictlyMatched.length === 0) { 
+            const cleanSearchKakao = normalizeKakaoNickname(searchKakao); 
+            const searchNumber = extractNumbers(searchKakao);            
+            const cleanSearchName = searchName.trim().toLowerCase();
+
+            const matchedOrders = orders.filter(o => {
+                if (!o.name) return false;
+                const cleanOrderName = o.name.trim().toLowerCase();
+                
+                // 1. 성함 일치 확인
+                if (cleanOrderName !== cleanSearchName) return false;
+
+                const cleanOrderKakao = normalizeKakaoNickname(o.kakao_nickname);
+                const orderNumber = extractNumbers(o.kakao_nickname);
+
+                // 2-1. 띄어쓰기 제거 후 닉네임 완벽 일치 (예: '래미안 1234' == '래미안1234')
+                if (cleanOrderKakao === cleanSearchKakao) return true;
+
+                // 2-2. 아파트 이름이 달라도 [숫자 + 이름]이 일치하면 동일 주문 간주
+                if (searchNumber && orderNumber && searchNumber === orderNumber) {
+                    return true;
+                }
+
+                return false;
+            });
+
+            if(matchedOrders.length === 0) { 
                 box.innerHTML = `<p class="text-center text-gray-400 text-xs py-4 font-bold bg-gray-900/50 rounded-2xl border border-gray-700">일치하는 본인 주문 내역이 없습니다.</p>`; 
                 return; 
             }
 
-            strictlyMatched.forEach(o => {
+            matchedOrders.forEach(o => {
                 let canCancel = o.status === '입금대기' || o.status === '접수완료';
                 let cancelBtnHtml = canCancel 
-                    ? `<button onclick="cancelMyOrder(${o.id}, '${kakao}', '${name}', this)" class="bg-red-500/20 text-red-400 font-bold text-xs px-2.5 py-1.5 rounded-xl hover:bg-red-500/30 transition">주문 취소</button>`
+                    ? `<button onclick="cancelMyOrder(${o.id}, '${o.kakao_nickname}', '${o.name}', this)" class="bg-red-500/20 text-red-400 font-bold text-xs px-2.5 py-1.5 rounded-xl hover:bg-red-500/30 transition">주문 취소</button>`
                     : `<span class="text-xs text-emerald-400 font-bold">✅ 완료됨</span>`;
 
                 let displayStatusText = o.status;
@@ -1664,17 +1702,6 @@
             const match = str.match(/\[([0-9]+\/[0-9]+\([^)]+\))\s*수령\]/);
             if (match) return match[1];
             return 'today';
-        }
-
-        function getAvailableDayWeight(dayStr) {
-            if (!dayStr || dayStr === 'today') return 0;
-            const match = dayStr.match(/(\d+)\/(\d+)/);
-            if (match) {
-                const m = parseInt(match[1]);
-                const d = parseInt(match[2]);
-                return m * 100 + d;
-            }
-            return 9999;
         }
 
         function calculateOrderFruitBasePrice(fruitStr) {
@@ -2158,7 +2185,6 @@
             }
         }
 
-        // 🌟 [수정 완료] 판매완료 장부 실제 고객 수령완료 시간(status_changed_time) 기준 최신순/과거순 정렬 동작 보정
         function filterAndRenderCompletedOrders() {
             const keyword = document.getElementById('searchKeyword').value.trim().toLowerCase();
             const selectedDate = document.getElementById('searchDate').value; 
@@ -2180,7 +2206,7 @@
                 return matchesKeyword && matchesDate;
             });
 
-            // 🌟 수령 완료 시간(status_changed_time) 파싱 후 정렬
+            // 수령 완료 시간(status_changed_time) 파싱 후 정렬
             filtered.sort((a, b) => {
                 const timeA = parseCustomTimeString(a.status_changed_time || a.time_str);
                 const timeB = parseCustomTimeString(b.status_changed_time || b.time_str);
