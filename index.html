@@ -8,9 +8,16 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", Roboto, "Malgun Gothic", sans-serif;
             word-break: keep-all;
             overflow-wrap: break-word;
+        }
+
+        /* 🌟 한글 IME 키보드 입력 안정화 CSS */
+        input[type="text"], textarea {
+            ime-mode: auto;
+            -webkit-appearance: none;
+            appearance: none;
         }
         
         @page { size: A4 portrait; margin: 5mm; }
@@ -117,7 +124,7 @@
                 </div>
             </div>
 
-            <!-- 수령 정보 입력 (총 3가지 주문 방식) -->
+            <!-- 수령 정보 입력 (한글 입력 방해 속성 차단 옵션 적용) -->
             <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 space-y-5">
                 <h2 class="text-lg sm:text-xl font-black text-gray-900 border-b pb-3">📝 2. 수령 및 고객 정보 입력</h2>
                 <div class="space-y-2">
@@ -170,20 +177,20 @@
                 <div class="space-y-3">
                     <div>
                         <label class="block text-xs font-bold text-gray-400 mb-1">💬 카톡 닉네임 (아파트+휴대폰뒷자리)</label>
-                        <input type="text" id="buyerKakao" placeholder="예: 래미안1234" class="w-full p-3.5 border-2 border-gray-200 rounded-2xl text-base font-bold focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition">
+                        <input type="text" id="buyerKakao" placeholder="예: 래미안1234" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3.5 border-2 border-gray-200 rounded-2xl text-base font-bold focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-gray-400 mb-1">👤 주문자 성함</label>
-                        <input type="text" id="buyerName" placeholder="예: 박명숙" class="w-full p-3.5 border-2 border-gray-200 rounded-2xl text-base font-bold focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition">
+                        <input type="text" id="buyerName" placeholder="예: 박명숙" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3.5 border-2 border-gray-200 rounded-2xl text-base font-bold focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition">
                     </div>
                     <div id="addressInputBox" class="hidden space-y-3 border-t border-orange-200 pt-3">
                         <div>
                             <label class="block text-xs font-bold text-orange-900 mb-1">🏠 배달 상세 주소</label>
-                            <input type="text" id="buyerAddress" placeholder="예: 흑석동 센트레빌 101동 1202호" class="w-full p-3.5 border-2 border-orange-300 bg-orange-50/50 rounded-2xl text-base font-bold focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition">
+                            <input type="text" id="buyerAddress" placeholder="예: 흑석동 센트레빌 101동 1202호" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3.5 border-2 border-orange-300 bg-orange-50/50 rounded-2xl text-base font-bold focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-orange-900 mb-1">🔑 공동현관 비밀번호</label>
-                            <input type="text" id="buyerDoorPassword" placeholder="예: #1234* 또는 자유출입" class="w-full p-3.5 border-2 border-orange-300 bg-orange-50/50 rounded-2xl text-base font-bold focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition">
+                            <input type="text" id="buyerDoorPassword" placeholder="예: #1234* 또는 자유출입" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3.5 border-2 border-orange-300 bg-orange-50/50 rounded-2xl text-base font-bold focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition">
                         </div>
                     </div>
                 </div>
@@ -200,8 +207,8 @@
                     <span class="text-[11px] text-gray-400 font-bold whitespace-nowrap shrink-0">1초 빠른 조회</span>
                 </div>
                 <div class="space-y-2">
-                    <input type="text" id="dashSearchKakao" placeholder="카톡 닉네임 (예: 래미안1234)" class="w-full p-3 bg-gray-800/90 border border-gray-600 rounded-xl text-xs sm:text-sm font-bold text-white placeholder-gray-400 focus:outline-none focus:border-orange-500 transition box-border">
-                    <input type="text" id="dashSearchName" placeholder="주문자 성함 (예: 박명숙)" class="w-full p-3 bg-gray-800/90 border border-gray-600 rounded-xl text-xs sm:text-sm font-bold text-white placeholder-gray-400 focus:outline-none focus:border-orange-500 transition box-border">
+                    <input type="text" id="dashSearchKakao" placeholder="카톡 닉네임 (예: 래미안1234)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3 bg-gray-800/90 border border-gray-600 rounded-xl text-xs sm:text-sm font-bold text-white placeholder-gray-400 focus:outline-none focus:border-orange-500 transition box-border">
+                    <input type="text" id="dashSearchName" placeholder="주문자 성함 (예: 박명숙)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3 bg-gray-800/90 border border-gray-600 rounded-xl text-xs sm:text-sm font-bold text-white placeholder-gray-400 focus:outline-none focus:border-orange-500 transition box-border">
                 </div>
                 <button id="btnDashFetchOrders" onclick="fetchMyOrdersFromDash()" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-3 rounded-xl text-sm shadow-md transition active:scale-95">
                     내 주문 확인하기 🍊
@@ -223,7 +230,7 @@
                 <div class="space-y-3">
                     <div>
                         <label class="block text-xs font-bold text-gray-400 mb-1">📋 데일리 공지 수정</label>
-                        <textarea id="inputDailyNotice" rows="3" class="w-full p-3 border border-gray-200 rounded-xl text-sm sm:text-base font-medium focus:outline-none focus:border-orange-500 transition"></textarea>
+                        <textarea id="inputDailyNotice" rows="3" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3 border border-gray-200 rounded-xl text-sm sm:text-base font-medium focus:outline-none focus:border-orange-500 transition"></textarea>
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-gray-400 mb-1">🖼️ 공지사항 이미지 업로드</label>
@@ -232,15 +239,15 @@
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-gray-400 mb-1">💰 계좌 번호 수정</label>
-                        <input type="text" id="inputAccount" class="w-full p-3 border border-gray-200 rounded-xl text-sm sm:text-base font-bold focus:outline-none focus:border-orange-500 transition">
+                        <input type="text" id="inputAccount" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3 border border-gray-200 rounded-xl text-sm sm:text-base font-bold focus:outline-none focus:border-orange-500 transition">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-gray-400 mb-1">👤 예금주 명 수정</label>
-                        <input type="text" id="inputAccountOwner" class="w-full p-3 border border-gray-200 rounded-xl text-sm sm:text-base font-bold focus:outline-none focus:border-orange-500 transition">
+                        <input type="text" id="inputAccountOwner" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3 border border-gray-200 rounded-xl text-sm sm:text-base font-bold focus:outline-none focus:border-orange-500 transition">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-gray-400 mb-1">⏰ 영업 시간 수정</label>
-                        <input type="text" id="inputHours" class="w-full p-3 border border-gray-200 rounded-xl text-sm sm:text-base font-bold focus:outline-none focus:border-orange-500 transition">
+                        <input type="text" id="inputHours" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3 border border-gray-200 rounded-xl text-sm sm:text-base font-bold focus:outline-none focus:border-orange-500 transition">
                     </div>
                 </div>
                 <button id="btnSaveAdminSettings" onclick="saveAdminSettings()" class="w-full bg-orange-500 text-white font-black py-3.5 rounded-2xl text-sm sm:text-base shadow-md hover:bg-orange-600 active:scale-95 transition">기본 정보 저장하기</button>
@@ -280,12 +287,12 @@
                     </div>
                     <div id="itemAddForm" class="hidden bg-gray-50 p-4 rounded-2xl border border-gray-200 space-y-3">
                         <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
-                            <input type="text" id="newFruitName" placeholder="과일 품목명" class="p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition">
+                            <input type="text" id="newFruitName" placeholder="과일 품목명" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition">
                             <input type="number" id="newFruitPrice" placeholder="판매 가격 (숫자만)" class="p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition">
                             <input type="number" id="newFruitStock" placeholder="초기 재고량" class="p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition">
                             <select id="newFruitAvailableDay" class="p-3 border border-gray-300 rounded-xl text-sm bg-white font-bold focus:outline-none focus:border-orange-500 transition"></select>
                         </div>
-                        <textarea id="newFruitDesc" rows="2" placeholder="상품 상세 설명을 입력하세요 (선택)" class="w-full p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition"></textarea>
+                        <textarea id="newFruitDesc" rows="2" placeholder="상품 상세 설명을 입력하세요 (선택)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition"></textarea>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
                             <div>
                                 <label class="block text-xs font-bold text-gray-400 mb-1">🖼️ 메인 썸네일 1장</label>
@@ -319,7 +326,7 @@
                                 <option value="today" selected>🍊 당일 수령건</option>
                             </select>
                             <div class="relative w-full sm:w-52">
-                                <input type="text" id="pickupSearchKeyword" oninput="renderAdminOrders()" placeholder="🔍 성함 / 닉네임 검색..." class="w-full p-2.5 text-xs font-bold bg-gray-50 border border-gray-300 rounded-xl focus:outline-none focus:border-orange-500 transition">
+                                <input type="text" id="pickupSearchKeyword" oninput="renderAdminOrders()" placeholder="🔍 성함 / 닉네임 검색..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-2.5 text-xs font-bold bg-gray-50 border border-gray-300 rounded-xl focus:outline-none focus:border-orange-500 transition">
                             </div>
                         </div>
                     </div>
@@ -375,7 +382,7 @@
                     </div>
                 </div>
 
-                <!-- ✅ 판매완료 장부 (🌟 실제 고객 수령완료 시간 기준 최신순 / 과거순 선택 정렬) -->
+                <!-- ✅ 판매완료 장부 -->
                 <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
                     <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b pb-4">
                         <h2 class="text-lg sm:text-xl font-extrabold text-gray-800 flex items-center gap-2">✅ 판매완료 장부 (<span id="completedCount" class="text-green-600">0</span>건)</h2>
@@ -389,11 +396,10 @@
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-5 gap-3 bg-gray-50 p-3 rounded-2xl border border-gray-200">
                         <div class="sm:col-span-2 relative">
-                            <input type="text" id="searchKeyword" oninput="filterAndRenderCompletedOrders()" placeholder="🔍 이름, 닉네임, 품목명 검색..." class="w-full p-2.5 pr-8 bg-white border border-gray-300 rounded-xl text-sm font-bold focus:outline-none focus:border-orange-500 transition">
+                            <input type="text" id="searchKeyword" oninput="filterAndRenderCompletedOrders()" placeholder="🔍 이름, 닉네임, 품목명 검색..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-2.5 pr-8 bg-white border border-gray-300 rounded-xl text-sm font-bold focus:outline-none focus:border-orange-500 transition">
                             <button onclick="clearSearchInput('searchKeyword')" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-bold bg-gray-100 hover:bg-gray-200 rounded-full w-5 h-5 flex items-center justify-center">✕</button>
                         </div>
                         <div><input type="date" id="searchDate" onchange="filterAndRenderCompletedOrders()" class="w-full p-2.5 bg-white border border-gray-300 rounded-xl text-sm font-bold text-gray-700 focus:outline-none focus:border-orange-500 transition"></div>
-                        <!-- 🌟 [수정 완료] 수령 완료 시간 기준 '최신순' / '과거순' 정렬 선택 드롭다운 -->
                         <div>
                             <select id="completedSortOrder" onchange="filterAndRenderCompletedOrders()" class="w-full p-2.5 bg-white border border-gray-300 rounded-xl text-xs font-bold text-gray-800 focus:outline-none focus:border-green-500 transition">
                                 <option value="desc" selected>🕒 최신순 (최근 완료건)</option>
@@ -419,7 +425,7 @@
             <div class="space-y-3 text-xs sm:text-sm">
                 <div>
                     <label class="block font-bold text-gray-500 mb-1">과일 품목명</label>
-                    <input type="text" id="editFruitName" class="w-full p-3 border border-gray-300 rounded-xl font-bold focus:outline-none focus:border-orange-500">
+                    <input type="text" id="editFruitName" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3 border border-gray-300 rounded-xl font-bold focus:outline-none focus:border-orange-500">
                 </div>
                 <div class="grid grid-cols-2 gap-2">
                     <div>
@@ -443,7 +449,7 @@
                 </div>
                 <div>
                     <label class="block font-bold text-gray-500 mb-1">상품 상세 설명</label>
-                    <textarea id="editFruitDesc" rows="3" class="w-full p-3 border border-gray-300 rounded-xl font-medium focus:outline-none focus:border-orange-500"></textarea>
+                    <textarea id="editFruitDesc" rows="3" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3 border border-gray-300 rounded-xl font-medium focus:outline-none focus:border-orange-500"></textarea>
                 </div>
                 <div>
                     <label class="block font-bold text-gray-500 mb-1">🖼️ 메인 썸네일 새로 변경 (선택)</label>
@@ -1660,6 +1666,17 @@
             return 'today';
         }
 
+        function getAvailableDayWeight(dayStr) {
+            if (!dayStr || dayStr === 'today') return 0;
+            const match = dayStr.match(/(\d+)\/(\d+)/);
+            if (match) {
+                const m = parseInt(match[1]);
+                const d = parseInt(match[2]);
+                return m * 100 + d;
+            }
+            return 9999;
+        }
+
         function calculateOrderFruitBasePrice(fruitStr) {
             if (!fruitStr) return 0;
             let totalFruitPrice = 0;
@@ -2114,11 +2131,10 @@
             }
         }
 
-        // 🌟 [핵심] 한국어 날짜/시간 문자열("2026. 08. 03. 오후 11:34")을 정확한 타임스탬프 숫자로 파싱하는 헬퍼 함수
+        // 한국어 날짜/시간 문자열("2026. 08. 03. 오후 11:34")을 정확한 타임스탬프 숫자로 파싱하는 헬퍼 함수
         function parseCustomTimeString(timeStr) {
             if (!timeStr) return 0;
             try {
-                // "2026. 08. 03. 오후 11:34" 형태 매칭
                 const regex = /(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(오전|오후)\s*(\d{1,2}):(\d{1,2})/;
                 const match = timeStr.match(regex);
                 if (match) {
@@ -2135,7 +2151,6 @@
                     return new Date(year, month, day, hour, minute).getTime();
                 }
                 
-                // ISO 날짜 형태 보정 ("2026-08-03T...")
                 const parsed = Date.parse(timeStr);
                 return isNaN(parsed) ? 0 : parsed;
             } catch(e) {
@@ -2143,7 +2158,7 @@
             }
         }
 
-        // 🌟 [수정 완료] 수령 완료시간 파싱 기반 최신순 / 과거순 정렬 작동 보정
+        // 🌟 [수정 완료] 판매완료 장부 실제 고객 수령완료 시간(status_changed_time) 기준 최신순/과거순 정렬 동작 보정
         function filterAndRenderCompletedOrders() {
             const keyword = document.getElementById('searchKeyword').value.trim().toLowerCase();
             const selectedDate = document.getElementById('searchDate').value; 
@@ -2165,7 +2180,7 @@
                 return matchesKeyword && matchesDate;
             });
 
-            // 🌟 한국어 타임스탬프 파싱 기반 정밀 최신순/과거순 정렬 실행
+            // 🌟 수령 완료 시간(status_changed_time) 파싱 후 정렬
             filtered.sort((a, b) => {
                 const timeA = parseCustomTimeString(a.status_changed_time || a.time_str);
                 const timeB = parseCustomTimeString(b.status_changed_time || b.time_str);
