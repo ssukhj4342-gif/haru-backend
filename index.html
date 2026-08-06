@@ -1409,19 +1409,20 @@
             }
         }
 
-        // 🌟 닉네임 보정 헬퍼 함수 (공백 제거)
+        // 닉네임 보정 헬퍼 함수 (공백 제거)
         function normalizeKakaoNickname(str) {
             if (!str) return '';
             return str.replace(/\s+/g, '').toLowerCase();
         }
 
-        // 🌟 닉네임에서 숫자만 추출하는 헬퍼 함수
+        // 닉네임에서 숫자만 추출하는 헬퍼 함수
         function extractNumbers(str) {
             if (!str) return '';
             const match = str.match(/\d+/g);
             return match ? match.join('') : '';
         }
 
+        // 🌟 [수정] 백엔드 필터링을 피하기 위해 name만 전송하여 데이터를 다 가져온 후 프론트에서 유연 매칭
         async function fetchMyOrdersFromDash() {
             const rawKakao = document.getElementById('dashSearchKakao').value.trim();
             const rawName = document.getElementById('dashSearchName').value.trim();
@@ -1432,7 +1433,8 @@
             btn.disabled = true; btn.innerText = "🔍 주문 내역 조회 중...";
 
             try {
-                const res = await fetch(`${API_URL}/api/my-orders?kakao_nickname=${encodeURIComponent(rawKakao)}&name=${encodeURIComponent(rawName)}`);
+                // name 파라미터로 성함 관련 데이터를 모두 가져옴
+                const res = await fetch(`${API_URL}/api/my-orders?name=${encodeURIComponent(rawName)}`);
                 if(res.ok) { 
                     const data = await res.json(); 
                     renderDashMyOrders(data.orders || [], rawKakao, rawName); 
@@ -1442,7 +1444,7 @@
             finally { btn.disabled = false; btn.innerText = "내 주문 확인하기 🍊"; }
         }
 
-        // 🌟 [수정] 유연한 매칭 로직 적용 (공백 무관 + 숫자+이름 일치 시 조회 허용)
+        // 🌟 [수정 완료] 성함 기반 수집 데이터 대상으로 유연 매칭 (띄어쓰기 무시 + 숫자+이름 일치 시 통과)
         function renderDashMyOrders(orders, searchKakao, searchName) {
             const box = document.getElementById('dashMyOrdersResult'); box.innerHTML = '';
 
@@ -1463,7 +1465,7 @@
                 // 2-1. 띄어쓰기 제거 후 닉네임 완벽 일치 (예: '래미안 1234' == '래미안1234')
                 if (cleanOrderKakao === cleanSearchKakao) return true;
 
-                // 2-2. 아파트 이름이 달라도 [숫자 + 이름]이 일치하면 동일 주문 간주
+                // 2-2. 아파트 이름이 달라도 [숫자 + 이름]이 일치하면 동일 주문 간주 (예: '자이1234'와 '래미안1234')
                 if (searchNumber && orderNumber && searchNumber === orderNumber) {
                     return true;
                 }
