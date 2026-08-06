@@ -207,7 +207,7 @@
                     <span class="text-[11px] text-gray-400 font-bold whitespace-nowrap shrink-0">1초 빠른 조회</span>
                 </div>
                 <div class="space-y-2">
-                    <input type="text" id="dashSearchKakao" placeholder="카톡 닉네임 (예: 래미안1234)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3 bg-gray-800/90 border border-gray-600 rounded-xl text-xs sm:text-sm font-bold text-white placeholder-gray-400 focus:outline-none focus:border-orange-500 transition box-border">
+                    <input type="text" id="dashSearchKakao" placeholder="카톡 닉네임 (예: 래미안1234 또는 뒷자리 1234)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3 bg-gray-800/90 border border-gray-600 rounded-xl text-xs sm:text-sm font-bold text-white placeholder-gray-400 focus:outline-none focus:border-orange-500 transition box-border">
                     <input type="text" id="dashSearchName" placeholder="주문자 성함 (예: 박명숙)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3 bg-gray-800/90 border border-gray-600 rounded-xl text-xs sm:text-sm font-bold text-white placeholder-gray-400 focus:outline-none focus:border-orange-500 transition box-border">
                 </div>
                 <button id="btnDashFetchOrders" onclick="fetchMyOrdersFromDash()" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-3 rounded-xl text-sm shadow-md transition active:scale-95">
@@ -986,7 +986,7 @@
                     </div>`;
             });
 
-            // 🌟 [수정] 사장님 모드 과일 목록에 "초기 입력 재고" 표시
+            // 사장님 모드 과일 목록에 "초기 입력 재고량" 표시
             fruitItems.forEach((item) => {
                 let hideBtnText = item.hide_stock ? "재고 숨김 🙈" : "재고 노출 👁️";
                 let hideBtnClass = item.hide_stock ? "bg-gray-600 text-white font-bold text-xs px-2.5 py-1.5 rounded-xl active:scale-95 transition" : "bg-orange-500 text-white font-bold text-xs px-2.5 py-1.5 rounded-xl active:scale-95 transition";
@@ -999,7 +999,6 @@
 
                 let dayText = (item.available_day && item.available_day !== 'today') ? `📅 ${item.available_day} 예약` : '🍊 당일 즉시판매';
                 
-                // 초기 설정 재고량 표시
                 let initialStockDisplay = (item.max_stock && item.max_stock > 0) ? ` / ${item.max_stock}` : '';
 
                 adminListEl.innerHTML += `
@@ -1414,12 +1413,6 @@
             }
         }
 
-        // 닉네임 보정 헬퍼 함수 (공백 제거)
-        function normalizeKakaoNickname(str) {
-            if (!str) return '';
-            return str.replace(/\s+/g, '').toLowerCase();
-        }
-
         // 닉네임에서 숫자만 추출하는 헬퍼 함수
         function extractNumbers(str) {
             if (!str) return '';
@@ -1427,7 +1420,7 @@
             return match ? match.join('') : '';
         }
 
-        // 🌟 [수정 완료] 닉네임 백엔드 필터링 차단을 피하기 위해 name만으로 서버 조회 후 프론트 단 유연 매칭
+        // 🌟 [수정 완료] 프론트 단에서 데이터 직접 조회 및 유연 필터링
         async function fetchMyOrdersFromDash() {
             const rawKakao = document.getElementById('dashSearchKakao').value.trim();
             const rawName = document.getElementById('dashSearchName').value.trim();
@@ -1438,52 +1431,48 @@
             btn.disabled = true; btn.innerText = "🔍 주문 내역 조회 중...";
 
             try {
-                // 🌟 핵심: 백엔드 SQL 닉네임 완전일치 걸림돌을 피하기 위해 성함(name) 파라미터로만 요청!
-                const res = await fetch(`${API_URL}/api/my-orders?name=${encodeURIComponent(rawName)}&kakao_nickname=`);
-                if(res.ok) { 
-                    const data = await res.json(); 
-                    renderDashMyOrders(data.orders || [], rawKakao, rawName); 
-                    resultBox.classList.remove('hidden');
-                } else {
-                    // 백엔드가 kakao_nickname 빈값을 거부할 경우 대응 backup
-                    const res2 = await fetch(`${API_URL}/api/my-orders?kakao_nickname=${encodeURIComponent(rawKakao)}&name=${encodeURIComponent(rawName)}`);
-                    if(res2.ok) {
-                        const data2 = await res2.json();
-                        renderDashMyOrders(data2.orders || [], rawKakao, rawName);
-                        resultBox.classList.remove('hidden');
-                    }
+                // 이미 갖고 있는 전체 데이터가 없으면 다시 동기화
+                if (!globalOrders || globalOrders.length === 0) {
+                    await loadStoreData();
                 }
-            } catch(e) { alert('주문 조회 실패!'); }
-            finally { btn.disabled = false; btn.innerText = "내 주문 확인하기 🍊"; }
+
+                renderDashMyOrders(globalOrders || [], rawKakao, rawName); 
+                resultBox.classList.remove('hidden');
+
+            } catch(e) { 
+                alert('주문 조회 중 오류가 발생했습니다!'); 
+            }
+            finally { 
+                btn.disabled = false; 
+                btn.innerText = "내 주문 확인하기 🍊"; 
+            }
         }
 
-        // 🌟 [수정 완료] 띄어쓰기 무시('현충원 3772' == '현충원3772') + [뒷자리 숫자+성함] 완벽 매칭
+        // 🌟 [핵심 보정] 오직 [뒷자리 숫자 4자리 + 성함] 매칭 조건으로 통일!
         function renderDashMyOrders(orders, searchKakao, searchName) {
             const box = document.getElementById('dashMyOrdersResult'); box.innerHTML = '';
 
-            const cleanSearchKakao = normalizeKakaoNickname(searchKakao); 
             const searchNumber = extractNumbers(searchKakao);            
-            const cleanSearchName = searchName.trim().toLowerCase();
+            const cleanSearchName = searchName.replace(/\s+/g, '').toLowerCase();
 
             const matchedOrders = orders.filter(o => {
-                if (!o.name) return false;
-                const cleanOrderName = o.name.trim().toLowerCase();
-                
-                // 1. 성함 일치 확인
-                if (cleanOrderName !== cleanSearchName) return false;
+                if (!o.name || !o.kakao_nickname) return false;
 
-                const cleanOrderKakao = normalizeKakaoNickname(o.kakao_nickname);
+                const cleanOrderName = o.name.replace(/\s+/g, '').toLowerCase();
                 const orderNumber = extractNumbers(o.kakao_nickname);
 
-                // 2-1. 띄어쓰기 제거 후 닉네임 완벽 일치 (예: '현충원 3772' == '현충원3772')
-                if (cleanOrderKakao === cleanSearchKakao) return true;
+                // 1. 성함 일치 확인 (공백 제외)
+                if (cleanOrderName !== cleanSearchName) return false;
 
-                // 2-2. 아파트 이름이 달라도 [숫자 + 이름]이 일치하면 동일 주문 간주 (예: '자이3772'와 '현충원3772')
-                if (searchNumber && orderNumber && searchNumber === orderNumber) {
-                    return true;
+                // 2. 입력한 닉네임에서 추출한 숫자와 DB 닉네임 숫자가 같으면 100% 본인 주문건으로 판단!
+                if (searchNumber && orderNumber) {
+                    return searchNumber === orderNumber;
                 }
 
-                return false;
+                // 숫자가 입력 안 되었을 시 예외 보정
+                const cleanSearchKakao = searchKakao.replace(/\s+/g, '').toLowerCase();
+                const cleanOrderKakao = o.kakao_nickname.replace(/\s+/g, '').toLowerCase();
+                return cleanSearchKakao === cleanOrderKakao;
             });
 
             if(matchedOrders.length === 0) { 
