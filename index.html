@@ -986,6 +986,7 @@
                     </div>`;
             });
 
+            // 🌟 [수정] 사장님 모드 과일 목록에 "초기 입력 재고" 표시
             fruitItems.forEach((item) => {
                 let hideBtnText = item.hide_stock ? "재고 숨김 🙈" : "재고 노출 👁️";
                 let hideBtnClass = item.hide_stock ? "bg-gray-600 text-white font-bold text-xs px-2.5 py-1.5 rounded-xl active:scale-95 transition" : "bg-orange-500 text-white font-bold text-xs px-2.5 py-1.5 rounded-xl active:scale-95 transition";
@@ -997,6 +998,9 @@
                 let eventBtnClass = item.is_event ? "bg-red-600 text-white font-bold text-xs px-2.5 py-1.5 rounded-xl active:scale-95 transition shadow-xs" : "bg-rose-100 text-rose-700 border border-rose-300 font-bold text-xs px-2.5 py-1.5 rounded-xl hover:bg-rose-200 active:scale-95 transition";
 
                 let dayText = (item.available_day && item.available_day !== 'today') ? `📅 ${item.available_day} 예약` : '🍊 당일 즉시판매';
+                
+                // 초기 설정 재고량 표시
+                let initialStockDisplay = (item.max_stock && item.max_stock > 0) ? ` / ${item.max_stock}` : '';
 
                 adminListEl.innerHTML += `
                     <div class="bg-gray-50 p-4 rounded-2xl border ${item.is_hidden ? 'border-purple-300 bg-purple-50/30' : item.is_event ? 'border-red-400 bg-red-50/40 shadow-xs' : 'border-gray-200'} flex flex-col justify-between space-y-3">
@@ -1026,9 +1030,10 @@
                                 <button onclick="toggleItemHideStock(${item.id}, ${!item.hide_stock}, this)" class="${hideBtnClass}">${hideBtnText}</button>
                             </div>
                             <div class="flex items-center gap-1 ml-auto shrink-0">
-                                <span class="font-bold text-gray-400">재고:</span>
+                                <span class="font-bold text-gray-500" title="현재재고 / 초기입력재고">재고:</span>
                                 <input type="number" id="stock-input-${item.id}" value="${item.stock}" class="w-12 text-center font-black bg-white text-gray-700 border border-gray-300 rounded-lg px-1 py-1 focus:outline-none focus:border-orange-500">
-                                <button onclick="updateStock(${item.id}, this)" class="bg-gray-800 text-white font-bold px-2 py-1 rounded-lg active:scale-95 transition">변경</button>
+                                <span class="font-extrabold text-gray-400 text-xs">${initialStockDisplay}개</span>
+                                <button onclick="updateStock(${item.id}, this)" class="bg-gray-800 text-white font-bold px-2 py-1 rounded-lg active:scale-95 transition ml-0.5">변경</button>
                             </div>
                         </div>
                     </div>`;
@@ -1422,7 +1427,7 @@
             return match ? match.join('') : '';
         }
 
-        // 🌟 [수정 완료] 백엔드 422 에러 방지를 위해 필수 파라미터(kakao_nickname, name)를 모두 보내고 2차 백업 조회까지 수행
+        // 🌟 [수정 완료] 닉네임 백엔드 필터링 차단을 피하기 위해 name만으로 서버 조회 후 프론트 단 유연 매칭
         async function fetchMyOrdersFromDash() {
             const rawKakao = document.getElementById('dashSearchKakao').value.trim();
             const rawName = document.getElementById('dashSearchName').value.trim();
@@ -1433,38 +1438,26 @@
             btn.disabled = true; btn.innerText = "🔍 주문 내역 조회 중...";
 
             try {
-                // 1차 시도: 사용자가 입력한 그대로 전송
-                let res = await fetch(`${API_URL}/api/my-orders?kakao_nickname=${encodeURIComponent(rawKakao)}&name=${encodeURIComponent(rawName)}`);
-                let data = null;
-
-                if (res.ok) {
-                    data = await res.json();
-                }
-
-                // 2차 시도: 1차 결과가 없거나 닉네임에 공백이 포함되어 있을 경우 띄어쓰기 싹 제거 후 자동 2차 검색
-                if (!data || !data.orders || data.orders.length === 0) {
-                    const cleanKakao = normalizeKakaoNickname(rawKakao);
-                    if (cleanKakao !== rawKakao.toLowerCase()) {
-                        let res2 = await fetch(`${API_URL}/api/my-orders?kakao_nickname=${encodeURIComponent(cleanKakao)}&name=${encodeURIComponent(rawName)}`);
-                        if (res2.ok) {
-                            data = await res2.json();
-                        }
+                // 🌟 핵심: 백엔드 SQL 닉네임 완전일치 걸림돌을 피하기 위해 성함(name) 파라미터로만 요청!
+                const res = await fetch(`${API_URL}/api/my-orders?name=${encodeURIComponent(rawName)}&kakao_nickname=`);
+                if(res.ok) { 
+                    const data = await res.json(); 
+                    renderDashMyOrders(data.orders || [], rawKakao, rawName); 
+                    resultBox.classList.remove('hidden');
+                } else {
+                    // 백엔드가 kakao_nickname 빈값을 거부할 경우 대응 backup
+                    const res2 = await fetch(`${API_URL}/api/my-orders?kakao_nickname=${encodeURIComponent(rawKakao)}&name=${encodeURIComponent(rawName)}`);
+                    if(res2.ok) {
+                        const data2 = await res2.json();
+                        renderDashMyOrders(data2.orders || [], rawKakao, rawName);
+                        resultBox.classList.remove('hidden');
                     }
                 }
-
-                renderDashMyOrders(data && data.orders ? data.orders : [], rawKakao, rawName); 
-                resultBox.classList.remove('hidden');
-
-            } catch(e) { 
-                alert('주문 조회 통신 오류!'); 
-            }
-            finally { 
-                btn.disabled = false; 
-                btn.innerText = "내 주문 확인하기 🍊"; 
-            }
+            } catch(e) { alert('주문 조회 실패!'); }
+            finally { btn.disabled = false; btn.innerText = "내 주문 확인하기 🍊"; }
         }
 
-        // 🌟 [수정 완료] 유연한 매칭 로직 (띄어쓰기 무시 + 아파트명 달라도 뒷번호 숫자+이름 일치 시 통과)
+        // 🌟 [수정 완료] 띄어쓰기 무시('현충원 3772' == '현충원3772') + [뒷자리 숫자+성함] 완벽 매칭
         function renderDashMyOrders(orders, searchKakao, searchName) {
             const box = document.getElementById('dashMyOrdersResult'); box.innerHTML = '';
 
@@ -1482,16 +1475,15 @@
                 const cleanOrderKakao = normalizeKakaoNickname(o.kakao_nickname);
                 const orderNumber = extractNumbers(o.kakao_nickname);
 
-                // 2-1. 띄어쓰기 제거 후 닉네임 완벽 일치 (예: '래미안 1234' == '래미안1234')
+                // 2-1. 띄어쓰기 제거 후 닉네임 완벽 일치 (예: '현충원 3772' == '현충원3772')
                 if (cleanOrderKakao === cleanSearchKakao) return true;
 
-                // 2-2. 아파트 이름이 달라도 [숫자 + 이름]이 일치하면 동일 주문 간주 (예: '자이1234'와 '래미안1234')
+                // 2-2. 아파트 이름이 달라도 [숫자 + 이름]이 일치하면 동일 주문 간주 (예: '자이3772'와 '현충원3772')
                 if (searchNumber && orderNumber && searchNumber === orderNumber) {
                     return true;
                 }
 
-                // 백엔드에서 1차로 필터링되어 온 기본 주문건도 허용
-                return true;
+                return false;
             });
 
             if(matchedOrders.length === 0) { 
