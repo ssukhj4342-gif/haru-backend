@@ -1422,7 +1422,7 @@
             return match ? match.join('') : '';
         }
 
-        // 🌟 [수정] 백엔드 필터링을 피하기 위해 name만 전송하여 데이터를 다 가져온 후 프론트에서 유연 매칭
+        // 🌟 [수정 완료] 백엔드 422 에러 방지를 위해 필수 파라미터(kakao_nickname, name)를 모두 보내고 2차 백업 조회까지 수행
         async function fetchMyOrdersFromDash() {
             const rawKakao = document.getElementById('dashSearchKakao').value.trim();
             const rawName = document.getElementById('dashSearchName').value.trim();
@@ -1433,18 +1433,38 @@
             btn.disabled = true; btn.innerText = "🔍 주문 내역 조회 중...";
 
             try {
-                // name 파라미터로 성함 관련 데이터를 모두 가져옴
-                const res = await fetch(`${API_URL}/api/my-orders?name=${encodeURIComponent(rawName)}`);
-                if(res.ok) { 
-                    const data = await res.json(); 
-                    renderDashMyOrders(data.orders || [], rawKakao, rawName); 
-                    resultBox.classList.remove('hidden');
+                // 1차 시도: 사용자가 입력한 그대로 전송
+                let res = await fetch(`${API_URL}/api/my-orders?kakao_nickname=${encodeURIComponent(rawKakao)}&name=${encodeURIComponent(rawName)}`);
+                let data = null;
+
+                if (res.ok) {
+                    data = await res.json();
                 }
-            } catch(e) { alert('주문 조회 실패!'); }
-            finally { btn.disabled = false; btn.innerText = "내 주문 확인하기 🍊"; }
+
+                // 2차 시도: 1차 결과가 없거나 닉네임에 공백이 포함되어 있을 경우 띄어쓰기 싹 제거 후 자동 2차 검색
+                if (!data || !data.orders || data.orders.length === 0) {
+                    const cleanKakao = normalizeKakaoNickname(rawKakao);
+                    if (cleanKakao !== rawKakao.toLowerCase()) {
+                        let res2 = await fetch(`${API_URL}/api/my-orders?kakao_nickname=${encodeURIComponent(cleanKakao)}&name=${encodeURIComponent(rawName)}`);
+                        if (res2.ok) {
+                            data = await res2.json();
+                        }
+                    }
+                }
+
+                renderDashMyOrders(data && data.orders ? data.orders : [], rawKakao, rawName); 
+                resultBox.classList.remove('hidden');
+
+            } catch(e) { 
+                alert('주문 조회 통신 오류!'); 
+            }
+            finally { 
+                btn.disabled = false; 
+                btn.innerText = "내 주문 확인하기 🍊"; 
+            }
         }
 
-        // 🌟 [수정 완료] 성함 기반 수집 데이터 대상으로 유연 매칭 (띄어쓰기 무시 + 숫자+이름 일치 시 통과)
+        // 🌟 [수정 완료] 유연한 매칭 로직 (띄어쓰기 무시 + 아파트명 달라도 뒷번호 숫자+이름 일치 시 통과)
         function renderDashMyOrders(orders, searchKakao, searchName) {
             const box = document.getElementById('dashMyOrdersResult'); box.innerHTML = '';
 
@@ -1470,7 +1490,8 @@
                     return true;
                 }
 
-                return false;
+                // 백엔드에서 1차로 필터링되어 온 기본 주문건도 허용
+                return true;
             });
 
             if(matchedOrders.length === 0) { 
