@@ -678,7 +678,7 @@
                 orderSoundEnabled = false;
                 showToast("🔕 주문 알림이 꺼졌습니다.");
                 if (btn) {
-                    btn.innerText = "🔔 주문 알림 켜기";
+                    btn.innerText = "🔔 주문 알림 끄기";
                     btn.className = "bg-amber-500 hover:bg-amber-600 text-white font-black text-xs px-2.5 py-1.5 rounded-xl shadow-xs transition active:scale-95 flex items-center gap-1";
                 }
             }
@@ -1127,9 +1127,21 @@
             finally { if(btnEl) btnEl.disabled = false; }
         }
 
+        // 🌟 [수정] 수량 버튼 클릭 시 현재 재고 초과 방지
         function adjustOrderFormQty(fruitId, fruitName, price, availableDay, change) {
+            const fruitObj = fruitItems.find(f => f.id === fruitId);
+            const currentStock = fruitObj ? fruitObj.stock : 0;
+
             if (!selectedItems[fruitId]) selectedItems[fruitId] = { fruit_id: fruitId, fruit_name: fruitName, price: price, available_day: availableDay || 'today', qty: 0 };
+            
             let newQty = selectedItems[fruitId].qty + change;
+            
+            // 재고 초과 제한
+            if (newQty > currentStock) {
+                alert(`⚠️ [${fruitName}] 상품의 남은 재고는 총 ${currentStock}개입니다.`);
+                return;
+            }
+
             if (newQty < 0) newQty = 0;
             selectedItems[fruitId].qty = newQty;
             const qtyEl = document.getElementById(`orderQty-${fruitId}`);
@@ -1267,11 +1279,27 @@
             }
         }
 
+        // 🌟 [수정] 주문 확인 전 재고 검증 로직 추가
         function checkMultiDatePopup() {
             let itemsToOrder = Object.values(selectedItems).filter(item => item.qty > 0);
             
             if(itemsToOrder.length === 0) { alert('주문하실 과일의 수량을 1개 이상 선택해 주세요!'); window.scrollTo({ top: 300, behavior: 'smooth' }); return; }
             
+            // 재고 초과 여부 최종 사전 검증
+            for (let item of itemsToOrder) {
+                const targetFruit = fruitItems.find(f => f.id === item.fruit_id);
+                if (targetFruit) {
+                    if (targetFruit.stock <= 0) {
+                        alert(`⚠️ [${item.fruit_name}] 상품은 이미 완판(SOLD OUT)되었습니다.`);
+                        return;
+                    }
+                    if (item.qty > targetFruit.stock) {
+                        alert(`⚠️ [${item.fruit_name}] 과일의 남은 재고(${targetFruit.stock}개)보다 많은 수량을 주문할 수 없습니다!`);
+                        return;
+                    }
+                }
+            }
+
             const kakao = document.getElementById('buyerKakao').value;
             const name = document.getElementById('buyerName').value;
             const address = document.getElementById('buyerAddress').value;
@@ -1352,6 +1380,7 @@
             submitOrder();
         }
 
+        // 🌟 [수정] 제출 전 이중 재고 검증 로직
         async function submitOrder() {
             if(isSubmitting) return;
             const submitBtn = document.getElementById('btnSubmitOrder');
@@ -1371,6 +1400,15 @@
             if(itemsToOrder.length === 0) { alert('주문하실 과일의 수량을 1개 이상 선택해 주세요!'); return; }
             if(!kakao || !name) { alert('카톡 닉네임과 성함을 꼭 입력해주세요!'); return; }
             if(selectedOrderType === '배달' && !address) { alert('배달 상세 주소를 적어주세요!'); return; }
+
+            // 제출 직전 재고 수량 한 번 더 이중 체크
+            for (let item of itemsToOrder) {
+                const targetFruit = fruitItems.find(f => f.id === item.fruit_id);
+                if (targetFruit && item.qty > targetFruit.stock) {
+                    alert(`⚠️ [${item.fruit_name}] 과일의 현재 남아있는 재고는 ${targetFruit.stock}개입니다. 수량을 변경해 주세요.`);
+                    return;
+                }
+            }
 
             isSubmitting = true; submitBtn.disabled = true;
             const originalBtnText = submitBtn.innerText; submitBtn.innerText = "⏳ 주문 접수 중입니다...";
@@ -1420,7 +1458,6 @@
             return match ? match.join('') : '';
         }
 
-        // 🌟 [수정 완료] 프론트 단에서 데이터 직접 조회 및 유연 필터링
         async function fetchMyOrdersFromDash() {
             const rawKakao = document.getElementById('dashSearchKakao').value.trim();
             const rawName = document.getElementById('dashSearchName').value.trim();
@@ -1431,7 +1468,6 @@
             btn.disabled = true; btn.innerText = "🔍 주문 내역 조회 중...";
 
             try {
-                // 이미 갖고 있는 전체 데이터가 없으면 다시 동기화
                 if (!globalOrders || globalOrders.length === 0) {
                     await loadStoreData();
                 }
@@ -1448,7 +1484,6 @@
             }
         }
 
-        // 🌟 [핵심 보정] 오직 [뒷자리 숫자 4자리 + 성함] 매칭 조건으로 통일!
         function renderDashMyOrders(orders, searchKakao, searchName) {
             const box = document.getElementById('dashMyOrdersResult'); box.innerHTML = '';
 
@@ -1469,7 +1504,6 @@
                     return searchNumber === orderNumber;
                 }
 
-                // 숫자가 입력 안 되었을 시 예외 보정
                 const cleanSearchKakao = searchKakao.replace(/\s+/g, '').toLowerCase();
                 const cleanOrderKakao = o.kakao_nickname.replace(/\s+/g, '').toLowerCase();
                 return cleanSearchKakao === cleanOrderKakao;
