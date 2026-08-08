@@ -797,6 +797,7 @@
             if (pickupFilterSelect) pickupFilterSelect.innerHTML = filterHtml;
         }
 
+        // 🌟 [수정 완료] 수정 모달 이미지 업로드 이벤트 리스너 누락 보정
         function setupFileListeners() {
             document.getElementById('fileNoticeImg').addEventListener('change', async function(e) {
                 const file = e.target.files[0];
@@ -822,6 +823,7 @@
                 }
             });
 
+            // 수정 모달 내 사진 변경 리스너
             document.getElementById('editFileFruitImg').addEventListener('change', async function(e) {
                 const file = e.target.files[0];
                 if (file) {
@@ -871,6 +873,7 @@
             } catch (e) { console.error("네트워크 통신 오류:", e); }
         }
 
+        // 🌟 [수정 완료] 메인 화면 숨김 제품 필터링 엄격 적용 및 완판 품목 분리
         function refreshMainDisplay() {
             document.getElementById('displayDailyNotice').innerText = storeMeta.notice || '공지사항이 없습니다.';
             document.getElementById('displayAccount').innerText = (storeMeta.account || '등록된 계좌가 없습니다.') + " (클릭시 복사)";
@@ -899,6 +902,7 @@
                 return;
             }
 
+            // 🌟 1차 필터링: 숨김 처리(is_hidden === true)된 상품은 고객 화면에서 완전히 제외
             let targetFruitItems = fruitItems.filter(item => {
                 if (item.is_hidden) return false;
                 let availDay = item.available_day || 'today';
@@ -1127,10 +1131,15 @@
             finally { if(btnEl) btnEl.disabled = false; }
         }
 
-        // 수량 버튼 클릭 시 현재 재고 초과 방지
+        // 🌟 [수정 완료] 수량 버튼 클릭 시 현재 재고 초과 및 품절 상태 철저 차단
         function adjustOrderFormQty(fruitId, fruitName, price, availableDay, change) {
             const fruitObj = fruitItems.find(f => f.id === fruitId);
             const currentStock = fruitObj ? fruitObj.stock : 0;
+
+            if (currentStock <= 0 && change > 0) {
+                alert(`⚠️ [${fruitName}] 상품은 현재 완판(SOLD OUT)되었습니다.`);
+                return;
+            }
 
             if (!selectedItems[fruitId]) selectedItems[fruitId] = { fruit_id: fruitId, fruit_name: fruitName, price: price, available_day: availableDay || 'today', qty: 0 };
             
@@ -1279,18 +1288,18 @@
             }
         }
 
-        // 🌟 [수정 완료] 오늘만 배달 마감 시간을 16시(오후 4시)로 연장 적용
+        // 🌟 [수정 완료] 주문 확인 모달 팝업 전 재고 검증 이중 차단
         function checkMultiDatePopup() {
             let itemsToOrder = Object.values(selectedItems).filter(item => item.qty > 0);
             
             if(itemsToOrder.length === 0) { alert('주문하실 과일의 수량을 1개 이상 선택해 주세요!'); window.scrollTo({ top: 300, behavior: 'smooth' }); return; }
             
-            // 재고 초과 여부 최종 사전 검증
+            // 재고 초과 및 완판 여부 엄격 사전 검증
             for (let item of itemsToOrder) {
                 const targetFruit = fruitItems.find(f => f.id === item.fruit_id);
                 if (targetFruit) {
                     if (targetFruit.stock <= 0) {
-                        alert(`⚠️ [${item.fruit_name}] 상품은 이미 완판(SOLD OUT)되었습니다.`);
+                        alert(`⚠️ [${item.fruit_name}] 상품은 완판(SOLD OUT)되어 주문할 수 없습니다.`);
                         return;
                     }
                     if (item.qty > targetFruit.stock) {
@@ -1310,8 +1319,6 @@
             if (selectedOrderType === '배달') {
                 const now = new Date();
                 const currentMinutes = now.getHours() * 60 + now.getMinutes();
-                
-                // 🌟 오늘만 임시로 16:00 (오후 4시) 마감 적용 (16 * 60 = 960분)
                 const deadlineMinutes = 16 * 60; 
 
                 const hasTodayItems = itemsToOrder.some(i => (i.available_day || 'today') === 'today');
@@ -1382,6 +1389,7 @@
             submitOrder();
         }
 
+        // 🌟 [수정 완료] 제출 최종 단계 삼중 재고 검증
         async function submitOrder() {
             if(isSubmitting) return;
             const submitBtn = document.getElementById('btnSubmitOrder');
@@ -1402,12 +1410,20 @@
             if(!kakao || !name) { alert('카톡 닉네임과 성함을 꼭 입력해주세요!'); return; }
             if(selectedOrderType === '배달' && !address) { alert('배달 상세 주소를 적어주세요!'); return; }
 
-            // 제출 직전 재고 수량 한 번 더 이중 체크
+            // 서버 전송 직전 재고 최종 수량 검증
             for (let item of itemsToOrder) {
                 const targetFruit = fruitItems.find(f => f.id === item.fruit_id);
-                if (targetFruit && item.qty > targetFruit.stock) {
-                    alert(`⚠️ [${item.fruit_name}] 과일의 현재 남아있는 재고는 ${targetFruit.stock}개입니다. 수량을 변경해 주세요.`);
-                    return;
+                if (targetFruit) {
+                    if (targetFruit.stock <= 0) {
+                        alert(`⚠️ [${item.fruit_name}] 과일이 방금 완판(SOLD OUT)되었습니다.`);
+                        loadStoreData();
+                        return;
+                    }
+                    if (item.qty > targetFruit.stock) {
+                        alert(`⚠️ [${item.fruit_name}] 과일의 현재 남아있는 재고는 ${targetFruit.stock}개입니다. 수량을 다시 조정해 주세요.`);
+                        loadStoreData();
+                        return;
+                    }
                 }
             }
 
