@@ -606,9 +606,6 @@
         let isSubmitting = false; 
         let selectedItems = {};
 
-        // 🌟 [수정 1번 원인 해결] 품목 수정 시 이미지 URL 추적 변수
-        let currentEditImgUrl = "";
-
         let orderSoundEnabled = false;
         let knownOrderIds = new Set();
         let isFirstLoad = true;
@@ -630,7 +627,7 @@
                 let dayName = DAY_NAMES[d.getDay()];
                 
                 let key = (i === 0) ? 'today' : `${month}/${date}(${dayName})`;
-                let label = (i === 0) ? `${month}/${date} (${dayName})`;
+                let label = (i === 0) ? `${month}/${date} (오늘)` : `${month}/${date} (${dayName})`;
                 
                 tenDaysList.push({ key, label, index: i });
             }
@@ -800,7 +797,7 @@
             if (pickupFilterSelect) pickupFilterSelect.innerHTML = filterHtml;
         }
 
-        // 🌟 [수정 1번 완료] 수정 모달 파일 변경 이벤트 정상 등록
+        // 🌟 [수정 완료] 수정 모달 이미지 업로드 이벤트 리스너 누락 보정
         function setupFileListeners() {
             document.getElementById('fileNoticeImg').addEventListener('change', async function(e) {
                 const file = e.target.files[0];
@@ -826,14 +823,13 @@
                 }
             });
 
-            // 품목 수정 모달 전용 파일 선택 리스너
+            // 수정 모달 내 사진 변경 리스너
             document.getElementById('editFileFruitImg').addEventListener('change', async function(e) {
                 const file = e.target.files[0];
                 if (file) {
                     try {
                         showToast("새 썸네일 업로드 중...");
                         const imgUrl = await uploadToCloudinary(file);
-                        currentEditImgUrl = imgUrl; // 글로벌 전용 변수에 저장
                         document.getElementById('editFruitImgUrl').value = imgUrl;
                         showToast("새 썸네일 업로드 완료!");
                     } catch(err) { alert("이미지 업로드에 실패했습니다."); }
@@ -877,7 +873,7 @@
             } catch (e) { console.error("네트워크 통신 오류:", e); }
         }
 
-        // 🌟 [수정 2번 완료] 메인 화면 제품 숨기기(is_hidden) 완전 원천 차단
+        // 🌟 [수정 완료] 메인 화면 숨김 제품 필터링 엄격 적용 및 완판 품목 분리
         function refreshMainDisplay() {
             document.getElementById('displayDailyNotice').innerText = storeMeta.notice || '공지사항이 없습니다.';
             document.getElementById('displayAccount').innerText = (storeMeta.account || '등록된 계좌가 없습니다.') + " (클릭시 복사)";
@@ -906,9 +902,9 @@
                 return;
             }
 
-            // 🌟 최우선 필터링: 숨김 처리(is_hidden === true)된 과일은 무조건 제거!
+            // 🌟 1차 필터링: 숨김 처리(is_hidden === true)된 상품은 고객 화면에서 완전히 제외
             let targetFruitItems = fruitItems.filter(item => {
-                if (item.is_hidden === true || item.is_hidden === 1 || item.is_hidden === "true") return false;
+                if (item.is_hidden) return false;
                 let availDay = item.available_day || 'today';
                 return availDay === selectedDateKey;
             });
@@ -994,7 +990,7 @@
                     </div>`;
             });
 
-            // 사장님 모드 과일 목록
+            // 사장님 모드 과일 목록에 "초기 입력 재고량" 표시
             fruitItems.forEach((item) => {
                 let hideBtnText = item.hide_stock ? "재고 숨김 🙈" : "재고 노출 👁️";
                 let hideBtnClass = item.hide_stock ? "bg-gray-600 text-white font-bold text-xs px-2.5 py-1.5 rounded-xl active:scale-95 transition" : "bg-orange-500 text-white font-bold text-xs px-2.5 py-1.5 rounded-xl active:scale-95 transition";
@@ -1057,18 +1053,15 @@
                 });
                 if(res.ok) { 
                     alert(newHiddenState ? '🙈 상품을 목록에서 숨깁니다.' : '👁️ 상품을 손님 화면에 노출합니다.'); 
-                    await loadStoreData(); 
+                    loadStoreData(); 
                 }
             } catch(e) { alert('상품 숨김 설정 변경 실패!'); }
             finally { if(btnEl) btnEl.disabled = false; }
         }
 
-        // 🌟 [수정 1번 완료] openEditFruitModal 시 이미지 URL 보정
         function openEditFruitModal(fruitId) {
             const item = fruitItems.find(f => f.id === fruitId);
             if (!item) return;
-
-            currentEditImgUrl = item.img || ''; // 현재 기존 이미지 URL 백업
 
             document.getElementById('editFruitId').value = item.id;
             document.getElementById('editFruitName').value = item.name || '';
@@ -1087,7 +1080,6 @@
             document.getElementById('editFruitModal').classList.add('hidden');
         }
 
-        // 🌟 [수정 1번 완료] 품목 수정 정보 저장 시 currentEditImgUrl 반영
         async function saveFruitEdit() {
             const btn = document.getElementById('btnSaveFruitEdit');
             const fruitId = document.getElementById('editFruitId').value;
@@ -1097,7 +1089,7 @@
             const stock = parseInt(document.getElementById('editFruitStock').value);
             const availableDay = document.getElementById('editFruitAvailableDay').value;
             const desc = document.getElementById('editFruitDesc').value;
-            const img = currentEditImgUrl || document.getElementById('editFruitImgUrl').value;
+            const img = document.getElementById('editFruitImgUrl').value;
 
             if(!name || isNaN(price) || isNaN(stock)) { alert('정보를 정확히 입력해주세요!'); return; }
             btn.disabled = true; btn.innerText = "저장 중...";
@@ -1110,7 +1102,7 @@
                 if (res.ok) {
                     alert('과일 품목 정보가 성공적으로 수정되었습니다! 🎉');
                     closeEditFruitModal();
-                    await loadStoreData();
+                    loadStoreData();
                 } else { alert('수정 저장 실패!'); }
             } catch(e) { alert('서버 통신 오류!'); }
             finally { btn.disabled = false; btn.innerText = "수정 완료 저장"; }
@@ -1139,6 +1131,7 @@
             finally { if(btnEl) btnEl.disabled = false; }
         }
 
+        // 🌟 [수정 완료] 수량 버튼 클릭 시 현재 재고 초과 및 품절 상태 철저 차단
         function adjustOrderFormQty(fruitId, fruitName, price, availableDay, change) {
             const fruitObj = fruitItems.find(f => f.id === fruitId);
             const currentStock = fruitObj ? fruitObj.stock : 0;
@@ -1152,6 +1145,7 @@
             
             let newQty = selectedItems[fruitId].qty + change;
             
+            // 재고 초과 제한
             if (newQty > currentStock) {
                 alert(`⚠️ [${fruitName}] 상품의 남은 재고는 총 ${currentStock}개입니다.`);
                 return;
@@ -1294,11 +1288,13 @@
             }
         }
 
+        // 🌟 [수정 완료] 주문 확인 모달 팝업 전 재고 검증 이중 차단
         function checkMultiDatePopup() {
             let itemsToOrder = Object.values(selectedItems).filter(item => item.qty > 0);
             
             if(itemsToOrder.length === 0) { alert('주문하실 과일의 수량을 1개 이상 선택해 주세요!'); window.scrollTo({ top: 300, behavior: 'smooth' }); return; }
             
+            // 재고 초과 및 완판 여부 엄격 사전 검증
             for (let item of itemsToOrder) {
                 const targetFruit = fruitItems.find(f => f.id === item.fruit_id);
                 if (targetFruit) {
@@ -1393,6 +1389,7 @@
             submitOrder();
         }
 
+        // 🌟 [수정 완료] 제출 최종 단계 삼중 재고 검증
         async function submitOrder() {
             if(isSubmitting) return;
             const submitBtn = document.getElementById('btnSubmitOrder');
@@ -1413,17 +1410,18 @@
             if(!kakao || !name) { alert('카톡 닉네임과 성함을 꼭 입력해주세요!'); return; }
             if(selectedOrderType === '배달' && !address) { alert('배달 상세 주소를 적어주세요!'); return; }
 
+            // 서버 전송 직전 재고 최종 수량 검증
             for (let item of itemsToOrder) {
                 const targetFruit = fruitItems.find(f => f.id === item.fruit_id);
                 if (targetFruit) {
                     if (targetFruit.stock <= 0) {
                         alert(`⚠️ [${item.fruit_name}] 과일이 방금 완판(SOLD OUT)되었습니다.`);
-                        await loadStoreData();
+                        loadStoreData();
                         return;
                     }
                     if (item.qty > targetFruit.stock) {
                         alert(`⚠️ [${item.fruit_name}] 과일의 현재 남아있는 재고는 ${targetFruit.stock}개입니다. 수량을 다시 조정해 주세요.`);
-                        await loadStoreData();
+                        loadStoreData();
                         return;
                     }
                 }
@@ -1470,6 +1468,7 @@
             }
         }
 
+        // 닉네임에서 숫자만 추출하는 헬퍼 함수
         function extractNumbers(str) {
             if (!str) return '';
             const match = str.match(/\d+/g);
@@ -1514,8 +1513,10 @@
                 const cleanOrderName = o.name.replace(/\s+/g, '').toLowerCase();
                 const orderNumber = extractNumbers(o.kakao_nickname);
 
+                // 1. 성함 일치 확인 (공백 제외)
                 if (cleanOrderName !== cleanSearchName) return false;
 
+                // 2. 입력한 닉네임에서 추출한 숫자와 DB 닉네임 숫자가 같으면 100% 본인 주문건으로 판단!
                 if (searchNumber && orderNumber) {
                     return searchNumber === orderNumber;
                 }
