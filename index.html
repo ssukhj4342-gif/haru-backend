@@ -605,7 +605,7 @@
         const CLOUD_NAME = "w9ilodii"; 
         const UPLOAD_PRESET = "haru_preset"; 
 
-        // 🌟 [완벽 보정] 상품 숨김 여부 판별 헬퍼 함수
+        // 🌟 [수정] 백엔드 숨김 속성 완전성 검증 헬퍼
         function checkIsHidden(item) {
             if (!item) return false;
             if (item.is_hidden === true || item.is_hidden === 1) return true;
@@ -830,6 +830,7 @@
             if (pickupFilterSelect) pickupFilterSelect.innerHTML = filterHtml;
         }
 
+        // 🌟 [수정 완료] 수정 모달 파일 선택 시 실시간 Cloudinary 업로드 보장
         function setupFileListeners() {
             document.getElementById('fileNoticeImg').addEventListener('change', async function(e) {
                 const file = e.target.files[0];
@@ -863,7 +864,7 @@
                         const imgUrl = await uploadToCloudinary(file);
                         document.getElementById('editFruitImgUrl').value = imgUrl;
                         showToast("새 썸네일 업로드 완료!");
-                    } catch(err) { alert("이미지 업로드에 실패했습니다."); }
+                    } catch(err) { alert("이미지 업로드 실패!"); }
                 }
             });
 
@@ -935,7 +936,7 @@
                 return;
             }
 
-            // 🌟 [손님 화면] 숨김 상품 완벽 필터링
+            // 🌟 [손님 화면] 숨김 상품 제거
             let targetFruitItems = fruitItems.filter(item => {
                 if (checkIsHidden(item)) return false;
                 let availDay = item.available_day || 'today';
@@ -1080,25 +1081,24 @@
             updateStickyCheckoutBar();
         }
 
-        // 🌟 [수정 완료!] 기존 전체 데이터를 포함하여 완전한 객체 형태로 백엔드 PUT 요청 전송
+        // 🌟 [수정 완료!] 백엔드가 요구하는 전체 객체 페이로드 보장
         async function toggleItemVisibility(fruitId, newHiddenState, btnEl) {
             const item = fruitItems.find(f => f.id === fruitId);
             if (!item) return;
 
             if(btnEl) btnEl.disabled = true;
             try {
-                // 기존 필수 데이터 보존하며 is_hidden 업데이트
                 const updatePayload = {
                     name: item.name,
                     price: item.price,
                     event_price: item.event_price || 0,
-                    is_event: item.is_event || false,
+                    is_event: Boolean(item.is_event),
                     stock: item.stock < 0 ? 0 : item.stock,
                     available_day: item.available_day || 'today',
                     description: item.description || '',
                     img: item.img || '',
                     detail_imgs: item.detail_imgs || [],
-                    hide_stock: item.hide_stock || false,
+                    hide_stock: Boolean(item.hide_stock),
                     is_hidden: newHiddenState
                 };
 
@@ -1142,9 +1142,12 @@
             document.getElementById('editFruitModal').classList.add('hidden');
         }
 
+        // 🌟 [수정 완료!] 수정 모달에서 이미지 업로드 반영 문제 완벽 해결
         async function saveFruitEdit() {
             const btn = document.getElementById('btnSaveFruitEdit');
-            const fruitId = document.getElementById('editFruitId').value;
+            const fruitId = parseInt(document.getElementById('editFruitId').value);
+            const item = fruitItems.find(f => f.id === fruitId);
+
             const name = document.getElementById('editFruitName').value;
             const price = parseInt(document.getElementById('editFruitPrice').value);
             const eventPrice = parseInt(document.getElementById('editFruitEventPrice').value) || 0;
@@ -1157,14 +1160,30 @@
             btn.disabled = true; btn.innerText = "저장 중...";
 
             try {
+                const updatePayload = {
+                    name: name,
+                    price: price,
+                    event_price: eventPrice,
+                    is_event: item ? Boolean(item.is_event) : false,
+                    stock: stock < 0 ? 0 : stock,
+                    available_day: availableDay,
+                    description: desc,
+                    img: img,
+                    detail_imgs: item ? (item.detail_imgs || []) : [],
+                    hide_stock: item ? Boolean(item.hide_stock) : false,
+                    is_hidden: item ? checkIsHidden(item) : false
+                };
+
                 const res = await fetch(`${API_URL}/api/admin/fruits/${fruitId}?password=${PASS}`, {
-                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, price, event_price: eventPrice, stock: stock < 0 ? 0 : stock, available_day: availableDay, description: desc, img })
+                    method: 'PUT', 
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatePayload)
                 });
+
                 if (res.ok) {
                     alert('과일 품목 정보가 성공적으로 수정되었습니다! 🎉');
                     closeEditFruitModal();
-                    loadStoreData();
+                    await loadStoreData();
                 } else { alert('수정 저장 실패!'); }
             } catch(e) { alert('서버 통신 오류!'); }
             finally { btn.disabled = false; btn.innerText = "수정 완료 저장"; }
@@ -1182,12 +1201,31 @@
                 }
             }
 
+            const item = fruitItems.find(f => f.id === fruitId);
+            if(!item) return;
+
             if(btnEl) btnEl.disabled = true;
             try {
+                const updatePayload = {
+                    name: item.name,
+                    price: item.price,
+                    event_price: eventPrice,
+                    is_event: enableEvent,
+                    stock: item.stock < 0 ? 0 : item.stock,
+                    available_day: item.available_day || 'today',
+                    description: item.description || '',
+                    img: item.img || '',
+                    detail_imgs: item.detail_imgs || [],
+                    hide_stock: Boolean(item.hide_stock),
+                    is_hidden: checkIsHidden(item)
+                };
+
                 const res = await fetch(`${API_URL}/api/admin/fruits/${fruitId}?password=${PASS}`, {
-                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ is_event: enableEvent, event_price: eventPrice })
+                    method: 'PUT', 
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatePayload)
                 });
+
                 if(res.ok) { alert(enableEvent ? '🎉 특가 이벤트가 시작되었습니다!' : '🏷️ 이벤트가 해제되었습니다.'); await loadStoreData(); }
             } catch(e) { alert('서버 통신 실패!'); }
             finally { if(btnEl) btnEl.disabled = false; }
