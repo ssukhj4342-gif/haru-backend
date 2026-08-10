@@ -1,2591 +1,338 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>하루마켓 흑석점 - 싱싱 과일 원스톱 주문서</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <style>
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", Roboto, "Malgun Gothic", sans-serif;
-            word-break: keep-all;
-            overflow-wrap: break-word;
-        }
+import os
+import re
+from typing import List, Optional, Any
+from datetime import datetime, timedelta, timezone
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from supabase import create_client, Client
 
-        /* 한글 IME 키보드 입력 안정화 CSS */
-        input[type="text"], textarea {
-            ime-mode: auto;
-            -webkit-appearance: none;
-            appearance: none;
+app = FastAPI(title="하루마켓 흑석점 API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+SUPABASE_URL = os.getenv("SUPABASE_URL", "https://fohjmqpxjoetpgeigcsj.supabase.co")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...") 
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+ADMIN_PASSWORD = "788599"
+
+def get_kst_time_str():
+    kst = timezone(timedelta(hours=9))
+    now = datetime.now(kst)
+    return now.strftime("%Y. %m. %d. %p %I:%M").replace("AM", "오전").replace("PM", "오후")
+
+class FruitItem(BaseModel):
+    id: Optional[int] = None
+    name: str
+    price: int
+    event_price: Optional[int] = 0
+    is_event: Optional[bool] = False
+    stock: int
+    max_stock: Optional[int] = None
+    available_day: Optional[str] = "today"
+    img: Optional[str] = ""
+    detail_imgs: Optional[Any] = []
+    description: Optional[str] = ""
+    hide_stock: Optional[bool] = False
+    is_hidden: Optional[bool] = False
+
+class FruitUpdate(BaseModel):
+    name: Optional[str] = None
+    price: Optional[int] = None
+    event_price: Optional[int] = None
+    is_event: Optional[bool] = None
+    stock: Optional[int] = None
+    max_stock: Optional[int] = None
+    available_day: Optional[str] = None
+    img: Optional[str] = None
+    detail_imgs: Optional[Any] = None
+    description: Optional[str] = None
+    hide_stock: Optional[bool] = None
+    is_hidden: Optional[bool] = None
+
+class OrderItemInput(BaseModel):
+    fruit_id: int
+    fruit_name: str
+    price: int
+    qty: int
+    available_day: Optional[str] = "today"
+
+class OrderCreate(BaseModel):
+    order_type: str
+    kakao_nickname: str
+    name: str
+    address: Optional[str] = ""
+    door_password: Optional[str] = ""
+    method: Optional[str] = "계좌이체"
+    items: List[OrderItemInput]
+
+class StoreMetaUpdate(BaseModel):
+    notice: Optional[str] = None
+    account: Optional[str] = None
+    owner: Optional[str] = None
+    hours: Optional[str] = None
+    notice_img: Optional[str] = None
+
+def restore_order_stock(order_id: int):
+    try:
+        o_res = supabase.table("orders").select("*").eq("id", order_id).execute()
+        if not o_res.data:
+            return
+        order = o_res.data[0]
+        raw_fruit_str = order.get("fruit", "")
+        if not raw_fruit_str:
+            return
+
+        items_str_list = [s.strip() for s in raw_fruit_str.split(",") if s.strip()]
+        for item_str in items_str_list:
+            qty_match = re.search(r'x(\d+)개', item_str)
+            item_qty = int(qty_match.group(1)) if qty_match else 1
+            pure_name = re.sub(r'\s*x\d+개.*', '', item_str).strip()
+            # [수령일자] 태그 제거 후 순수 과일명만 파싱
+            pure_name = re.sub(r'\[.*?\]\s*', '', pure_name).strip()
+
+            f_res = supabase.table("fruit_items").select("id, stock").eq("name", pure_name).execute()
+            if f_res.data:
+                f_id = f_res.data[0]["id"]
+                curr_stock = f_res.data[0]["stock"]
+                supabase.table("fruit_items").update({"stock": curr_stock + item_qty}).eq("id", f_id).execute()
+    except Exception as e:
+        print(f"재고 복구 오류: {str(e)}")
+
+# ==================== [API] ====================
+
+@app.get("/")
+def read_root():
+    return {"status": "ok", "message": "하루마켓 API 가동 중"}
+
+@app.get("/api/init-data")
+def get_init_data():
+    try:
+        fruits_res = supabase.table("fruit_items").select("*").order("id", desc=False).execute()
+        meta_res = supabase.table("store_meta").select("*").eq("id", 1).execute()
+        
+        meta_data = meta_res.data[0] if meta_res.data else {
+            "notice": "오늘도 신선한 과일 준비되어 있습니다 🍊",
+            "account": "새마을금고 9003-3009-5914-9",
+            "owner": "하루마켓(손현모)",
+            "hours": "10:00 - 21:30",
+            "notice_img": ""
         }
         
-        @page { size: A4 portrait; margin: 5mm; }
-        @media print {
-            html, body { height: 100% !important; overflow: visible !important; background: white !important; margin: 0 !important; padding: 0 !important; }
-            header, main, #stickyCheckoutBar, #thumbModal, #detailModal, #editFruitModal, #authModal, #bankModal, #toastNotification, #multiDateModal { display: none !important; }
-            #labelPrintArea { display: block !important; position: absolute !important; left: 0 !important; top: 0 !important; width: 200mm !important; background: white !important; }
-            .label-page { 
-                display: grid !important; 
-                grid-template-columns: repeat(2, 1fr) !important; 
-                grid-template-rows: repeat(5, 53mm) !important; 
-                gap: 3mm !important; 
-                width: 200mm !important; 
-                height: 277mm !important;
-                page-break-after: always !important; 
-                page-break-inside: avoid !important; 
-                box-sizing: border-box !important;
-            }
-            .label-card { 
-                border: 2px solid #1d4ed8 !important; 
-                border-radius: 8px !important; 
-                padding: 6px 8px !important; 
-                box-sizing: border-box !important; 
-                background: #ffffff !important; 
-                display: flex !important; 
-                flex-direction: column !important; 
-                justify-content: space-between !important; 
-                page-break-inside: avoid !important; 
-                height: 52mm !important; 
-                overflow: hidden !important;
-            }
+        return {
+            "fruits": fruits_res.data or [],
+            "meta": meta_data,
+            "is_delivery_available": True
         }
-    </style>
-</head>
-<body class="bg-gray-50 text-gray-900 min-h-screen relative">
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-    <div id="toastNotification" class="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-gray-900/90 text-white text-xs font-bold px-4 py-2.5 rounded-full shadow-2xl transition-all duration-300 opacity-0 pointer-events-none flex items-center gap-1.5 whitespace-nowrap">
-        <span id="toastMsg">📋 클립보드에 복사되었습니다!</span>
-    </div>
+# 💡 [핵심 수령 일자별 주문서 분할 생성 처리]
+@app.post("/api/orders")
+def create_order(order: OrderCreate):
+    try:
+        # 1. 수령 일자별로 아이템 그룹핑 (Grouping by available_day)
+        items_by_day = {}
+        for item in order.items:
+            day_key = item.available_day or "today"
+            if day_key not in items_by_day:
+                items_by_day[day_key] = []
+            items_by_day[day_key].append(item)
 
-    <!-- 헤더 -->
-    <header class="bg-white sticky top-0 z-40 border-b border-gray-200 px-3 sm:px-6 py-3.5 flex items-center justify-between shadow-xs">
-        <h1 class="text-lg sm:text-2xl font-black text-orange-600 tracking-tight cursor-pointer flex items-center gap-1 shrink-0 active:scale-95 transition" onclick="switchView('customer')">
-            하루마켓 흑석점 🍊
-        </h1>
-        <div class="flex items-center gap-1.5 shrink-0">
-            <button onclick="scrollToMyOrdersDash()" class="bg-gray-100 text-gray-700 px-2.5 sm:px-3 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 active:scale-95 transition whitespace-nowrap">🔎 내 주문</button>
-            <button id="toggleBtn" onclick="openAdminAuthModal()" class="bg-orange-100 text-orange-700 px-2.5 sm:px-3 py-2 rounded-xl text-xs font-bold transition hover:bg-orange-200 active:scale-95 whitespace-nowrap">👨‍🌾 사장님</button>
-        </div>
-    </header>
+        created_orders = []
+        is_first_order = True
 
-    <main id="mainContainer" class="max-w-md mx-auto p-3 sm:p-4 pb-28 transition-all duration-300 ease-in-out">
-        <section id="customerView" class="space-y-6 transition-all duration-300">
+        for day_key, group_items in items_by_day.items():
+            total_fruit_price = sum(item.price * item.qty for item in group_items)
             
-            <!-- 📢 데일리 공지 카드 -->
-            <div class="bg-gradient-to-br from-orange-50/80 to-white p-5 sm:p-6 rounded-3xl shadow-xs border border-orange-100/80 space-y-3">
-                <div class="flex items-center space-x-2">
-                    <span class="bg-orange-500 text-white text-xs font-black px-2.5 py-1 rounded-md shadow-xs">📢 데일리 공지</span>
-                </div>
-                <div id="displayNoticeImgContainer" class="w-full bg-gray-50 rounded-2xl overflow-hidden hidden flex items-center justify-center border border-gray-100 p-1">
-                    <img id="displayNoticeImg" src="" class="w-full h-auto max-h-96 object-contain rounded-xl">
-                </div>
-                <p id="displayDailyNotice" class="text-sm font-semibold text-gray-800 leading-relaxed whitespace-pre-line">로딩 중...</p>
-            </div>
-
-            <!-- 토스 송금 연동 계좌 카드 -->
-            <div class="bg-orange-50 p-5 rounded-3xl border border-orange-100 space-y-2">
-                <span class="bg-orange-600 text-white text-xs font-bold px-2.5 py-1 rounded-md">💰 입금 계좌안내</span>
-                <p id="displayAccount" onclick="copyToClipboard(this.innerText.replace('(클릭시 복사)', '').trim(), '입금 계좌번호가 복사되었습니다!')" class="text-base sm:text-lg font-black text-orange-900 pt-1 cursor-pointer hover:underline flex items-center gap-1.5" title="클릭하여 복사">로딩 중...</p>
-                <p id="displayAccountOwner" class="text-xs sm:text-sm text-orange-700 font-bold">로딩 중...</p>
-                <button onclick="openTossRemit()" class="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs py-2.5 rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 active:scale-95">
-                    <span>💸 토스 앱으로 1초 송금하기</span>
-                </button>
-            </div>
-
-            <!-- ⏰ 영업 시간 카드 -->
-            <div class="bg-white p-5 rounded-3xl shadow-xs border border-gray-100 flex items-center justify-between">
-                <div>
-                    <span class="bg-amber-100 text-amber-800 text-xs font-bold px-2.5 py-1 rounded-md">⏰ 오늘 영업 시간</span>
-                    <p id="displayHours" class="text-base sm:text-lg font-extrabold text-gray-800 mt-2">로딩 중...</p>
-                </div>
-                <span class="text-3xl">🏪</span>
-            </div>
-
-            <!-- 🗓️ 수령 일자별 주문 토글 -->
-            <div class="bg-white p-4 rounded-3xl shadow-xs border border-gray-100 space-y-2">
-                <div class="flex items-center justify-between">
-                    <span class="text-xs font-extrabold text-orange-600 bg-orange-50 px-2.5 py-1 rounded-md border border-orange-200">🗓️ 수령 일자별 주문 가능 품목</span>
-                    <span id="selectedDateLabel" class="text-xs font-black text-gray-700"></span>
-                </div>
-                <div id="tenDaysToggleList" class="flex items-center gap-1.5 overflow-x-auto pt-1 pb-1 scrollbar-none"></div>
-            </div>
-
-            <!-- 과일 수량 선택 영역 -->
-            <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
-                <div class="flex justify-between items-center border-b pb-3">
-                    <div>
-                        <h2 id="fruitListTitle" class="text-lg sm:text-xl font-black text-gray-900">🛒 1. 과일 수량 선택</h2>
-                        <p class="text-xs text-gray-400 font-bold mt-0.5">수량을 조절하면 총 금액이 자동 계산됩니다.</p>
-                    </div>
-                </div>
-                <div id="customerFruitList" class="space-y-4">
-                    <p class="text-center text-gray-400 py-10 font-bold">과일 라인업을 불러오는 중입니다... 🍎</p>
-                </div>
-            </div>
-
-            <!-- 수령 정보 입력 -->
-            <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 space-y-5">
-                <h2 class="text-lg sm:text-xl font-black text-gray-900 border-b pb-3">📝 2. 수령 및 고객 정보 입력</h2>
-                <div class="space-y-2">
-                    <label class="block text-xs font-bold text-gray-400">💡 수령 방식 선택 (총 3가지)</label>
-                    <div class="grid grid-cols-3 gap-1.5">
-                        <button type="button" id="btnTypePickup" onclick="selectOrderType('픽업')" class="h-16 p-1.5 border-2 border-orange-500 bg-orange-50 text-orange-900 rounded-2xl font-black text-xs flex flex-col items-center justify-center gap-0.5 active:scale-95 transition">
-                            <span>🏢 매장 픽업</span>
-                            <span class="text-[9px] font-normal text-orange-700">방문 수령</span>
-                        </button>
-                        <button type="button" id="btnTypeDelivery" onclick="selectOrderType('배달')" class="h-16 p-1.5 border-2 border-gray-200 bg-white text-gray-500 rounded-2xl font-black text-xs flex flex-col items-center justify-center gap-0.5 active:scale-95 transition">
-                            <span>🚚 배달 주문</span>
-                            <span id="deliveryBadgeText" class="text-[9px] font-normal text-gray-400">배달비 2.5천원</span>
-                        </button>
-                        <button type="button" id="btnTypeGroup" onclick="selectOrderType('공구')" class="h-16 p-1.5 border-2 border-gray-200 bg-white text-gray-500 rounded-2xl font-black text-xs flex flex-col items-center justify-center gap-0.5 active:scale-95 transition relative overflow-hidden">
-                            <span class="bg-purple-600 text-white text-[8px] font-black px-1 rounded absolute top-1 right-1">준비중</span>
-                            <span>🤝 공구 장소</span>
-                            <span class="text-[9px] font-normal text-gray-400">지정스팟 수령</span>
-                        </button>
-                    </div>
-                </div>
-
-                <div id="groupSpotInputBox" class="hidden space-y-3 bg-purple-50/70 p-4 rounded-2xl border border-purple-200">
-                    <label class="block text-xs font-black text-purple-900">📍 공구 수령 장소 및 시간 선택 (17시 이후)</label>
-                    <select id="buyerGroupSpot" class="w-full p-3 border-2 border-purple-300 bg-white rounded-xl text-xs font-bold text-purple-950 focus:outline-none focus:border-purple-500 transition">
-                        <option value="명수대현대아파트 (17:30)">🏢 명수대현대아파트 (17:30 수령)</option>
-                        <option value="흑석한강푸르지오 (18:00)">🏢 흑석한강푸르지오 (18:00 수령)</option>
-                        <option value="아크로리버하임 (18:30)">🏢 아크로리버하임 (18:30 수령)</option>
-                        <option value="흑석자이 (19:00)">🏢 흑석자이 (19:00 수령)</option>
-                        <option value="롯데캐슬에듀포레 (19:30)">🏢 롯데캐슬에듀포레 (19:30 수령)</option>
-                    </select>
-                </div>
-
-                <div class="bg-orange-50/70 p-4 rounded-2xl border border-orange-200 space-y-3">
-                    <p class="text-xs font-black text-orange-800">💳 결제 수단 선택</p>
-                    <div class="grid grid-cols-2 gap-2" id="payMethodGroup">
-                        <label class="flex items-center justify-center gap-1.5 p-3 bg-white border-2 border-orange-500 rounded-xl cursor-pointer font-bold text-xs text-orange-900 active:scale-95 transition" id="labelPayBank">
-                            <input type="radio" name="payMethod" value="계좌이체" checked onchange="togglePayMethodView('계좌이체')" class="accent-orange-500"> 계좌이체
-                        </label>
-                        <label class="flex items-center justify-center gap-1.5 p-3 bg-white border-2 border-gray-200 rounded-xl cursor-pointer font-bold text-xs text-gray-500 active:scale-95 transition" id="labelPayCard">
-                            <input type="radio" name="payMethod" value="현장결제" onchange="togglePayMethodView('현장결제')" class="accent-orange-500"> 현장 결제
-                        </label>
-                    </div>
-                    <div id="modalAccountBox" class="mt-1 text-xs text-gray-700 font-bold border-t border-orange-200/60 pt-2">
-                        <p id="modalAccount" onclick="copyToClipboard(storeMeta.account, '계좌번호가 복사되었습니다!')" class="cursor-pointer hover:underline flex items-center gap-1" title="클릭하여 복사"></p>
-                        <p id="modalAccountOwner"></p>
-                    </div>
-                    <div id="modalCardBox" class="mt-1 text-xs text-gray-600 font-bold border-t border-orange-200/60 pt-2 hidden">📌 현장에서 수령하실 때 카드로 결제하시면 됩니다!</div>
-                </div>
-
-                <div class="space-y-3">
-                    <div>
-                        <label class="block text-xs font-bold text-gray-400 mb-1">💬 카톡 닉네임 (아파트+휴대폰뒷자리)</label>
-                        <input type="text" id="buyerKakao" placeholder="예: 래미안1234" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3.5 border-2 border-gray-200 rounded-2xl text-base font-bold focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-400 mb-1">👤 주문자 성함</label>
-                        <input type="text" id="buyerName" placeholder="예: 박명숙" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3.5 border-2 border-gray-200 rounded-2xl text-base font-bold focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition">
-                    </div>
-                    <div id="addressInputBox" class="hidden space-y-3 border-t border-orange-200 pt-3">
-                        <div>
-                            <label class="block text-xs font-bold text-orange-900 mb-1">🏠 배달 상세 주소</label>
-                            <input type="text" id="buyerAddress" placeholder="예: 흑석동 센트레빌 101동 1202호" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3.5 border-2 border-orange-300 bg-orange-50/50 rounded-2xl text-base font-bold focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-orange-900 mb-1">🔑 공동현관 비밀번호</label>
-                            <input type="text" id="buyerDoorPassword" placeholder="예: #1234* 또는 자유출입" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3.5 border-2 border-orange-300 bg-orange-50/50 rounded-2xl text-base font-bold focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition">
-                        </div>
-                    </div>
-                </div>
-
-                <button id="btnSubmitOrder" onclick="checkMultiDatePopup()" class="w-full bg-orange-500 hover:bg-orange-600 text-white text-lg sm:text-xl font-black py-4 rounded-2xl shadow-xl transition disabled:bg-gray-400 disabled:cursor-not-allowed transform active:scale-95">🍊 일괄 주문 완료하기</button>
-            </div>
-
-            <!-- 주문 내역 확인 대시보드 -->
-            <div id="mainMyOrdersDash" class="bg-gradient-to-br from-gray-900 to-gray-800 text-white p-5 sm:p-6 rounded-3xl shadow-lg space-y-4 border border-gray-700 w-full box-border">
-                <div class="flex items-center justify-between border-b border-gray-700 pb-3 gap-2">
-                    <h3 class="text-base sm:text-lg font-black text-orange-400 flex items-center gap-1.5 whitespace-nowrap">
-                        🔎 주문 내역 확인
-                    </h3>
-                    <span class="text-[11px] text-gray-400 font-bold whitespace-nowrap shrink-0">1초 빠른 조회</span>
-                </div>
-                <div class="space-y-2">
-                    <input type="text" id="dashSearchKakao" placeholder="카톡 닉네임 (예: 래미안1234 또는 뒷자리 1234)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3 bg-gray-800/90 border border-gray-600 rounded-xl text-xs sm:text-sm font-bold text-white placeholder-gray-400 focus:outline-none focus:border-orange-500 transition box-border">
-                    <input type="text" id="dashSearchName" placeholder="주문자 성함 (예: 박명숙)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3 bg-gray-800/90 border border-gray-600 rounded-xl text-xs sm:text-sm font-bold text-white placeholder-gray-400 focus:outline-none focus:border-orange-500 transition box-border">
-                </div>
-                <button id="btnDashFetchOrders" onclick="fetchMyOrdersFromDash()" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-3 rounded-xl text-sm shadow-md transition active:scale-95">
-                    내 주문 확인하기 🍊
-                </button>
-                <div id="dashMyOrdersResult" class="space-y-3 pt-2 hidden"></div>
-            </div>
-
-        </section>
-
-        <!-- 사장님 관리 모드 뷰 -->
-        <section id="adminView" class="hidden flex-col md:flex-row gap-6 w-full transition-all duration-300">
-            <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4 h-fit md:sticky md:top-24 w-full md:w-[380px] shrink-0">
-                <div class="flex justify-between items-center border-b pb-2">
-                    <h2 class="text-lg sm:text-xl font-extrabold text-gray-800 flex items-center gap-2">⚙️ 하루마켓 흑석점 관리</h2>
-                    <button id="btnEnablePosSound" onclick="toggleOrderNotification()" class="bg-amber-500 hover:bg-amber-600 text-white font-black text-xs px-2.5 py-1.5 rounded-xl shadow-xs transition active:scale-95 flex items-center gap-1">
-                        🔔 주문 알림 켜기
-                    </button>
-                </div>
-                <div class="space-y-3">
-                    <div>
-                        <label class="block text-xs font-bold text-gray-400 mb-1">📋 데일리 공지 수정</label>
-                        <textarea id="inputDailyNotice" rows="3" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3 border border-gray-200 rounded-xl text-sm sm:text-base font-medium focus:outline-none focus:border-orange-500 transition"></textarea>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-400 mb-1">🖼️ 공지사항 이미지 업로드</label>
-                        <input type="file" id="fileNoticeImg" accept="image/*" class="w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:bg-orange-50 file:text-orange-700">
-                        <input type="hidden" id="inputNoticeImgUrl">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-400 mb-1">💰 계좌 번호 수정</label>
-                        <input type="text" id="inputAccount" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3 border border-gray-200 rounded-xl text-sm sm:text-base font-bold focus:outline-none focus:border-orange-500 transition">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-400 mb-1">👤 예금주 명 수정</label>
-                        <input type="text" id="inputAccountOwner" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3 border border-gray-200 rounded-xl text-sm sm:text-base font-bold focus:outline-none focus:border-orange-500 transition">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-400 mb-1">⏰ 영업 시간 수정</label>
-                        <input type="text" id="inputHours" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3 border border-gray-200 rounded-xl text-sm sm:text-base font-bold focus:outline-none focus:border-orange-500 transition">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-blue-900 mb-1">🚚 오늘 당일 배달 마감 시간 설정</label>
-                        <select id="inputDeliveryCutoff" class="w-full p-3 border-2 border-blue-300 bg-blue-50/50 rounded-xl text-sm font-extrabold text-blue-950 focus:outline-none focus:border-blue-500 transition">
-                            <option value="12:00">12:00</option>
-                            <option value="12:30">12:30</option>
-                            <option value="13:00">13:00</option>
-                            <option value="13:30">13:30</option>
-                            <option value="14:00">14:00</option>
-                            <option value="14:30">14:30</option>
-                            <option value="15:00">15:00</option>
-                            <option value="15:30">15:30</option>
-                            <option value="16:00" selected>16:00</option>
-                            <option value="16:30">16:30</option>
-                            <option value="17:00">17:00</option>
-                            <option value="17:30">17:30</option>
-                            <option value="18:00">18:00</option>
-                            <option value="18:30">18:30</option>
-                            <option value="19:00">19:00</option>
-                            <option value="19:30">19:30</option>
-                            <option value="20:00">20:00</option>
-                            <option value="20:30">20:30</option>
-                            <option value="21:00">21:00</option>
-                            <option value="none">제한 없음</option>
-                        </select>
-                    </div>
-                </div>
-                <button id="btnSaveAdminSettings" onclick="saveAdminSettings()" class="w-full bg-orange-500 text-white font-black py-3.5 rounded-2xl text-sm sm:text-base shadow-md hover:bg-orange-600 active:scale-95 transition">기본 정보 저장하기</button>
-            </div>
-
-            <div class="flex-1 space-y-6 w-full min-w-0">
-                <!-- 📊 당일 매출 실시간 요약 대시보드 -->
-                <div class="bg-gradient-to-br from-orange-500 to-amber-600 text-white p-5 sm:p-6 rounded-3xl shadow-lg space-y-3">
-                    <div class="flex justify-between items-center border-b border-orange-400/50 pb-2">
-                        <h3 class="text-sm sm:text-base font-black flex items-center gap-1.5">📊 오늘 매출 실시간 요약 대시보드</h3>
-                        <span id="summaryTodayDate" class="text-xs font-bold opacity-80"></span>
-                    </div>
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1 text-center">
-                        <div class="bg-white/10 backdrop-blur-md p-3 rounded-2xl border border-white/20">
-                            <p class="text-[11px] font-bold opacity-80">오늘 총 매출액</p>
-                            <p id="summaryTodaySales" class="text-base sm:text-lg font-black text-amber-200 mt-0.5">0원</p>
-                        </div>
-                        <div class="bg-white/10 backdrop-blur-md p-3 rounded-2xl border border-white/20">
-                            <p class="text-[11px] font-bold opacity-80">완료 건수</p>
-                            <p id="summaryTodayCount" class="text-base sm:text-lg font-black mt-0.5">0건</p>
-                        </div>
-                        <div class="bg-white/10 backdrop-blur-md p-3 rounded-2xl border border-white/20">
-                            <p class="text-[11px] font-bold opacity-80">매장 픽업 완료</p>
-                            <p id="summaryTodayPickup" class="text-base sm:text-lg font-black text-emerald-200 mt-0.5">0건</p>
-                        </div>
-                        <div class="bg-white/10 backdrop-blur-md p-3 rounded-2xl border border-white/20">
-                            <p class="text-[11px] font-bold opacity-80">배달 완료</p>
-                            <p id="summaryTodayDelivery" class="text-base sm:text-lg font-black text-blue-200 mt-0.5">0건</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
-                    <div class="flex justify-between items-center border-b pb-3">
-                        <h2 class="text-lg sm:text-xl font-extrabold text-gray-800">🍎 과일 품목 및 요약 세팅</h2>
-                        <button onclick="toggleAddForm()" id="addFormBtn" class="bg-orange-500 text-white font-bold text-xs sm:text-sm px-3 py-1.5 rounded-xl hover:bg-orange-600 active:scale-95 transition">+ 새 품목 추가하기</button>
-                    </div>
-                    <div id="itemAddForm" class="hidden bg-gray-50 p-4 rounded-2xl border border-gray-200 space-y-3">
-                        <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
-                            <input type="text" id="newFruitName" placeholder="과일 품목명" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition">
-                            <input type="number" id="newFruitPrice" placeholder="판매 가격 (숫자만)" class="p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition">
-                            <input type="number" id="newFruitStock" placeholder="초기 재고량" class="p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition">
-                            <select id="newFruitAvailableDay" class="p-3 border border-gray-300 rounded-xl text-sm bg-white font-bold focus:outline-none focus:border-orange-500 transition"></select>
-                        </div>
-                        <textarea id="newFruitDesc" rows="2" placeholder="상품 상세 설명을 입력하세요 (선택)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition"></textarea>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-                            <div>
-                                <label class="block text-xs font-bold text-gray-400 mb-1">🖼️ 메인 썸네일 1장</label>
-                                <input type="file" id="fileFruitImg" accept="image/*" class="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:bg-gray-200">
-                                <input type="hidden" id="newFruitImg">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-gray-400 mb-1">📷 상세설명 다중 이미지</label>
-                                <input type="file" id="fileFruitDetailImgs" accept="image/*" multiple class="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:bg-gray-200">
-                            </div>
-                        </div>
-                        <div class="flex justify-between items-center pt-2">
-                            <label class="flex items-center gap-2 cursor-pointer font-bold text-xs text-gray-600">
-                                <input type="checkbox" id="newFruitHideStock" class="accent-orange-500 w-4 h-4"> 이 품목 재고 수량 숨기기
-                            </label>
-                            <button id="btnAddNewFruit" onclick="addNewFruitItem()" class="bg-gray-900 text-white font-black px-6 py-2.5 rounded-xl text-xs sm:text-sm active:scale-95 transition">품목 등록하기</button>
-                        </div>
-                    </div>
-                    <div id="adminFruitList" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
-                </div>
-
-                <!-- 🏢 매장 픽업 현황 대시보드 -->
-                <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
-                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-3 gap-2">
-                        <div>
-                            <h2 class="text-lg sm:text-xl font-extrabold text-gray-800">🏢 매장 픽업 예약 현황 (<span id="orderCount" class="text-orange-500">0</span>건)</h2>
-                        </div>
-                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-                            <select id="adminPickupDateFilter" onchange="renderAdminOrders()" class="p-2.5 bg-white border-2 border-orange-300 text-orange-900 rounded-xl text-xs font-bold focus:outline-none focus:border-orange-500 transition">
-                                <option value="overdue">🚨 미처리건 (기간 무관)</option>
-                                <option value="today" selected>🍊 당일 수령건</option>
-                            </select>
-                            <div class="relative w-full sm:w-52">
-                                <input type="text" id="pickupSearchKeyword" oninput="renderAdminOrders()" placeholder="🔍 성함 / 닉네임 검색..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-2.5 text-xs font-bold bg-gray-50 border border-gray-300 rounded-xl focus:outline-none focus:border-orange-500 transition">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="pickupSummaryBox" class="bg-orange-100/80 border border-orange-300 p-4 rounded-2xl hidden">
-                        <h3 class="text-xs font-black text-orange-900 mb-2 flex items-center gap-1">
-                            📦 선택 날짜 매장 픽업 나갈 과일 총 포장 수량 (실시간 집계)
-                        </h3>
-                        <div id="pickupSummaryItems" class="flex flex-wrap gap-2"></div>
-                    </div>
-
-                    <div id="orderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch"></div>
-                </div>
-
-                <!-- 🚚 배달 현황 대시보드 -->
-                <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-5 sm:p-6 rounded-3xl shadow-sm border border-blue-100 space-y-4">
-                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-blue-200/60 pb-3 gap-3">
-                        <div>
-                            <h2 class="text-lg sm:text-xl font-extrabold text-blue-900 flex items-center gap-2">🚚 실시간 배달 대시보드 (<span id="deliveryOrderCount" class="text-blue-600">0</span>건)</h2>
-                            <p class="text-xs text-blue-600 font-bold mt-0.5">수령일자별로 선택하여 열람 및 라벨 전표를 일괄 출력하세요.</p>
-                        </div>
-                        
-                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-                            <select id="adminDeliveryDateFilter" onchange="renderAdminOrders()" class="p-2.5 bg-white border-2 border-blue-300 text-blue-900 rounded-xl text-xs font-bold focus:outline-none focus:border-indigo-500 transition">
-                                <option value="overdue">🚨 미처리건 (기간 무관)</option>
-                                <option value="today" selected>🍊 당일 수령건</option>
-                            </select>
-
-                            <button onclick="printAllDeliveryLabels()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow-md transition active:scale-95 justify-center">🖨️ 배달 라벨 인쇄 (A4 10칸)</button>
-                        </div>
-                    </div>
-
-                    <div id="deliverySummaryBox" class="bg-amber-100/80 border border-amber-300 p-4 rounded-2xl hidden">
-                        <h3 class="text-xs font-black text-amber-900 mb-2 flex items-center gap-1">
-                            📦 선택 날짜 배달 나갈 과일 총 포장 수량 (실시간 집계)
-                        </h3>
-                        <div id="deliverySummaryItems" class="flex flex-wrap gap-2"></div>
-                    </div>
-
-                    <div id="deliveryOrderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch"></div>
-                </div>
-
-                <!-- 🤝 공구 장소 수령 현황 대시보드 -->
-                <div class="bg-gradient-to-r from-purple-50 to-pink-50 p-5 sm:p-6 rounded-3xl shadow-sm border border-purple-200 space-y-4">
-                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-purple-200 pb-3 gap-3">
-                        <div>
-                            <h2 class="text-lg sm:text-xl font-extrabold text-purple-900 flex items-center gap-2">🤝 실시간 공지스팟 수령 대시보드 (<span id="groupOrderCount" class="text-purple-600">0</span>건)</h2>
-                            <p class="text-xs text-purple-600 font-bold mt-0.5">아파트별 지정 스팟 차량 수령 주문건 현황입니다.</p>
-                        </div>
-                    </div>
-                    <div id="groupOrderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch">
-                        <p class="text-center text-gray-400 py-6 font-bold col-span-full">아직 접수된 공구 수령 주문이 없습니다. 🤝</p>
-                    </div>
-                </div>
-
-                <!-- ✅ 판매완료 장부 -->
-                <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
-                    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b pb-4">
-                        <h2 class="text-lg sm:text-xl font-extrabold text-gray-800 flex items-center gap-2">✅ 판매완료 장부 (<span id="completedCount" class="text-green-600">0</span>건)</h2>
-                        <div class="flex flex-wrap gap-2">
-                            <button onclick="downloadExcel('all')" class="bg-green-700 hover:bg-green-800 text-white font-bold text-xs px-3 py-2.5 rounded-xl flex items-center gap-1 shadow-xs transition active:scale-95">📊 전체 기간 장부 엑셀</button>
-                            <div class="flex items-center gap-1 bg-green-50 p-1 border border-green-200 rounded-xl">
-                                <input type="month" id="excelMonthPicker" class="p-1 text-xs font-bold bg-white border border-green-300 rounded-lg">
-                                <button onclick="downloadExcel('month')" class="bg-green-600 hover:bg-green-700 text-white font-bold text-xs px-2.5 py-1.5 rounded-lg transition active:scale-95">📅 월별 엑셀</button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-5 gap-3 bg-gray-50 p-3 rounded-2xl border border-gray-200">
-                        <div class="sm:col-span-2 relative">
-                            <input type="text" id="searchKeyword" oninput="filterAndRenderCompletedOrders()" placeholder="🔍 이름, 닉네임, 품목명 검색..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-2.5 pr-8 bg-white border border-gray-300 rounded-xl text-sm font-bold focus:outline-none focus:border-orange-500 transition">
-                            <button onclick="clearSearchInput('searchKeyword')" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-bold bg-gray-100 hover:bg-gray-200 rounded-full w-5 h-5 flex items-center justify-center">✕</button>
-                        </div>
-                        <div><input type="date" id="searchDate" onchange="filterAndRenderCompletedOrders()" class="w-full p-2.5 bg-white border border-gray-300 rounded-xl text-sm font-bold text-gray-700 focus:outline-none focus:border-orange-500 transition"></div>
-                        <div>
-                            <select id="completedSortOrder" onchange="filterAndRenderCompletedOrders()" class="w-full p-2.5 bg-white border border-gray-300 rounded-xl text-xs font-bold text-gray-800 focus:outline-none focus:border-green-500 transition">
-                                <option value="desc" selected>🕒 최신순 (최근 완료건)</option>
-                                <option value="asc">🕒 과거순 (이전 완료건)</option>
-                            </select>
-                        </div>
-                        <div><button onclick="resetDateFilter()" class="w-full p-2.5 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded-xl text-sm transition active:scale-95">🔄 전체 보기</button></div>
-                    </div>
-                    <div id="completedOrderList" class="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch"></div>
-                </div>
-            </div>
-        </section>
-    </main>
-
-    <!-- 과일 품목 상세 편집 모달 -->
-    <div id="editFruitModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden p-4" onclick="if(event.target == this) closeEditFruitModal()">
-        <div class="bg-white w-full max-w-lg rounded-3xl p-5 sm:p-6 space-y-4 shadow-2xl overflow-y-auto max-h-[90vh]">
-            <div class="flex justify-between items-center border-b pb-3">
-                <h3 class="text-lg sm:text-xl font-black text-gray-900">✏️ 과일 품목 상세 정보 수정</h3>
-                <button onclick="closeEditFruitModal()" class="text-gray-400 text-2xl font-bold hover:text-gray-600 px-2">✕</button>
-            </div>
-            <input type="hidden" id="editFruitId">
-            <div class="space-y-3 text-xs sm:text-sm">
-                <div>
-                    <label class="block font-bold text-gray-500 mb-1">과일 품목명</label>
-                    <input type="text" id="editFruitName" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3 border border-gray-300 rounded-xl font-bold focus:outline-none focus:border-orange-500">
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="block font-bold text-gray-500 mb-1">정상 가격 (원)</label>
-                        <input type="number" id="editFruitPrice" class="w-full p-3 border border-gray-300 rounded-xl font-bold focus:outline-none focus:border-orange-500">
-                    </div>
-                    <div>
-                        <label class="block font-bold text-gray-500 mb-1">이벤트 특가 (원)</label>
-                        <input type="number" id="editFruitEventPrice" class="w-full p-3 border border-gray-300 rounded-xl font-bold focus:outline-none focus:border-orange-500">
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="block font-bold text-gray-500 mb-1">현재 재고량</label>
-                        <input type="number" id="editFruitStock" class="w-full p-3 border border-gray-300 rounded-xl font-bold focus:outline-none focus:border-orange-500">
-                    </div>
-                    <div>
-                        <label class="block font-bold text-gray-500 mb-1">판매 수령 날짜 지정</label>
-                        <select id="editFruitAvailableDay" class="w-full p-3 border border-gray-300 rounded-xl font-bold focus:outline-none focus:border-orange-500"></select>
-                    </div>
-                </div>
-                <div>
-                    <label class="block font-bold text-gray-500 mb-1">상품 상세 설명</label>
-                    <textarea id="editFruitDesc" rows="3" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3 border border-gray-300 rounded-xl font-medium focus:outline-none focus:border-orange-500"></textarea>
-                </div>
-                <div>
-                    <label class="block font-bold text-gray-500 mb-1">🖼️ 메인 썸네일 새로 변경 (선택)</label>
-                    <input type="file" id="editFileFruitImg" accept="image/*" class="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:bg-gray-200">
-                    <input type="hidden" id="editFruitImgUrl">
-                </div>
-            </div>
-            <div class="flex gap-2 pt-2">
-                <button onclick="closeEditFruitModal()" class="flex-1 bg-gray-200 text-gray-700 font-bold py-3 rounded-xl active:scale-95 transition">취소</button>
-                <button id="btnSaveFruitEdit" onclick="saveFruitEdit()" class="flex-1 bg-orange-500 text-white font-black py-3 rounded-xl shadow-md hover:bg-orange-600 active:scale-95 transition">수정 완료 저장</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 🚨 수령일자 다중 선택 모달 -->
-    <div id="multiDateModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden p-4">
-        <div class="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 text-center shadow-2xl transform transition-all">
-            <div id="multiDateIcon" class="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-3xl mx-auto font-black">🚚</div>
-            <div class="space-y-1">
-                <h3 id="multiDateTitle" class="text-xl font-black text-gray-900">수령일자 확인 안내</h3>
-                <p id="multiDateSubText" class="text-xs text-gray-500 font-bold"></p>
-            </div>
-            <div id="multiDateDetails" class="bg-gray-50 p-4 rounded-2xl border border-gray-200 text-left text-xs font-semibold space-y-1.5 text-gray-700"></div>
-            <div class="flex gap-2">
-                <button onclick="closeMultiDateModal()" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 rounded-xl text-sm transition">주문 수정하기</button>
-                <button onclick="confirmAndSubmitOrder()" class="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-black py-3 rounded-xl text-sm shadow-md transition">네, 주문 진행합니다</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 하단 Floating 장바구니 바 -->
-    <div id="stickyCheckoutBar" class="fixed bottom-0 left-0 right-0 z-30 bg-gray-900/95 backdrop-blur-md text-white border-t border-gray-800 shadow-2xl p-4 transition-all duration-300">
-        <div class="max-w-md mx-auto flex items-center justify-between gap-2">
-            <div class="min-w-0 flex-1">
-                <p id="stickySelectedSummary" class="text-xs text-orange-300 font-bold truncate">과일을 선택해 주세요 🍎</p>
-                <p class="text-2xl font-black text-orange-400 tracking-tight" id="stickyTotalPrice">0원</p>
-            </div>
-            <button id="btnStickyCheckout" onclick="scrollToOrderForm()" class="bg-gray-700 text-gray-300 px-4 py-3 rounded-2xl font-black text-sm shadow-lg transition transform active:scale-95 flex items-center gap-1 shrink-0">
-                <span id="stickyBtnText">주문하기</span>
-                <span id="stickyBtnArrow" class="hidden">👇</span>
-            </button>
-        </div>
-    </div>
-
-    <!-- 계좌 안내 모달 -->
-    <div id="bankModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden p-4">
-        <div class="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 text-center shadow-2xl transform transition-all">
-            <div class="w-16 h-16 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-3xl mx-auto font-black">💰</div>
-            <div class="space-y-1">
-                <h3 class="text-xl font-black text-gray-900">계좌이체를 부탁드립니다!</h3>
-                <p class="text-xs text-orange-600 font-bold">📢 입금 확인 후 과일 수령 및 배달이 시작됩니다.</p>
-            </div>
-            <div class="bg-orange-50 p-4 rounded-2xl border border-orange-200 text-left space-y-2">
-                <div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-[11px] font-bold text-gray-400">입금 은행 및 계좌번호</span>
-                        <span class="text-[10px] font-bold text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded cursor-pointer" onclick="copyToClipboard(document.getElementById('bankModalAccount').innerText, '계좌번호가 복사되었습니다!')">📋 터치하여 복사</span>
-                    </div>
-                    <span id="bankModalAccount" onclick="copyToClipboard(this.innerText, '계좌번호가 복사되었습니다!')" class="text-base font-black text-orange-900 select-all block cursor-pointer hover:underline mt-0.5" title="클릭하여 복사"></span>
-                </div>
-                <div>
-                    <span class="text-[11px] font-bold text-gray-400 block">예금주</span>
-                    <span id="bankModalOwner" class="text-sm font-bold text-gray-800 block"></span>
-                </div>
-                <div class="border-t border-orange-200 pt-2">
-                    <span class="text-[11px] font-bold text-gray-400 block">총 입금 금액</span>
-                    <span id="bankModalAmount" class="text-xl font-black text-red-600 block"></span>
-                </div>
-                <button onclick="openTossRemit()" class="w-full mt-1 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs py-2.5 rounded-xl transition flex items-center justify-center gap-1">
-                    <span>💸 토스 앱으로 빠르게 송금하기</span>
-                </button>
-            </div>
-            <button onclick="closeBankModal()" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-3.5 rounded-2xl text-base shadow-md active:scale-95 transition">확인했습니다! (입금 진행)</button>
-        </div>
-    </div>
-
-    <!-- 이미지 확대 모달 -->
-    <div id="thumbModal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center hidden p-4" onclick="closeThumbModal()">
-        <div class="max-w-md w-full relative bg-transparent flex flex-col items-center">
-            <button onclick="closeThumbModal()" class="absolute -top-10 right-0 text-white text-3xl font-black">✕</button>
-            <img id="thumbModalImg" src="" class="w-full h-auto max-h-[85vh] object-contain rounded-2xl shadow-2xl">
-        </div>
-    </div>
-
-    <!-- 과일 상세 모달 -->
-    <div id="detailModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center hidden p-4" onclick="if(event.target == this) closeDetailModal()">
-        <div class="bg-white w-full max-w-md rounded-3xl p-6 space-y-4 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
-            <div class="flex justify-between items-center border-b pb-3">
-                <h3 id="detailFruitName" class="text-2xl font-black text-gray-800">상품 상세 정보</h3>
-                <button onclick="closeDetailModal()" class="text-gray-400 text-2xl font-bold px-2 hover:text-gray-600">✕</button>
-            </div>
-            <div class="overflow-y-auto space-y-4 flex-1 pr-1">
-                <div>
-                    <p id="detailPrice" class="text-2xl font-black text-orange-600"></p>
-                    <p id="detailStock" class="text-xs font-bold text-gray-400 mt-1"></p>
-                </div>
-                <div class="bg-gray-50 p-4 rounded-2xl border border-gray-100 space-y-3">
-                    <h4 class="text-xs font-bold text-gray-400">📝 상세 설명</h4>
-                    <p id="detailDescription" class="text-sm font-medium text-gray-700 leading-relaxed whitespace-pre-line"></p>
-                </div>
-                <div id="detailImgsContainer" class="space-y-3 pt-2"></div>
-            </div>
-            <button onclick="closeDetailModal()" class="w-full bg-gray-900 text-white font-bold py-3.5 rounded-2xl text-sm active:scale-95 transition">확인 완료</button>
-        </div>
-    </div>
-
-    <!-- 사장님 인증 모달 -->
-    <div id="authModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center hidden">
-        <div class="bg-white w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl mx-4">
-            <div class="text-center">
-                <span class="text-4xl">🔐</span>
-                <h3 class="text-xl font-black mt-2">사장님 인증입니다</h3>
-            </div>
-            <input type="password" id="adminPassword" placeholder="비밀번호 입력" class="w-full p-4 border-2 border-gray-200 rounded-2xl text-center text-2xl font-black tracking-widest focus:outline-none focus:border-orange-500 transition">
-            <div class="flex space-x-2">
-                <button onclick="closeAdminAuthModal()" class="flex-1 bg-gray-100 font-bold py-3 rounded-xl text-gray-500 active:scale-95 transition">취소</button>
-                <button onclick="checkAdminPassword()" class="flex-1 bg-orange-500 text-white font-black py-3 rounded-xl hover:bg-orange-600 active:scale-95 transition">확인</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="labelPrintArea" style="display: none;"></div>
-
-    <script>
-        const API_URL = "https://haru-market-api.onrender.com"; 
-        const PASS = "788599"; 
-
-        const CLOUD_NAME = "w9ilodii"; 
-        const UPLOAD_PRESET = "haru_preset"; 
-
-        // 백엔드에서 boolean / 숫자 / 문자열로 내려오는 경우를 모두 처리
-        function checkIsHidden(item) {
-            if (!item) return false;
-            if (item.is_hidden === true || item.is_hidden === 1) return true;
-            const value = String(item.is_hidden).toLowerCase().trim();
-            return value === 'true' || value === '1';
-        }
-
-        async function uploadToCloudinary(file) {
-            if (!file) throw new Error('업로드할 이미지가 없습니다.');
-            if (!file.type || !file.type.startsWith('image/')) {
-                throw new Error('이미지 파일만 업로드할 수 있습니다.');
-            }
-
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('upload_preset', UPLOAD_PRESET);
-
-            const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
-                method: 'POST',
-                body: formData
-            });
-
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok || !data.secure_url) {
-                console.error('Cloudinary 업로드 오류:', data);
-                throw new Error(data.error?.message || '이미지 업로드 실패');
-            }
-
-            return data.secure_url;
-        }
-
-        let currentView = 'customer';
-        let fruitItems = [];
-        let storeMeta = {};
-        let globalOrders = []; 
-        let rawCompletedOrders = []; 
-        let currentAdminDeliveryOrders = []; 
-        let selectedOrderType = '픽업'; 
-        let isDeliveryAvailable = true;
-        let uploadedDetailImgs = []; 
-        let isSubmitting = false; 
-        let selectedItems = {};
-
-        let orderSoundEnabled = false;
-        let knownOrderIds = new Set();
-        let isFirstLoad = true;
-
-        let tenDaysList = [];
-        let selectedDateKey = 'today';
-
-        const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
-
-        function generateTenDays() {
-            tenDaysList = [];
-            const today = new Date();
-            for (let i = 0; i < 10; i++) {
-                let d = new Date(today);
-                d.setDate(today.getDate() + i);
-                
-                let month = d.getMonth() + 1;
-                let date = d.getDate();
-                let dayName = DAY_NAMES[d.getDay()];
-                
-                let key = (i === 0) ? 'today' : `${month}/${date}(${dayName})`;
-                let label = (i === 0) ? `${month}/${date} (오늘)` : `${month}/${date} (${dayName})`;
-                
-                tenDaysList.push({ key, label, index: i });
-            }
-        }
-
-        function playChimeSound() {
-            try {
-                const AudioContext = window.AudioContext || window.webkitAudioContext;
-                if (!AudioContext) return;
-                const ctx = new AudioContext();
-
-                const now = ctx.currentTime;
-                const osc1 = ctx.createOscillator();
-                const gain1 = ctx.createGain();
-                osc1.type = 'sine';
-                osc1.frequency.setValueAtTime(659.25, now);
-                gain1.gain.setValueAtTime(0.3, now);
-                gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
-                osc1.connect(gain1);
-                gain1.connect(ctx.destination);
-                osc1.start(now);
-                osc1.stop(now + 0.5);
-
-                const osc2 = ctx.createOscillator();
-                const gain2 = ctx.createGain();
-                osc2.type = 'sine';
-                osc2.frequency.setValueAtTime(880, now + 0.15);
-                gain2.gain.setValueAtTime(0.3, now + 0.15);
-                gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
-                osc2.connect(gain2);
-                gain2.connect(ctx.destination);
-                osc2.start(now + 0.15);
-                osc2.stop(now + 0.8);
-            } catch(e) { console.error("소리 재생 오류", e); }
-        }
-
-        function toggleOrderNotification() {
-            const btn = document.getElementById('btnEnablePosSound');
-            if (!orderSoundEnabled) {
-                orderSoundEnabled = true;
-                playChimeSound();
-                showToast("🔔 주문 알림이 켜졌습니다! 새 주문 시 띵동 소리가 울립니다.");
-                if (btn) {
-                    btn.innerText = "🔕 주문 알림 끄기";
-                    btn.className = "bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs px-2.5 py-1.5 rounded-xl shadow-xs transition active:scale-95 flex items-center gap-1";
-                }
-            } else {
-                orderSoundEnabled = false;
-                showToast("🔕 주문 알림이 꺼졌습니다.");
-                if (btn) {
-                    btn.innerText = "🔔 주문 알림 켜기";
-                    btn.className = "bg-amber-500 hover:bg-amber-600 text-white font-black text-xs px-2.5 py-1.5 rounded-xl shadow-xs transition active:scale-95 flex items-center gap-1";
-                }
-            }
-        }
-
-        function copyToClipboard(text, message = '클립보드에 복사되었습니다!') {
-            if (!text) return;
-            navigator.clipboard.writeText(text).then(() => { showToast(message); }).catch(() => {
-                const tempInput = document.createElement("textarea");
-                tempInput.value = text; document.body.appendChild(tempInput);
-                tempInput.select(); document.execCommand("copy");
-                document.body.removeChild(tempInput); showToast(message);
-            });
-        }
-
-        function openTossRemit() {
-            if (!storeMeta.account) { alert('등록된 계좌가 없습니다.'); return; }
-            let pureAccount = storeMeta.account.replace(/[^0-9]/g, '');
-            let bankName = "은행";
-            if (storeMeta.account.includes("카카오")) bankName = "카카오뱅크";
-            else if (storeMeta.account.includes("토스")) bankName = "토스뱅크";
-            else if (storeMeta.account.includes("농협")) bankName = "농협";
-            else if (storeMeta.account.includes("신한")) bankName = "신한";
-            else if (storeMeta.account.includes("국민")) bankName = "국민";
-            else if (storeMeta.account.includes("우리")) bankName = "우리";
-            else if (storeMeta.account.includes("하나")) bankName = "하나";
-            else if (storeMeta.account.includes("기업")) bankName = "IBK기업";
-
-            let tossUrl = `supertoss://send?bank=${encodeURIComponent(bankName)}&accountNo=${pureAccount}`;
-            window.location.href = tossUrl;
-            setTimeout(() => {
-                copyToClipboard(storeMeta.account, '계좌번호가 복사되었습니다! 토스 앱으로 이동합니다.');
-            }, 500);
-        }
-
-        function showToast(msg) {
-            const toast = document.getElementById('toastNotification');
-            const toastMsg = document.getElementById('toastMsg');
-            if (toast && toastMsg) {
-                toastMsg.innerText = "📋 " + msg;
-                toast.classList.remove('opacity-0', 'pointer-events-none');
-                toast.classList.add('opacity-100');
-                setTimeout(() => { toast.classList.remove('opacity-100'); toast.classList.add('opacity-0', 'pointer-events-none'); }, 2000);
-            }
-        }
-
-        function clearSearchInput(inputId) {
-            const input = document.getElementById(inputId);
-            if (input) { input.value = ''; filterAndRenderCompletedOrders(); }
-        }
-
-        window.onload = function() {
-            generateTenDays();
-            setupTenDaysToggleList();
-            setupAdminDateDropdowns();
-            loadStoreData();
-            setupFileListeners();
-            const today = new Date();
-            const yyyy = today.getFullYear();
-            const mm = String(today.getMonth() + 1).padStart(2, '0');
-            document.getElementById('excelMonthPicker').value = `${yyyy}-${mm}`;
-
-            setInterval(() => {
-                if (currentView === 'admin') {
-                    renderAdminOrders(true);
-                }
-            }, 5000);
-        };
-
-        function setupTenDaysToggleList() {
-            const container = document.getElementById('tenDaysToggleList');
-            if (!container) return;
-            container.innerHTML = '';
-
-            tenDaysList.forEach(item => {
-                let isSelected = item.key === selectedDateKey;
-                let btnClass = isSelected
-                    ? "bg-orange-500 text-white font-black text-xs px-3 py-2 rounded-xl shrink-0 shadow-xs transition"
-                    : "bg-gray-100 text-gray-700 font-bold text-xs px-3 py-2 rounded-xl shrink-0 hover:bg-orange-100 transition";
-
-                container.innerHTML += `<button onclick="selectCustomerDateKey('${item.key}')" class="${btnClass}">${item.label}</button>`;
-            });
-
-            const currObj = tenDaysList.find(t => t.key === selectedDateKey);
-            const labelEl = document.getElementById('selectedDateLabel');
-            if (labelEl && currObj) {
-                labelEl.innerText = currObj.label;
-            }
-        }
-
-        function selectCustomerDateKey(key) {
-            selectedDateKey = key;
-            setupTenDaysToggleList();
-            refreshMainDisplay();
-        }
-
-        function setupAdminDateDropdowns() {
-            const addSelect = document.getElementById('newFruitAvailableDay');
-            const editSelect = document.getElementById('editFruitAvailableDay');
-            const deliveryFilterSelect = document.getElementById('adminDeliveryDateFilter');
-            const pickupFilterSelect = document.getElementById('adminPickupDateFilter');
-
-            let optionsHtml = `<option value="today">🍊 당일 입금/즉시판매</option>`;
-            let filterHtml = `<option value="overdue">🚨 미처리건 (기간 무관)</option><option value="today" selected>🍊 당일 수령건</option>`;
-
-            tenDaysList.forEach(t => {
-                if (t.key !== 'today') {
-                    optionsHtml += `<option value="${t.key}">📅 ${t.label} 예약</option>`;
-                    filterHtml += `<option value="${t.key}">📅 ${t.label} 예약건</option>`;
-                }
-            });
-
-            if (addSelect) addSelect.innerHTML = optionsHtml;
-            if (editSelect) editSelect.innerHTML = optionsHtml;
-            if (deliveryFilterSelect) deliveryFilterSelect.innerHTML = filterHtml;
-            if (pickupFilterSelect) pickupFilterSelect.innerHTML = filterHtml;
-        }
-
-        function setupFileListeners() {
-            document.getElementById('fileNoticeImg').addEventListener('change', async function(e) {
-                const file = e.target.files[0];
-                if (file) {
-                    try {
-                        showToast("사진 업로드 중...");
-                        const imgUrl = await uploadToCloudinary(file);
-                        document.getElementById('inputNoticeImgUrl').value = imgUrl;
-                        showToast("사진 업로드 완료!");
-                    } catch(err) { alert("이미지 업로드에 실패했습니다."); }
-                }
-            });
-
-            document.getElementById('fileFruitImg').addEventListener('change', async function(e) {
-                const file = e.target.files[0];
-                if (file) {
-                    try {
-                        showToast("메인 썸네일 업로드 중...");
-                        const imgUrl = await uploadToCloudinary(file);
-                        document.getElementById('newFruitImg').value = imgUrl;
-                        showToast("메인 썸네일 업로드 완료!");
-                    } catch(err) { alert("이미지 업로드에 실패했습니다."); }
-                }
-            });
-
-            document.getElementById('fileFruitDetailImgs').addEventListener('change', async function(e) {
-                const files = e.target.files;
-                uploadedDetailImgs = [];
-                if (files && files.length > 0) {
-                    try {
-                        showToast("상세 이미지 업로드 중...");
-                        for (let file of files) {
-                            const imgUrl = await uploadToCloudinary(file);
-                            uploadedDetailImgs.push(imgUrl);
-                        }
-                        showToast("상세 이미지 업로드 완료!");
-                    } catch(err) { alert("상세 이미지 업로드 실패!"); }
-                }
-            });
-        }
-
-        async function loadStoreData() {
-            try {
-                const res = await fetch(`${API_URL}/api/init-data`);
-                if(res.ok) {
-                    const data = await res.json();
-                    storeMeta = data.meta || {};
-                    fruitItems = data.fruits || [];
-                    isDeliveryAvailable = data.is_delivery_available ?? true;
-                    refreshMainDisplay();
-                }
-                const orderRes = await fetch(`${API_URL}/api/admin/orders?password=${PASS}`);
-                if(orderRes.ok) {
-                    const oData = await orderRes.json();
-                    globalOrders = [...(oData.pending || []), ...(oData.delivery_orders || []), ...(oData.completed || [])];
-                    currentAdminDeliveryOrders = oData.delivery_orders || [];
-                    rawCompletedOrders = oData.completed || [];
-                    updateAdminDashboardSummary();
-                }
-            } catch (e) { console.error("네트워크 통신 오류:", e); }
-        }
-
-        function refreshMainDisplay() {
-            document.getElementById('displayDailyNotice').innerText = storeMeta.notice || '공지사항이 없습니다.';
-            document.getElementById('displayAccount').innerText = (storeMeta.account || '등록된 계좌가 없습니다.') + " (클릭시 복사)";
-            document.getElementById('displayAccountOwner').innerText = storeMeta.owner ? `(예금주: ${storeMeta.owner})` : '';
-            document.getElementById('displayHours').innerText = storeMeta.hours || '영업시간 정보가 없습니다.';
-
-            document.getElementById('inputDailyNotice').value = storeMeta.notice || '';
-            document.getElementById('inputNoticeImgUrl').value = storeMeta.notice_img || '';
-            document.getElementById('inputAccount').value = storeMeta.account || '';
-            document.getElementById('inputAccountOwner').value = storeMeta.owner || '';
-            document.getElementById('inputHours').value = storeMeta.hours || '';
-            if (storeMeta.delivery_cutoff) {
-                document.getElementById('inputDeliveryCutoff').value = storeMeta.delivery_cutoff;
-            }
-
-            document.getElementById('modalAccount').innerText = "계좌: " + (storeMeta.account || '') + " (복사)";
-            document.getElementById('modalAccountOwner').innerText = storeMeta.owner ? `예금주: ${storeMeta.owner}` : '';
-
-            const imgBox = document.getElementById('displayNoticeImgContainer');
-            const img = document.getElementById('displayNoticeImg');
-            if (storeMeta.notice_img) { img.src = storeMeta.notice_img; imgBox.classList.remove('hidden'); } else { imgBox.classList.add('hidden'); }
-
-            const userListEl = document.getElementById('customerFruitList'); userListEl.innerHTML = '';
-            const adminListEl = document.getElementById('adminFruitList'); adminListEl.innerHTML = '';
-
-            if (!Array.isArray(fruitItems) || fruitItems.length === 0) {
-                userListEl.innerHTML = `<p class="text-center text-gray-400 py-10 font-bold">해당 날짜에 판매 중인 상품이 없습니다. 🍎</p>`;
-                adminListEl.innerHTML = `<p class="text-center text-gray-400 py-4 font-bold">등록된 품목이 없습니다. 새 품목을 추가해 주세요.</p>`;
-                return;
-            }
-
-            // 손님 화면에서는 숨김 상품을 제외한다.
-            let targetFruitItems = fruitItems.filter(item => {
-                if (checkIsHidden(item)) return false;
-                let availDay = item.available_day || 'today';
-                return availDay === selectedDateKey;
-            });
-
-            if (targetFruitItems.length === 0) {
-                userListEl.innerHTML = `<p class="text-center text-gray-400 py-10 font-bold">해당 날짜에 판매 중인 상품이 없습니다. 🍎</p>`;
-            }
-
-            const sortedFruitItems = [...targetFruitItems].sort((a, b) => {
-                if (a.is_event && !b.is_event) return -1;
-                if (!a.is_event && b.is_event) return 1;
-                if (a.stock <= 0 && b.stock > 0) return 1;
-                if (a.stock > 0 && b.stock <= 0) return -1;
-                return 0;
-            });
-
-            sortedFruitItems.forEach((item) => {
-                const originalIndex = fruitItems.findIndex(f => f.id === item.id);
-                let safeStock = item.stock < 0 ? 0 : item.stock;
-                let isUrgent = item.max_stock > 0 && (safeStock / item.max_stock) < 0.2 && safeStock > 0;
-                let isSoldOut = safeStock <= 0;
-                let isEvent = item.is_event && item.event_price > 0;
-
-                let activePrice = isEvent ? item.event_price : item.price;
-
-                let eventBadge = isEvent ? `<span class="bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md animate-pulse flex items-center gap-0.5 shadow-sm">🎉 특가 이벤트</span>` : '';
-                let badge = isUrgent ? `<span class="bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-md animate-bounce flex items-center gap-1">🔥 품절 임박!</span>` : '';
-                if(isSoldOut) badge = `<span class="bg-gray-700 text-white text-[10px] font-black px-2 py-0.5 rounded-md">완판 (SOLD OUT)</span>`;
-
-                let imgHtmlContainer = '';
-                if (item.img && item.img.trim() !== "") {
-                    imgHtmlContainer = `<div class="w-full bg-gray-100 rounded-2xl overflow-hidden flex items-center justify-center cursor-pointer relative p-1" onclick="openThumbModal('${item.img}')">
-                        <img src="${item.img}" class="w-full h-auto max-h-64 object-contain rounded-xl ${isSoldOut ? 'grayscale brightness-75' : ''}">
-                        ${isSoldOut ? `<div class="absolute inset-0 bg-black/40 flex items-center justify-center rounded-xl"><span class="text-white text-base font-black tracking-widest border-2 border-white px-3 py-1 rounded-xl">SOLD OUT</span></div>` : ''}
-                    </div>`;
-                }
-
-                let stockDisplayHtml = item.hide_stock 
-                    ? `<p class="text-gray-400 text-xs">상태: <span class="font-bold text-green-600">구매 가능</span></p>`
-                    : `<p class="text-gray-400 text-xs">재고: <span class="font-bold ${isSoldOut ? 'text-red-500' : 'text-gray-700'}">${safeStock}</span>개</p>`;
-
-                let currentQty = selectedItems[item.id] ? selectedItems[item.id].qty : 0;
-
-                let priceDisplayHtml = isEvent 
-                    ? `<div class="flex items-center gap-2">
-                        <span class="text-gray-400 line-through text-xs font-bold">${Number(item.price).toLocaleString()}원</span>
-                        <span class="text-red-600 text-lg sm:text-xl font-black">${Number(item.event_price).toLocaleString()}원</span>
-                       </div>`
-                    : `<p class="text-orange-600 text-base sm:text-lg font-black">${Number(item.price).toLocaleString()}원</p>`;
-
-                let boxClass = isEvent 
-                    ? 'bg-gradient-to-br from-red-50 via-rose-50 to-orange-50 p-4 rounded-2xl border-2 border-red-500 shadow-md space-y-3 relative' 
-                    : isSoldOut 
-                        ? 'bg-gray-50/80 p-4 rounded-2xl border border-gray-300 opacity-60 space-y-3 relative' 
-                        : 'bg-gray-50/80 p-4 rounded-2xl border border-gray-200 space-y-3 relative';
-
-                let reserveBadge = (item.available_day && item.available_day !== 'today') 
-                    ? `<span class="bg-indigo-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md">📅 ${item.available_day} 예약</span>` : '';
-
-                userListEl.innerHTML += `
-                    <div class="${boxClass}">
-                        ${imgHtmlContainer}
-                        <div class="flex justify-between items-start gap-3">
-                            <div class="space-y-1 min-w-0 flex-1">
-                                <div class="flex items-center gap-1.5 flex-wrap">
-                                    ${eventBadge}
-                                    ${reserveBadge}
-                                    <h3 class="text-base font-black text-gray-800 leading-snug cursor-pointer" onclick="openDetailModal(${originalIndex})">${item.name}</h3>
-                                    ${badge}
-                                </div>
-                                ${priceDisplayHtml}
-                                ${stockDisplayHtml}
-                                <p class="text-xs text-gray-500 line-clamp-1 cursor-pointer" onclick="openDetailModal(${originalIndex})">${item.description || "상세 설명 보기 >"}</p>
-                            </div>
-                            <div class="flex flex-col items-end gap-2 shrink-0">
-                                <button onclick="openDetailModal(${originalIndex})" class="px-2.5 py-1 bg-white border border-gray-200 text-gray-600 font-bold rounded-xl text-xs shadow-2xs hover:bg-gray-100 active:scale-95 transition">🔍 상세사진</button>
-                                <div class="flex items-center space-x-1 border-2 ${isEvent ? 'border-red-400 bg-white' : isSoldOut ? 'border-gray-200 bg-gray-100' : 'border-orange-300 bg-white'} rounded-xl p-1 shadow-2xs">
-                                    <button onclick="adjustOrderFormQty(${item.id}, '${item.name}', ${activePrice}, '${item.available_day || 'today'}', -1)" ${isSoldOut ? 'disabled' : ''} class="w-7 h-7 bg-orange-50 border border-orange-200 rounded-lg text-sm font-black text-orange-900 active:scale-90 transition disabled:opacity-40">-</button>
-                                    <span id="orderQty-${item.id}" class="w-6 text-center font-black text-sm text-gray-800">${currentQty}</span>
-                                    <button onclick="adjustOrderFormQty(${item.id}, '${item.name}', ${activePrice}, '${item.available_day || 'today'}', 1)" ${isSoldOut ? 'disabled' : ''} class="w-7 h-7 ${isEvent ? 'bg-red-600 border-red-700' : 'bg-orange-500 border-orange-600'} rounded-lg text-sm font-black text-white active:scale-90 transition disabled:bg-gray-300 disabled:cursor-not-allowed">+</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>`;
-            });
-
-            // 사장님 모드 과일 목록 렌더링
-            fruitItems.forEach((item) => {
-                let safeStock = item.stock < 0 ? 0 : item.stock;
-                let isHidden = checkIsHidden(item);
-
-                let hideBtnText = item.hide_stock ? "재고 숨김 🙈" : "재고 노출 👁️";
-                let hideBtnClass = item.hide_stock ? "bg-gray-600 text-white font-bold text-xs px-2.5 py-1.5 rounded-xl active:scale-95 transition" : "bg-orange-500 text-white font-bold text-xs px-2.5 py-1.5 rounded-xl active:scale-95 transition";
-                
-                let visibleBtnText = isHidden ? "🙈 상품 숨김중" : "👁️ 상품 노출중";
-                let visibleBtnClass = isHidden ? "bg-purple-600 text-white font-bold text-xs px-2.5 py-1.5 rounded-xl active:scale-95 transition shadow-xs" : "bg-slate-200 text-slate-700 font-bold text-xs px-2.5 py-1.5 rounded-xl hover:bg-slate-300 active:scale-95 transition";
-
-                let eventBtnText = item.is_event ? "🏷️ 이벤트 해제" : "🎉 이벤트 하기";
-                let eventBtnClass = item.is_event ? "bg-red-600 text-white font-bold text-xs px-2.5 py-1.5 rounded-xl active:scale-95 transition shadow-xs" : "bg-rose-100 text-rose-700 border border-rose-300 font-bold text-xs px-2.5 py-1.5 rounded-xl hover:bg-rose-200 active:scale-95 transition";
-
-                let dayText = (item.available_day && item.available_day !== 'today') ? `📅 ${item.available_day} 예약` : '🍊 당일 즉시판매';
-                let initialStockDisplay = (item.max_stock && item.max_stock > 0) ? ` / ${item.max_stock}` : '';
-
-                adminListEl.innerHTML += `
-                    <div class="bg-gray-50 p-4 rounded-2xl border ${isHidden ? 'border-purple-300 bg-purple-50/30' : item.is_event ? 'border-red-400 bg-red-50/40 shadow-xs' : 'border-gray-200'} flex flex-col justify-between space-y-3">
-                        <div class="flex justify-between items-start w-full gap-2 border-b border-gray-200/60 pb-2">
-                            <div class="min-w-0 flex-1 space-y-1">
-                                <div class="flex items-center gap-1.5 flex-wrap">
-                                    <span class="bg-gray-800 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">${dayText}</span>
-                                    ${item.is_event ? '<span class="bg-red-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded animate-pulse">이벤트 중</span>' : ''}
-                                    ${isHidden ? '<span class="bg-purple-700 text-white text-[10px] font-black px-1.5 py-0.5 rounded">숨김 상품</span>' : ''}
-                                </div>
-                                <h4 class="font-black text-gray-800 text-sm sm:text-base leading-snug">${item.name}</h4>
-                                <div class="flex items-center gap-1.5">
-                                    <span class="text-xs font-bold text-gray-600">정상가: ${Number(item.price).toLocaleString()}원</span>
-                                    ${item.is_event && item.event_price ? `<span class="text-xs font-black text-red-600">(특가: ${Number(item.event_price).toLocaleString()}원)</span>` : ''}
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-1 shrink-0">
-                                <button onclick="openEditFruitModal(${item.id})" class="bg-blue-600 text-white font-bold text-xs px-2.5 py-1.5 rounded-xl hover:bg-blue-700 active:scale-95 transition shadow-2xs">✏️ 수정</button>
-                                <button onclick="deleteFruitItem(${item.id}, this)" class="bg-red-50 text-red-600 font-bold text-xs px-2 py-1.5 rounded-xl hover:bg-red-100 active:scale-95 transition">삭제</button>
-                            </div>
-                        </div>
-
-                        <div class="flex items-center justify-between text-xs gap-1 flex-wrap pt-1">
-                            <div class="flex items-center gap-1 flex-wrap">
-                                <button onclick="toggleItemVisibility(${item.id}, ${!isHidden}, this)" class="${visibleBtnClass}">${visibleBtnText}</button>
-                                <button onclick="handleEventToggle(${item.id}, ${!item.is_event}, ${item.price}, this)" class="${eventBtnClass}">${eventBtnText}</button>
-                                <button onclick="toggleItemHideStock(${item.id}, ${!item.hide_stock}, this)" class="${hideBtnClass}">${hideBtnText}</button>
-                            </div>
-                            <div class="flex items-center gap-1 ml-auto shrink-0">
-                                <span class="font-bold text-gray-500" title="현재재고 / 초기입력재고">재고:</span>
-                                <input type="number" id="stock-input-${item.id}" value="${safeStock}" class="w-12 text-center font-black bg-white text-gray-700 border border-gray-300 rounded-lg px-1 py-1 focus:outline-none focus:border-orange-500">
-                                <span class="font-extrabold text-gray-400 text-xs">${initialStockDisplay}개</span>
-                                <button onclick="updateStock(${item.id}, this)" class="bg-gray-800 text-white font-bold px-2 py-1 rounded-lg active:scale-95 transition ml-0.5">변경</button>
-                            </div>
-                        </div>
-                    </div>`;
-            });
-            updateStickyCheckoutBar();
-        }
-
-        async function toggleItemVisibility(fruitId, newHiddenState, btnEl) {
-            if (btnEl) btnEl.disabled = true;
-
-            try {
-                // 다른 상품 정보까지 덮어쓰지 않고 숨김 상태만 변경한다.
-                const res = await fetch(`${API_URL}/api/admin/fruits/${fruitId}?password=${PASS}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ is_hidden: Boolean(newHiddenState) })
-                });
-
-                if (!res.ok) {
-                    const errorData = await res.json().catch(() => ({}));
-                    throw new Error(errorData.detail || '숨김 설정 변경 실패');
-                }
-
-                alert(newHiddenState ? '🙈 상품을 손님 화면에서 숨겼습니다.' : '👁️ 상품을 손님 화면에 다시 노출했습니다.');
-                await loadStoreData();
-            } catch (e) {
-                console.error('상품 숨김 설정 오류:', e);
-                alert(e.message || '상품 숨김 설정 변경에 실패했습니다.');
-            } finally {
-                if (btnEl) btnEl.disabled = false;
-            }
-        }
-
-        function openEditFruitModal(fruitId) {
-            const item = fruitItems.find(f => f.id === fruitId);
-            if (!item) return;
-
-            document.getElementById('editFruitId').value = item.id;
-            document.getElementById('editFruitName').value = item.name || '';
-            document.getElementById('editFruitPrice').value = item.price || 0;
-            document.getElementById('editFruitEventPrice').value = item.event_price || 0;
-            document.getElementById('editFruitStock').value = item.stock < 0 ? 0 : (item.stock || 0);
-            document.getElementById('editFruitAvailableDay').value = item.available_day || 'today';
-            document.getElementById('editFruitDesc').value = item.description || '';
-            document.getElementById('editFruitImgUrl').value = item.img || '';
-            document.getElementById('editFileFruitImg').value = '';
-
-            document.getElementById('editFruitModal').classList.remove('hidden');
-        }
-
-        function closeEditFruitModal() {
-            document.getElementById('editFruitModal').classList.add('hidden');
-            const fileInput = document.getElementById('editFileFruitImg');
-            if (fileInput) fileInput.value = '';
-        }
-
-        async function saveFruitEdit() {
-            const btn = document.getElementById('btnSaveFruitEdit');
-            const fruitId = document.getElementById('editFruitId').value;
-            const name = document.getElementById('editFruitName').value.trim();
-            const price = parseInt(document.getElementById('editFruitPrice').value, 10);
-            const eventPrice = parseInt(document.getElementById('editFruitEventPrice').value, 10) || 0;
-            const stock = parseInt(document.getElementById('editFruitStock').value, 10);
-            const availableDay = document.getElementById('editFruitAvailableDay').value;
-            const desc = document.getElementById('editFruitDesc').value;
-            const fileInput = document.getElementById('editFileFruitImg');
-            let img = document.getElementById('editFruitImgUrl').value || '';
-
-            if (!fruitId || !name || Number.isNaN(price) || Number.isNaN(stock)) {
-                alert('정보를 정확히 입력해주세요!');
-                return;
-            }
-
-            btn.disabled = true;
-            btn.innerText = '저장 중...';
-
-            try {
-                // 파일 선택 후 바로 업로드하지 않고, 최종 저장 시 업로드한다.
-                // 업로드 URL이 hidden input에 들어가지 않는 경우에도 정상 처리된다.
-                const selectedFile = fileInput?.files?.[0];
-                if (selectedFile) {
-                    showToast('새 썸네일 업로드 중...');
-                    img = await uploadToCloudinary(selectedFile);
-                    document.getElementById('editFruitImgUrl').value = img;
-                }
-
-                const res = await fetch(`${API_URL}/api/admin/fruits/${fruitId}?password=${PASS}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        name,
-                        price,
-                        event_price: eventPrice,
-                        stock: stock < 0 ? 0 : stock,
-                        available_day: availableDay,
-                        description: desc,
-                        img
-                    })
-                });
-
-                if (!res.ok) {
-                    const errorData = await res.json().catch(() => ({}));
-                    throw new Error(errorData.detail || '수정 저장 실패');
-                }
-
-                alert('과일 품목 정보가 성공적으로 수정되었습니다! 🎉');
-                closeEditFruitModal();
-                await loadStoreData();
-            } catch (e) {
-                console.error('과일 수정 오류:', e);
-                alert(e.message || '서버 통신 오류가 발생했습니다.');
-            } finally {
-                btn.disabled = false;
-                btn.innerText = '수정 완료 저장';
-            }
-        }
-
-        async function handleEventToggle(fruitId, enableEvent, normalPrice, btnEl) {
-            let eventPrice = 0;
-            if (enableEvent) {
-                let input = prompt(`🎉 [${fruitItems.find(f=>f.id===fruitId)?.name}] 이벤트 특가를 입력하세요.\n(현재 정상가: ${Number(normalPrice).toLocaleString()}원)`, normalPrice);
-                if (input === null) return;
-                eventPrice = parseInt(input);
-                if (isNaN(eventPrice) || eventPrice <= 0) {
-                    alert("⚠️ 올바른 숫자를 입력해 주세요!");
-                    return;
-                }
-            }
-
-            if(btnEl) btnEl.disabled = true;
-            try {
-                const res = await fetch(`${API_URL}/api/admin/fruits/${fruitId}?password=${PASS}`, {
-                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ is_event: enableEvent, event_price: eventPrice })
-                });
-                if(res.ok) { alert(enableEvent ? '🎉 특가 이벤트가 시작되었습니다!' : '🏷️ 이벤트가 해제되었습니다.'); await loadStoreData(); }
-            } catch(e) { alert('서버 통신 실패!'); }
-            finally { if(btnEl) btnEl.disabled = false; }
-        }
-
-        function adjustOrderFormQty(fruitId, fruitName, price, availableDay, change) {
-            const fruitObj = fruitItems.find(f => f.id === fruitId);
-            const currentStock = fruitObj ? (fruitObj.stock < 0 ? 0 : fruitObj.stock) : 0;
-
-            if (currentStock <= 0 && change > 0) {
-                alert(`⚠️ [${fruitName}] 상품은 현재 완판(SOLD OUT)되었습니다.`);
-                return;
-            }
-
-            if (!selectedItems[fruitId]) selectedItems[fruitId] = { fruit_id: fruitId, fruit_name: fruitName, price: price, available_day: availableDay || 'today', qty: 0 };
+            # 첫 번째 주문서에만 배달비 부과 (배달 중복 청구 방지)
+            delivery_fee = (2500 if order.order_type == "배달" else 0) if is_first_order else 0
+            is_first_order = False
             
-            let newQty = selectedItems[fruitId].qty + change;
-            
-            if (newQty > currentStock) {
-                alert(`⚠️ [${fruitName}] 상품의 남은 재고는 총 ${currentStock}개입니다.`);
-                return;
+            final_total_price = total_fruit_price + delivery_fee
+
+            # 수령 일자 명시 태그 추가
+            day_tag = " [오늘 수령]" if day_key == "today" else f" [{day_key} 수령]"
+            fruit_summary_list = [f"{item.fruit_name} x{item.qty}개" for item in group_items]
+            fruit_summary_str = ", ".join(fruit_summary_list) + day_tag
+
+            new_order = {
+                "order_type": order.order_type,
+                "kakao_nickname": order.kakao_nickname,
+                "name": order.name,
+                "address": order.address,
+                "door_password": order.door_password,
+                "fruit": fruit_summary_str,
+                "total_price": final_total_price,
+                "delivery_fee": delivery_fee,
+                "method": order.method,
+                "status": "입금대기" if order.method == "계좌이체" else "접수완료",
+                "time_str": get_kst_time_str()
             }
 
-            if (newQty < 0) newQty = 0;
-            selectedItems[fruitId].qty = newQty;
-            const qtyEl = document.getElementById(`orderQty-${fruitId}`);
-            if (qtyEl) qtyEl.innerText = newQty;
-            updateStickyCheckoutBar();
-        }
-
-        function updateStickyCheckoutBar() {
-            let totalQty = 0; let totalFruitPrice = 0;
-            let summaryTextArr = [];
-            let uniqueDaysCount = new Set(Object.values(selectedItems).filter(i => i.qty > 0).map(i => i.available_day || 'today')).size;
-
-            Object.values(selectedItems).forEach(item => { 
-                if(item.qty > 0) {
-                    totalQty += item.qty; 
-                    totalFruitPrice += (item.price * item.qty); 
-                    summaryTextArr.push(`${item.fruit_name} ${item.qty}개`);
-                }
-            });
-
-            let deliveryFee = (selectedOrderType === '배달' && totalQty > 0) ? (2500 * uniqueDaysCount) : 0;
-            let finalPrice = totalFruitPrice + deliveryFee;
-
-            const summaryEl = document.getElementById('stickySelectedSummary');
-            if (summaryTextArr.length > 0) {
-                summaryEl.innerText = `🛒 ${summaryTextArr.join(', ')}`;
-                summaryEl.className = "text-xs text-orange-300 font-extrabold truncate";
-            } else {
-                summaryEl.innerText = "과일을 선택해 주세요 🍎";
-                summaryEl.className = "text-xs text-gray-400 font-bold truncate";
-            }
-
-            document.getElementById('stickyTotalPrice').innerText = finalPrice.toLocaleString() + "원";
-            
-            const btnSticky = document.getElementById('btnStickyCheckout');
-            const btnText = document.getElementById('stickyBtnText');
-            const btnArrow = document.getElementById('stickyBtnArrow');
-
-            if (totalQty > 0) {
-                btnSticky.className = "bg-orange-500 hover:bg-orange-600 text-white px-4 py-3 rounded-2xl font-black text-sm shadow-lg transition transform active:scale-95 flex items-center gap-1 shrink-0";
-                btnText.innerText = "주문서 작성하기"; btnArrow.classList.remove('hidden');
-            } else {
-                btnSticky.className = "bg-gray-700 text-gray-300 px-4 py-3 rounded-2xl font-black text-sm shadow-lg transition transform active:scale-95 flex items-center gap-1 shrink-0";
-                btnText.innerText = "주문하기"; btnArrow.classList.add('hidden');
-            }
-        }
-
-        function scrollToOrderForm() {
-            const formBox = document.getElementById('buyerKakao');
-            if (formBox) { formBox.scrollIntoView({ behavior: 'smooth', block: 'center' }); formBox.focus(); }
-        }
-
-        function scrollToMyOrdersDash() {
-            const dashBox = document.getElementById('mainMyOrdersDash');
-            if (dashBox) { dashBox.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
-        }
-
-        function openThumbModal(imgUrl) { document.getElementById('thumbModalImg').src = imgUrl; document.getElementById('thumbModal').classList.remove('hidden'); }
-        function closeThumbModal() { document.getElementById('thumbModal').classList.add('hidden'); }
-
-        function openDetailModal(index) {
-            const item = fruitItems[index];
-            const isEvent = item.is_event && item.event_price > 0;
-            const priceText = isEvent 
-                ? `특가 ${Number(item.event_price).toLocaleString()}원 (정상가 ${Number(item.price).toLocaleString()}원)`
-                : `${Number(item.price).toLocaleString()}원`;
-
-            let safeStock = item.stock < 0 ? 0 : item.stock;
-
-            document.getElementById('detailFruitName').innerText = item.name;
-            document.getElementById('detailPrice').innerText = priceText;
-            document.getElementById('detailStock').innerText = item.hide_stock ? "구매 가능" : `남은 재고: ${safeStock}개`;
-            document.getElementById('detailDescription').innerText = item.description || "등록된 상세 설명이 없습니다.";
-
-            const imgsContainer = document.getElementById('detailImgsContainer'); imgsContainer.innerHTML = '';
-            let detailImgs = item.detail_imgs || [];
-            if(typeof detailImgs === 'string') { try { detailImgs = JSON.parse(detailImgs); } catch(e) { detailImgs = [item.detail_imgs]; } }
-
-            if(Array.isArray(detailImgs) && detailImgs.length > 0) {
-                detailImgs.forEach(imgUrl => {
-                    if(imgUrl) imgsContainer.innerHTML += `<div class="w-full bg-gray-100 rounded-2xl overflow-hidden border border-gray-200 p-1"><img src="${imgUrl}" class="w-full h-auto object-contain rounded-xl"></div>`;
-                });
-            }
-            document.getElementById('detailModal').classList.remove('hidden');
-        }
-        function closeDetailModal() { document.getElementById('detailModal').classList.add('hidden'); }
-
-        function selectOrderType(type) {
-            if (type === '공구') {
-                alert("📢 [공구 장소 수령 준비중]\n\n아직 공식 준비중인 서비스입니다! 빠른 런칭 후 찾아뵙겠습니다. 😊");
-                return;
-            }
-
-            if (type === '배달' && !isDeliveryAvailable) { alert("⏰ 금일 배달 주문이 마감되었습니다."); return; }
-            
-            if (type === '배달') {
-                alert("⚠️ [배달 안내]\n\n차량 진입 문제로 인해 주택 및 빌라는 배달이 불가합니다.\n양해 부탁드립니다.");
-            }
-
-            selectedOrderType = type;
-            const btnPickup = document.getElementById('btnTypePickup');
-            const btnDelivery = document.getElementById('btnTypeDelivery');
-            const btnGroup = document.getElementById('btnTypeGroup');
-            const addrBox = document.getElementById('addressInputBox');
-            const groupSpotBox = document.getElementById('groupSpotInputBox');
-            const payCardLabel = document.getElementById('labelPayCard');
-
-            if(type === '픽업') {
-                btnPickup.className = "h-16 p-1.5 border-2 border-orange-500 bg-orange-50 text-orange-900 rounded-2xl font-black text-xs flex flex-col items-center justify-center gap-0.5 active:scale-95 transition";
-                btnDelivery.className = "h-16 p-1.5 border-2 border-gray-200 bg-white text-gray-500 rounded-2xl font-black text-xs flex flex-col items-center justify-center gap-0.5 active:scale-95 transition";
-                btnGroup.className = "h-16 p-1.5 border-2 border-gray-200 bg-white text-gray-500 rounded-2xl font-black text-xs flex flex-col items-center justify-center gap-0.5 active:scale-95 transition relative overflow-hidden";
-                addrBox.classList.add('hidden'); groupSpotBox.classList.add('hidden'); payCardLabel.classList.remove('hidden');
-            } else if(type === '배달') {
-                btnDelivery.className = "h-16 p-1.5 border-2 border-blue-500 bg-blue-50 text-blue-900 rounded-2xl font-black text-xs flex flex-col items-center justify-center gap-0.5 active:scale-95 transition";
-                btnPickup.className = "h-16 p-1.5 border-2 border-gray-200 bg-white text-gray-500 rounded-2xl font-black text-xs flex flex-col items-center justify-center gap-0.5 active:scale-95 transition";
-                btnGroup.className = "h-16 p-1.5 border-2 border-gray-200 bg-white text-gray-500 rounded-2xl font-black text-xs flex flex-col items-center justify-center gap-0.5 active:scale-95 transition relative overflow-hidden";
-                addrBox.classList.remove('hidden'); groupSpotBox.classList.add('hidden');
-                document.querySelector('input[name="payMethod"][value="계좌이체"]').checked = true;
-                togglePayMethodView('계좌이체'); payCardLabel.classList.add('hidden');
-            }
-            updateStickyCheckoutBar();
-        }
-
-        function togglePayMethodView(method) {
-            const bankLabel = document.getElementById('labelPayBank');
-            const cardLabel = document.getElementById('labelPayCard');
-            if(method === '계좌이체') {
-                bankLabel.className = "flex items-center justify-center gap-1.5 p-3 bg-white border-2 border-orange-500 rounded-xl cursor-pointer font-bold text-xs text-orange-900 active:scale-95 transition";
-                cardLabel.className = "flex items-center justify-center gap-1.5 p-3 bg-white border-2 border-gray-200 rounded-xl cursor-pointer font-bold text-xs text-gray-500 active:scale-95 transition";
-                document.getElementById('modalAccountBox').classList.remove('hidden');
-                document.getElementById('modalCardBox').classList.add('hidden');
-            } else {
-                bankLabel.className = "flex items-center justify-center gap-1.5 p-3 bg-white border-2 border-gray-200 rounded-xl cursor-pointer font-bold text-xs text-gray-500 active:scale-95 transition";
-                cardLabel.className = "flex items-center justify-center gap-1.5 p-3 bg-white border-2 border-orange-500 rounded-xl cursor-pointer font-bold text-xs text-orange-900 active:scale-95 transition";
-                document.getElementById('modalAccountBox').classList.add('hidden');
-                document.getElementById('modalCardBox').classList.remove('hidden');
-            }
-        }
-
-        function checkMultiDatePopup() {
-            let itemsToOrder = Object.values(selectedItems).filter(item => item.qty > 0);
-            
-            if(itemsToOrder.length === 0) { alert('주문하실 과일의 수량을 1개 이상 선택해 주세요!'); window.scrollTo({ top: 300, behavior: 'smooth' }); return; }
-            
-            for (let item of itemsToOrder) {
-                const targetFruit = fruitItems.find(f => f.id === item.fruit_id);
-                if (targetFruit) {
-                    let safeStock = targetFruit.stock < 0 ? 0 : targetFruit.stock;
-                    if (safeStock <= 0) {
-                        alert(`⚠️ [${item.fruit_name}] 상품은 완판(SOLD OUT)되어 주문할 수 없습니다.`);
-                        return;
-                    }
-                    if (item.qty > safeStock) {
-                        alert(`⚠️ [${item.fruit_name}] 과일의 남은 재고(${safeStock}개)보다 많은 수량을 주문할 수 없습니다!`);
-                        return;
-                    }
-                }
-            }
-
-            const kakao = document.getElementById('buyerKakao').value;
-            const name = document.getElementById('buyerName').value;
-            const address = document.getElementById('buyerAddress').value;
-
-            if(!kakao || !name) { alert('카톡 닉네임과 성함을 꼭 입력해주세요!'); return; }
-            if(selectedOrderType === '배달' && !address) { alert('배달 상세 주소를 적어주세요!'); return; }
-
-            if (selectedOrderType === '배달') {
-                const cutoffSetting = storeMeta.delivery_cutoff || '16:00';
-                if (cutoffSetting !== 'none') {
-                    const now = new Date();
-                    const currentMinutes = now.getHours() * 60 + now.getMinutes();
-                    
-                    const [cutoffHour, cutoffMin] = cutoffSetting.split(':').map(Number);
-                    const deadlineMinutes = cutoffHour * 60 + (cutoffMin || 0);
-
-                    const hasTodayItems = itemsToOrder.some(i => (i.available_day || 'today') === 'today');
-
-                    if (hasTodayItems && currentMinutes >= deadlineMinutes) {
-                        alert(`⏰ 금일 수령 상품의 배달 마감 시간(${cutoffSetting})이 지나 당일 배달 주문이 불가합니다.\n(직접 방문 수령만 가능하며, 내일 이후 예약 상품은 정상 배달 가능합니다.)`);
-                        return;
-                    }
-                }
-            }
-
-            const uniqueDays = [...new Set(itemsToOrder.map(item => item.available_day || 'today'))];
-
-            if (uniqueDays.length > 1) {
-                const modal = document.getElementById('multiDateModal');
-                const titleEl = document.getElementById('multiDateTitle');
-                const subTextEl = document.getElementById('multiDateSubText');
-                const detailsEl = document.getElementById('multiDateDetails');
-                const iconEl = document.getElementById('multiDateIcon');
-
-                detailsEl.innerHTML = '';
-
-                if (selectedOrderType === '배달') {
-                    iconEl.innerText = '🚚';
-                    iconEl.className = 'w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-3xl mx-auto font-black';
-                    titleEl.innerText = '배달비 각각 발생 안내';
-                    subTextEl.innerText = '수령일자가 다른 물품을 동시에 배달 주문하셨습니다.';
-
-                    let itemsGrouped = {};
-                    itemsToOrder.forEach(item => {
-                        let dayKey = item.available_day || 'today';
-                        let dayLabel = dayKey === 'today' ? '오늘' : dayKey;
-                        if (!itemsGrouped[dayLabel]) itemsGrouped[dayLabel] = [];
-                        itemsGrouped[dayLabel].push(`${item.fruit_name} ${item.qty}개`);
-                    });
-
-                    Object.entries(itemsGrouped).forEach(([day, items]) => {
-                        detailsEl.innerHTML += `<div class="pb-1"><span class="font-bold text-blue-600">[${day} 배달]</span> ${items.join(', ')} (배달비 2,500원)</div>`;
-                    });
-
-                    detailsEl.innerHTML += `<p class="pt-2 border-t text-red-600 font-extrabold text-[11px]">⚠️ 수령일자별 개별 배달로 진행되어, 배달비가 총 ${(uniqueDays.length * 2500).toLocaleString()}원(${uniqueDays.length}회) 발생합니다.</p>`;
-                } else {
-                    iconEl.innerText = '🏢';
-                    iconEl.className = 'w-16 h-16 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-3xl mx-auto font-black';
-                    titleEl.innerText = '품목별 수령일자 안내';
-                    subTextEl.innerText = '수령일자가 다른 물품을 동시에 픽업 예약하셨습니다.';
-
-                    itemsToOrder.forEach(item => {
-                        let dayKey = item.available_day || 'today';
-                        let dayLabel = dayKey === 'today' ? '오늘' : dayKey;
-                        detailsEl.innerHTML += `<div>• <strong>[${item.fruit_name}]</strong> 수령일: <span class="text-orange-600 font-bold">'${dayLabel}'</span>입니다.</div>`;
-                    });
-
-                    detailsEl.innerHTML += `<p class="pt-2 border-t text-gray-500 font-bold text-[11px]">지정한 수령 일자에 맞춰 매장에 방문해 주시기 바랍니다.</p>`;
-                }
-
-                modal.classList.remove('hidden');
-            } else {
-                submitOrder();
-            }
-        }
-
-        function closeMultiDateModal() {
-            document.getElementById('multiDateModal').classList.add('hidden');
-        }
-
-        function confirmAndSubmitOrder() {
-            closeMultiDateModal();
-            submitOrder();
-        }
-
-        async function submitOrder() {
-            if(isSubmitting) return;
-            const submitBtn = document.getElementById('btnSubmitOrder');
-            const kakao = document.getElementById('buyerKakao').value;
-            const name = document.getElementById('buyerName').value;
-            let address = document.getElementById('buyerAddress').value;
-            const doorPassword = document.getElementById('buyerDoorPassword').value;
-            const method = document.querySelector('input[name="payMethod"]:checked').value;
-
-            if (selectedOrderType === '공구') {
-                const spotSelect = document.getElementById('buyerGroupSpot');
-                address = `[공구스팟] ${spotSelect.value}`;
-            }
-
-            let itemsToOrder = Object.values(selectedItems).filter(item => item.qty > 0);
-
-            if(itemsToOrder.length === 0) { alert('주문하실 과일의 수량을 1개 이상 선택해 주세요!'); return; }
-            if(!kakao || !name) { alert('카톡 닉네임과 성함을 꼭 입력해주세요!'); return; }
-            if(selectedOrderType === '배달' && !address) { alert('배달 상세 주소를 적어주세요!'); return; }
-
-            for (let item of itemsToOrder) {
-                const targetFruit = fruitItems.find(f => f.id === item.fruit_id);
-                if (targetFruit) {
-                    let safeStock = targetFruit.stock < 0 ? 0 : targetFruit.stock;
-                    if (safeStock <= 0) {
-                        alert(`⚠️ [${item.fruit_name}] 과일이 방금 완판(SOLD OUT)되었습니다.`);
-                        loadStoreData();
-                        return;
-                    }
-                    if (item.qty > safeStock) {
-                        alert(`⚠️ [${item.fruit_name}] 과일의 현재 남아있는 재고는 ${safeStock}개입니다. 수량을 다시 조정해 주세요.`);
-                        loadStoreData();
-                        return;
-                    }
-                }
-            }
-
-            isSubmitting = true; submitBtn.disabled = true;
-            const originalBtnText = submitBtn.innerText; submitBtn.innerText = "⏳ 주문 접수 중입니다...";
-
-            try {
-                const res = await fetch(`${API_URL}/api/orders`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ order_type: selectedOrderType, kakao_nickname: kakao, name: name, address: address, door_password: doorPassword, items: itemsToOrder, method: method })
-                });
-                const resData = await res.json();
-                if(res.ok) {
-                    const uniqueDaysCount = new Set(itemsToOrder.map(i => i.available_day || 'today')).size;
-                    let totalFruitPrice = itemsToOrder.reduce((sum, i) => sum + (i.price * i.qty), 0);
-                    let deliveryFeeTotal = (selectedOrderType === '배달') ? (2500 * uniqueDaysCount) : 0;
-                    let finalAmount = totalFruitPrice + deliveryFeeTotal;
-
-                    if(method === '계좌이체') {
-                        document.getElementById('bankModalAccount').innerText = storeMeta.account || '등록된 계좌 없음';
-                        document.getElementById('bankModalOwner').innerText = storeMeta.owner ? `(예금주: ${storeMeta.owner})` : '';
-                        document.getElementById('bankModalAmount').innerText = finalAmount.toLocaleString() + "원";
-                        document.getElementById('bankModal').classList.remove('hidden');
-                    } else { alert(selectedOrderType === '배달' ? '🚚 배달 주문 접수 완료!' : '🎉 예약 완료!'); }
-
-                    selectedItems = {}; 
-                    document.getElementById('buyerKakao').value = ''; document.getElementById('buyerName').value = '';
-                    document.getElementById('buyerAddress').value = ''; document.getElementById('buyerDoorPassword').value = '';
-                    loadStoreData();
-                } else { alert(resData.detail || '주문 실패!'); }
-            } catch(e) { alert('예약 서버 통신 실패!'); }
-            finally { isSubmitting = false; submitBtn.disabled = false; submitBtn.innerText = originalBtnText; }
-        }
-
-        function closeBankModal() { 
-            document.getElementById('bankModal').classList.add('hidden'); 
-            
-            if (selectedOrderType === '배달') {
-                alert("🎉 주문이 정상적으로 접수되었습니다!\n\n※ 배달하신분들 88조6520 주차등록 부탁드립니다.");
-            } else {
-                alert("🎉 주문이 정상적으로 접수되었습니다!");
-            }
-        }
-
-        function extractNumbers(str) {
-            if (!str) return '';
-            const match = str.match(/\d+/g);
-            return match ? match.join('') : '';
-        }
-
-        async function fetchMyOrdersFromDash() {
-            const rawKakao = document.getElementById('dashSearchKakao').value.trim();
-            const rawName = document.getElementById('dashSearchName').value.trim();
-            const btn = document.getElementById('btnDashFetchOrders');
-            const resultBox = document.getElementById('dashMyOrdersResult');
-
-            if(!rawKakao || !rawName) { alert('성함과 카톡 닉네임을 모두 입력해 주세요!'); return; }
-            btn.disabled = true; btn.innerText = "🔍 주문 내역 조회 중...";
-
-            try {
-                if (!globalOrders || globalOrders.length === 0) {
-                    await loadStoreData();
-                }
-
-                renderDashMyOrders(globalOrders || [], rawKakao, rawName); 
-                resultBox.classList.remove('hidden');
-
-            } catch(e) { 
-                alert('주문 조회 중 오류가 발생했습니다!'); 
-            }
-            finally { 
-                btn.disabled = false; 
-                btn.innerText = "내 주문 확인하기 🍊"; 
-            }
-        }
-
-        function renderDashMyOrders(orders, searchKakao, searchName) {
-            const box = document.getElementById('dashMyOrdersResult'); box.innerHTML = '';
-
-            const searchNumber = extractNumbers(searchKakao);            
-            const cleanSearchName = searchName.replace(/\s+/g, '').toLowerCase();
-
-            const matchedOrders = orders.filter(o => {
-                if (!o.name || !o.kakao_nickname) return false;
-
-                const cleanOrderName = o.name.replace(/\s+/g, '').toLowerCase();
-                const orderNumber = extractNumbers(o.kakao_nickname);
-
-                if (cleanOrderName !== cleanSearchName) return false;
-
-                if (searchNumber && orderNumber) {
-                    return searchNumber === orderNumber;
-                }
-
-                const cleanSearchKakao = searchKakao.replace(/\s+/g, '').toLowerCase();
-                const cleanOrderKakao = o.kakao_nickname.replace(/\s+/g, '').toLowerCase();
-                return cleanSearchKakao === cleanOrderKakao;
-            });
-
-            if(matchedOrders.length === 0) { 
-                box.innerHTML = `<p class="text-center text-gray-400 text-xs py-4 font-bold bg-gray-900/50 rounded-2xl border border-gray-700">일치하는 본인 주문 내역이 없습니다.</p>`; 
-                return; 
-            }
-
-            matchedOrders.forEach(o => {
-                let canCancel = o.status === '입금대기' || o.status === '접수완료';
-                let cancelBtnHtml = canCancel 
-                    ? `<button onclick="cancelMyOrder(${o.id}, '${o.kakao_nickname}', '${o.name}', this)" class="bg-red-500/20 text-red-400 font-bold text-xs px-2.5 py-1.5 rounded-xl hover:bg-red-500/30 transition">주문 취소</button>`
-                    : `<span class="text-xs text-emerald-400 font-bold">✅ 완료됨</span>`;
-
-                let displayStatusText = o.status;
-                if (o.status === '판매완료') {
-                    displayStatusText = o.order_type === '배달' ? '🚚 배달 완료' : '🏢 수령 완료';
-                }
-
-                box.innerHTML += `
-                    <div class="bg-gray-900/90 p-4 rounded-2xl border border-gray-700 space-y-2 text-left">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <span class="bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-md">${o.order_type || '픽업'}</span>
-                                <h4 class="font-black text-white text-base mt-1">${o.fruit}</h4>
-                            </div>
-                            <span class="bg-blue-500/30 text-blue-300 text-xs font-black px-2 py-0.5 rounded-md border border-blue-400/30">${displayStatusText}</span>
-                        </div>
-                        <p class="text-xs text-gray-300 font-bold">결제금액: ${Number(o.total_price).toLocaleString()}원 (${o.method})</p>
-                        ${o.address ? `<p class="text-xs text-blue-300 font-bold">수령장소/주소: ${o.address}</p>` : ''}
-                        ${o.door_password ? `<p class="text-xs text-red-400 font-bold">공동현관 비번: ${o.door_password}</p>` : ''}
-                        <div class="flex justify-between items-center pt-2 border-t border-gray-800">
-                            <span class="text-[10px] text-gray-400">접수일시: ${o.time_str || ''}</span>
-                            ${cancelBtnHtml}
-                        </div>
-                    </div>`;
-            });
-        }
-
-        async function cancelMyOrder(orderId, kakao, name, btnEl) {
-            if(confirm('정말 이 주문을 취소하시겠습니까?')) {
-                if(btnEl) btnEl.disabled = true;
-                try {
-                    const res = await fetch(`${API_URL}/api/my-orders/${orderId}?kakao_nickname=${encodeURIComponent(kakao)}&name=${encodeURIComponent(name)}`, { method: 'DELETE' });
-                    if(res.ok) { alert('주문이 취소되었으며, 재고가 정상 복구되었습니다.'); fetchMyOrdersFromDash(); loadStoreData(); }
-                    else { const errData = await res.json(); alert(errData.detail || '취소할 수 없습니다.'); }
-                } catch(e) { alert('취소 통신 오류!'); }
-                finally { if(btnEl) btnEl.disabled = false; }
-            }
-        }
-
-        function openAdminAuthModal() {
-            if (currentView === 'admin') switchView('customer');
-            else { document.getElementById('adminPassword').value = ''; document.getElementById('authModal').classList.remove('hidden'); document.getElementById('adminPassword').focus(); }
-        }
-        function closeAdminAuthModal() { document.getElementById('authModal').classList.add('hidden'); }
+            res = supabase.table("orders").insert(new_order).execute()
+            if res.data:
+                created_orders.append(res.data[0])
+
+            # 재고 차감
+            for item in group_items:
+                f_res = supabase.table("fruit_items").select("stock").eq("id", item.fruit_id).execute()
+                if f_res.data:
+                    curr_stock = f_res.data[0]["stock"]
+                    new_stock = max(0, curr_stock - item.qty)
+                    supabase.table("fruit_items").update({"stock": new_stock}).eq("id", item.fruit_id).execute()
+
+        return {"message": "주문 접수 완료 (일자별 분할 생성)", "orders": created_orders}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"주문 처리 실패: {str(e)}")
+
+@app.get("/api/my-orders")
+def get_my_orders(kakao_nickname: str = Query(...), name: str = Query(...)):
+    try:
+        res = supabase.table("orders").select("*").eq("kakao_nickname", kakao_nickname).eq("name", name).order("id", desc=True).execute()
+        return {"orders": res.data or []}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/my-orders/{order_id}")
+def cancel_my_order(order_id: int, kakao_nickname: str = Query(...), name: str = Query(...)):
+    try:
+        o_res = supabase.table("orders").select("*").eq("id", order_id).execute()
+        if not o_res.data:
+            raise HTTPException(status_code=404, detail="주문을 찾을 수 없습니다.")
+        order = o_res.data[0]
         
-        function checkAdminPassword() {
-            if (document.getElementById('adminPassword').value === PASS) { closeAdminAuthModal(); switchView('admin'); }
-            else alert('비밀번호가 틀렸습니다!');
-        }
-
-        function switchView(view) {
-            currentView = view;
-            const container = document.getElementById('mainContainer');
-            const toggleBtn = document.getElementById('toggleBtn');
-            const stickyBar = document.getElementById('stickyCheckoutBar');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-
-            if (view === 'admin') {
-                document.getElementById('customerView').classList.add('hidden');
-                document.getElementById('adminView').classList.remove('hidden');
-                document.getElementById('adminView').classList.add('flex');
-                if (stickyBar) stickyBar.classList.add('hidden');
-                container.classList.replace('max-w-md', 'md:max-w-7xl');
-                toggleBtn.innerText = '📱 손님 화면 보기';
-                renderAdminOrders();
-            } else {
-                document.getElementById('customerView').classList.remove('hidden');
-                document.getElementById('adminView').classList.add('hidden');
-                if (stickyBar) stickyBar.classList.remove('hidden');
-                container.classList.replace('md:max-w-7xl', 'max-w-md');
-                toggleBtn.innerText = '👨‍🌾 사장님 모드';
-                loadStoreData();
-            }
-        }
-
-        async function toggleItemHideStock(fruitId, newHideState, btnEl) {
-            if(btnEl) btnEl.disabled = true;
-            try {
-                const res = await fetch(`${API_URL}/api/admin/fruits/${fruitId}?password=${PASS}`, {
-                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ hide_stock: newHideState })
-                });
-                if(res.ok) { alert(newHideState ? '🙈 재고를 숨깁니다.' : '👁️ 재고를 노출합니다.'); loadStoreData(); }
-            } catch(e) { alert('설정 변경 실패!'); }
-            finally { if(btnEl) btnEl.disabled = false; }
-        }
-
-        async function saveAdminSettings() {
-            const btn = document.getElementById('btnSaveAdminSettings'); btn.disabled = true; btn.innerText = "저장 중...";
-            const requestData = {
-                notice: document.getElementById('inputDailyNotice').value, account: document.getElementById('inputAccount').value,
-                owner: document.getElementById('inputAccountOwner').value, hours: document.getElementById('inputHours').value,
-                notice_img: document.getElementById('inputNoticeImgUrl').value,
-                delivery_cutoff: document.getElementById('inputDeliveryCutoff').value
-            };
-            try {
-                const res = await fetch(`${API_URL}/api/admin/settings?password=${PASS}`, {
-                    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestData)
-                });
-                if(res.ok) { alert('기본 정보 저장 완료! 🍊'); loadStoreData(); }
-            } catch(e) { alert('저장 실패!'); }
-            finally { btn.disabled = false; btn.innerText = "기본 정보 저장하기"; }
-        }
-
-        function toggleAddForm() { document.getElementById('itemAddForm').classList.toggle('hidden'); }
-
-        async function addNewFruitItem() {
-            const btn = document.getElementById('btnAddNewFruit');
-            const nameInput = document.getElementById('newFruitName'); const priceInput = document.getElementById('newFruitPrice');
-            const stockInput = document.getElementById('newFruitStock'); const descInput = document.getElementById('newFruitDesc');
-            const hideStockInput = document.getElementById('newFruitHideStock');
-            const availableDayInput = document.getElementById('newFruitAvailableDay');
-
-            const name = nameInput.value; const price = parseInt(priceInput.value); 
-            const stock = parseInt(stockInput.value);
-            const availableDay = availableDayInput.value;
-            const img = document.getElementById('newFruitImg').value; const desc = descInput.value; const hideStock = hideStockInput.checked;
-
-            if(!name || isNaN(price) || isNaN(stock)) { alert('정보를 올바르게 입력해주세요!'); return; }
-            btn.disabled = true; btn.innerText = "등록 중...";
-
-            try {
-                const res = await fetch(`${API_URL}/api/admin/fruits?password=${PASS}`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, price, stock: stock < 0 ? 0 : stock, available_day: availableDay, img, detail_imgs: uploadedDetailImgs, description: desc, hide_stock: hideStock })
-                });
-                if(res.ok) {
-                    alert('새 품목 추가 완료! 🍓');
-                    nameInput.value = ''; priceInput.value = ''; stockInput.value = ''; descInput.value = ''; hideStockInput.checked = false;
-                    document.getElementById('fileFruitImg').value = ''; document.getElementById('fileFruitDetailImgs').value = ''; document.getElementById('newFruitImg').value = '';
-                    uploadedDetailImgs = [];
-                    toggleAddForm(); loadStoreData();
-                } else {
-                    const errData = await res.json();
-                    alert(errData.detail || '품목 추가 실패!');
-                }
-            } catch(e) { alert('품목 추가 실패!'); }
-            finally { btn.disabled = false; btn.innerText = "품목 등록하기"; }
-        }
-
-        async function updateStock(id, btnEl) {
-            const val = parseInt(document.getElementById(`stock-input-${id}`).value);
-            if(isNaN(val)) return;
-            if(btnEl) btnEl.disabled = true;
-            try {
-                const res = await fetch(`${API_URL}/api/admin/fruits/${id}?password=${PASS}`, {
-                    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stock: val < 0 ? 0 : val })
-                });
-                if(res.ok) { alert('재고 수정 완료!'); loadStoreData(); }
-            } catch(e) { alert('재고 수정 실패!'); }
-            finally { if(btnEl) btnEl.disabled = false; }
-        }
-
-        async function deleteFruitItem(id, btnEl) {
-            if(confirm('정말 삭제하시겠습니까?')) {
-                if(btnEl) btnEl.disabled = true;
-                try {
-                    const res = await fetch(`${API_URL}/api/admin/fruits/${id}?password=${PASS}`, { method: 'DELETE' });
-                    if(res.ok) { alert('삭제 완료.'); loadStoreData(); }
-                } catch(e) { alert('삭제 실패!'); }
-                finally { if(btnEl) btnEl.disabled = false; }
-            }
-        }
-
-        function getStrictCustomerOrderCount(kakaoNickname) {
-            if (!kakaoNickname) return 0;
-            const pureTarget = kakaoNickname.trim().toLowerCase();
+        if order["kakao_nickname"] != kakao_nickname or order["name"] != name:
+            raise HTTPException(status_code=403, detail="본인 주문만 취소 가능합니다.")
             
-            const customerOrders = (globalOrders || []).filter(o => o.kakao_nickname && o.kakao_nickname.trim().toLowerCase() === pureTarget);
+        if order["status"] not in ["입금대기", "접수완료"]:
+            raise HTTPException(status_code=400, detail="이미 처리된 주문은 취소할 수 없습니다.")
+
+        restore_order_stock(order_id)
+        supabase.table("orders").delete().eq("id", order_id).execute()
+        return {"message": "주문 취소 및 재고 복구 완료"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/admin/orders")
+def get_admin_orders(password: str = Query(...)):
+    if password != ADMIN_PASSWORD:
+        raise HTTPException(status_code=401, detail="비밀번호 오류")
+    try:
+        pending_res = supabase.table("orders").select("*").neq("status", "판매완료").order("id", desc=True).execute()
+        completed_res = supabase.table("orders").select("*").eq("status", "판매완료").order("id", desc=True).execute()
+        
+        all_pending = pending_res.data or []
+        pickup_pending = [o for o in all_pending if o.get("order_type") != "배달"]
+        delivery_pending = [o for o in all_pending if o.get("order_type") == "배달"]
+
+        return {
+            "pending": pickup_pending,
+            "delivery_orders": delivery_pending,
+            "completed": completed_res.data or []
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/api/admin/orders/{order_id}")
+def update_order_status(order_id: int, status: str = Query(...), password: str = Query(...)):
+    if password != ADMIN_PASSWORD:
+        raise HTTPException(status_code=401, detail="비밀번호 오류")
+    try:
+        update_payload = {"status": status}
+        if status == "판매완료":
+            update_payload["status_changed_time"] = get_kst_time_str()
             
-            const uniqueSessions = new Set(
-                customerOrders.map(o => {
-                    const timeKey = o.time_str || o.created_at || o.id;
-                    return `${timeKey}_${o.name}_${o.kakao_nickname}`;
-                })
-            );
+        res = supabase.table("orders").update(update_payload).eq("id", order_id).execute()
+        return {"message": "상태 변경 완료", "order": res.data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/admin/orders/{order_id}")
+def delete_admin_order(order_id: int, password: str = Query(...)):
+    if password != ADMIN_PASSWORD:
+        raise HTTPException(status_code=401, detail="비밀번호 오류")
+    try:
+        restore_order_stock(order_id)
+        supabase.table("orders").delete().eq("id", order_id).execute()
+        return {"message": "주문 취소 및 재고 복구 완료"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# 🛡️ available_day DB 컬럼 유무 대비 예외안전 품목 추가 API
+@app.post("/api/admin/fruits")
+def create_fruit_item(item: FruitItem, password: str = Query(...)):
+    if password != ADMIN_PASSWORD:
+        raise HTTPException(status_code=401, detail="비밀번호 오류")
+    try:
+        new_item = {
+            "name": item.name,
+            "price": item.price,
+            "event_price": item.event_price or 0,
+            "is_event": item.is_event or False,
+            "stock": item.stock,
+            "max_stock": item.stock,
+            "available_day": item.available_day or "today",
+            "img": item.img,
+            "detail_imgs": item.detail_imgs,
+            "description": item.description,
+            "hide_stock": item.hide_stock or False,
+            "is_hidden": item.is_hidden or False
+        }
+        try:
+            res = supabase.table("fruit_items").insert(new_item).execute()
+        except Exception:
+            # DB에 available_day 컬럼이 아직 없을 경우 자동으로 제외하고 재시도하는 안전장치!
+            new_item.pop("available_day", None)
+            res = supabase.table("fruit_items").insert(new_item).execute()
+
+        return {"message": "새 품목 추가 완료", "data": res.data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/api/admin/fruits/{fruit_id}")
+def update_fruit_item(fruit_id: int, item_data: FruitUpdate, password: str = Query(...)):
+    if password != ADMIN_PASSWORD:
+        raise HTTPException(status_code=401, detail="비밀번호 오류")
+    try:
+        update_dict = {k: v for k, v in item_data.dict().items() if v is not None}
+        if not update_dict:
+            return {"message": "수정 내용 없음"}
             
-            return uniqueSessions.size;
-        }
-
-        function getBadgeStyleByCount(count) {
-            if (count >= 20) return { text: `👑 20회 이상 (${count}회)`, classes: 'bg-purple-700 text-white' };
-            if (count >= 10) return { text: `🔥 10회 이상 (${count}회)`, classes: 'bg-indigo-600 text-white' };
-            if (count >= 5) return { text: `⭐️ 5회 이상 (${count}회)`, classes: 'bg-amber-500 text-white' };
-            if (count >= 2) return { text: `🌱 ${count}번째 주문`, classes: 'bg-emerald-600 text-white' };
-            return { text: `🌱 첫주문`, classes: 'bg-emerald-600 text-white' };
-        }
-
-        function updateAdminDashboardSummary() {
-            const now = new Date();
-            const yyyy = now.getFullYear();
-            const mm = String(now.getMonth() + 1).padStart(2, '0');
-            const dd = String(now.getDate()).padStart(2, '0');
-            
-            const todayStr1 = `${yyyy}-${mm}-${dd}`;
-            const todayStr2 = `${yyyy}. ${now.getMonth() + 1}. ${now.getDate()}.`;
-            const todayStr3 = `${yyyy}. ${mm}. ${dd}.`;
-            const todayStr4 = now.toLocaleDateString('ko-KR');
-
-            const summaryDateEl = document.getElementById('summaryTodayDate');
-            if (summaryDateEl) summaryDateEl.innerText = todayStr4;
-
-            const todayCompleted = rawCompletedOrders.filter(o => {
-                const timeStr = o.status_changed_time || o.time_str || o.created_at || '';
-                return timeStr.includes(todayStr1) || timeStr.includes(todayStr2) || timeStr.includes(todayStr3) || timeStr.includes(todayStr4);
-            });
-
-            const totalSales = todayCompleted.reduce((sum, o) => sum + (o.total_price || 0), 0);
-            const pickupCount = todayCompleted.filter(o => o.order_type !== '배달' && o.order_type !== '공구').length;
-            const deliveryCount = todayCompleted.filter(o => o.order_type === '배달').length;
-
-            document.getElementById('summaryTodaySales').innerText = totalSales.toLocaleString() + '원';
-            document.getElementById('summaryTodayCount').innerText = todayCompleted.length + '건';
-            document.getElementById('summaryTodayPickup').innerText = pickupCount + '건';
-            document.getElementById('summaryTodayDelivery').innerText = deliveryCount + '건';
-        }
-
-        function extractOrderAvailableDay(order) {
-            if (order.available_day && order.available_day !== 'today') return order.available_day;
-            const str = order.fruit || order.fruit_name || "";
-            const match = str.match(/\[([0-9]+\/[0-9]+\([^)]+\))\s*수령\]/);
-            if (match) return match[1];
-            return 'today';
-        }
-
-        function calculateOrderFruitBasePrice(fruitStr) {
-            if (!fruitStr) return 0;
-            let totalFruitPrice = 0;
-            let fruitItemsList = fruitStr.split(',').map(s => s.trim()).filter(s => s);
-
-            fruitItemsList.forEach(itemStr => {
-                let pureName = itemStr.replace(/\s*x\d+개/g, "").replace(/\s*\([\d,]+원\)/g, "").replace(/\[[^\]]+\]/g, "").trim();
-                let qtyMatch = itemStr.match(/x(\d+)개/);
-                let itemQty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
-
-                let foundFruit = fruitItems.find(f => f.name.replace(/\s+/g, '') === pureName.replace(/\s+/g, ''));
-                if (foundFruit) {
-                    let unitP = foundFruit.is_event ? foundFruit.event_price : foundFruit.price;
-                    totalFruitPrice += (unitP * itemQty);
-                } else {
-                    let priceMatch = itemStr.match(/\(([\d,]+)원\)/);
-                    if (priceMatch) totalFruitPrice += parseInt(priceMatch[1].replace(/,/g, ''));
-                }
-            });
-            return totalFruitPrice;
-        }
-
-        function getGroupTotalDepositAmount(order) {
-            if (!order || !order.time_str || !order.name || !order.kakao_nickname) {
-                return Number(order.total_price || 0);
-            }
-            
-            const groupOrders = (globalOrders || []).filter(o => 
-                o.time_str === order.time_str && 
-                o.name === order.name && 
-                o.kakao_nickname === order.kakao_nickname
-            );
-
-            if (groupOrders.length <= 1) {
-                let p = Number(order.total_price || 0);
-                let baseP = calculateOrderFruitBasePrice(order.fruit || order.fruit_name || "");
-                if (order.order_type === '배달' && baseP > 0 && p === baseP) {
-                    p += 2500;
-                }
-                return p;
-            }
-
-            return groupOrders.reduce((sum, o) => {
-                let price = Number(o.total_price || 0);
-                let baseP = calculateOrderFruitBasePrice(o.fruit || o.fruit_name || "");
-                if (o.order_type === '배달' && baseP > 0 && price === baseP) {
-                    price += 2500;
-                }
-                return sum + price;
-            }, 0);
-        }
-
-        async function renderAdminOrders(isBackgroundCheck = false) {
-            try {
-                const res = await fetch(`${API_URL}/api/admin/orders?password=${PASS}`);
-                if(!res.ok) return;
-                const data = await res.json();
-
-                let allPending = data.pending || [];
-                let pendingPickup = allPending.filter(o => o.order_type !== '배달' && o.order_type !== '공구');
-                let groupOrders = allPending.filter(o => o.order_type === '공구');
-                let deliveryOrders = data.delivery_orders || [];
-                rawCompletedOrders = data.completed || [];
-
-                const allCurrentOrders = [...pendingPickup, ...deliveryOrders, ...groupOrders];
-                let hasNewOrder = false;
-
-                allCurrentOrders.forEach(o => {
-                    if (o.id && !knownOrderIds.has(o.id)) {
-                        knownOrderIds.add(o.id);
-                        if (!isFirstLoad) {
-                            hasNewOrder = true;
-                        }
-                    }
-                });
-
-                if (isFirstLoad) { isFirstLoad = false; }
-
-                if (hasNewOrder && orderSoundEnabled) {
-                    playChimeSound();
-                    showToast("🔔 새 주문이 접수되었습니다!");
-                }
-
-                updateAdminDashboardSummary();
-
-                const pickupDateFilterEl = document.getElementById('adminPickupDateFilter');
-                const selectedPickupDate = pickupDateFilterEl ? pickupDateFilterEl.value : 'today';
-
-                let filteredPickupOrders = pendingPickup.filter(o => {
-                    if (selectedPickupDate === 'overdue') return !o.status || o.status !== '판매완료';
-                    let orderDay = extractOrderAvailableDay(o);
-                    return orderDay === selectedPickupDate;
-                });
-
-                let pickupFruitSummary = {};
-                filteredPickupOrders.forEach(order => {
-                    let rawFruitStr = order.fruit_name || order.fruit || "";
-                    let fruitItemsList = rawFruitStr.split(',').map(s => s.trim()).filter(s => s);
-
-                    fruitItemsList.forEach(itemStr => {
-                        let pureName = itemStr.replace(/\s*x\d+개/g, "").replace(/\s*\([\d,]+원\)/g, "").replace(/\[[^\]]+\]/g, "").trim();
-                        let qtyMatch = itemStr.match(/x(\d+)개/);
-                        let itemQty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
-
-                        if (!pickupFruitSummary[pureName]) pickupFruitSummary[pureName] = 0;
-                        pickupFruitSummary[pureName] += itemQty;
-                    });
-                });
-
-                const pickupSummaryBox = document.getElementById('pickupSummaryBox');
-                const pickupSummaryItemsEl = document.getElementById('pickupSummaryItems');
-
-                if (Object.keys(pickupFruitSummary).length > 0 && pickupSummaryBox && pickupSummaryItemsEl) {
-                    pickupSummaryItemsEl.innerHTML = '';
-                    Object.entries(pickupFruitSummary).forEach(([name, qty]) => {
-                        pickupSummaryItemsEl.innerHTML += `
-                            <span class="bg-white border border-orange-300 text-orange-950 font-black text-xs px-3 py-1.5 rounded-xl shadow-2xs">
-                                ${name}: <span class="text-red-600 text-sm font-black">${qty}개</span>
-                            </span>`;
-                    });
-                    pickupSummaryBox.classList.remove('hidden');
-                } else if (pickupSummaryBox) {
-                    pickupSummaryBox.classList.add('hidden');
-                }
-
-                const pickupSearchInput = document.getElementById('pickupSearchKeyword');
-                const pickupKeyword = pickupSearchInput ? pickupSearchInput.value.trim().toLowerCase() : '';
-
-                if (pickupKeyword) {
-                    filteredPickupOrders = filteredPickupOrders.filter(o => 
-                        (o.name && o.name.toLowerCase().includes(pickupKeyword)) ||
-                        (o.kakao_nickname && o.kakao_nickname.toLowerCase().includes(pickupKeyword))
-                    );
-                }
-
-                const deliveryDateFilterEl = document.getElementById('adminDeliveryDateFilter');
-                const selectedDeliveryDate = deliveryDateFilterEl ? deliveryDateFilterEl.value : 'today';
-
-                let filteredDeliveryOrders = deliveryOrders.filter(o => {
-                    if (selectedDeliveryDate === 'overdue') return !o.status || o.status !== '판매완료';
-                    let orderDay = extractOrderAvailableDay(o);
-                    return orderDay === selectedDeliveryDate;
-                });
-
-                currentAdminDeliveryOrders = filteredDeliveryOrders;
-
-                let deliveryFruitSummary = {};
-                filteredDeliveryOrders.forEach(order => {
-                    let rawFruitStr = order.fruit_name || order.fruit || "";
-                    let fruitItemsList = rawFruitStr.split(',').map(s => s.trim()).filter(s => s);
-
-                    fruitItemsList.forEach(itemStr => {
-                        let pureName = itemStr.replace(/\s*x\d+개/g, "").replace(/\s*\([\d,]+원\)/g, "").replace(/\[[^\]]+\]/g, "").trim();
-                        let qtyMatch = itemStr.match(/x(\d+)개/);
-                        let itemQty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
-
-                        if (!deliveryFruitSummary[pureName]) deliveryFruitSummary[pureName] = 0;
-                        deliveryFruitSummary[pureName] += itemQty;
-                    });
-                });
-
-                const summaryBox = document.getElementById('deliverySummaryBox');
-                const summaryItemsEl = document.getElementById('deliverySummaryItems');
-
-                if (Object.keys(deliveryFruitSummary).length > 0 && summaryBox && summaryItemsEl) {
-                    summaryItemsEl.innerHTML = '';
-                    Object.entries(deliveryFruitSummary).forEach(([name, qty]) => {
-                        summaryItemsEl.innerHTML += `
-                            <span class="bg-white border border-amber-300 text-amber-950 font-black text-xs px-3 py-1.5 rounded-xl shadow-2xs">
-                                ${name}: <span class="text-red-600 text-sm font-black">${qty}개</span>
-                            </span>`;
-                    });
-                    summaryBox.classList.remove('hidden');
-                } else if (summaryBox) {
-                    summaryBox.classList.add('hidden');
-                }
-
-                const waitList = document.getElementById('orderList'); waitList.innerHTML = '';
-                filteredPickupOrders.forEach(order => {
-                    const historyCount = getStrictCustomerOrderCount(order.kakao_nickname);
-                    const badgeStyle = getBadgeStyleByCount(historyCount);
-                    let actionBtn = '';
-                    if(order.method === '현장결제') actionBtn = `<button onclick="triggerCompleteOrder(${order.id}, this)" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-xl text-xs font-black active:scale-95 transition">✅ 결제 및 수령 완료</button>`;
-                    else if(order.status === '입금대기') actionBtn = `<button onclick="triggerUpdateStatus(${order.id}, '접수완료', this)" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl text-xs font-black active:scale-95 transition">💵 입금확인</button>`;
-                    else actionBtn = `<button onclick="triggerCompleteOrder(${order.id}, this)" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-xl text-xs font-black active:scale-95 transition">✅ 수령 완료</button>`;
-
-                    let orderDay = extractOrderAvailableDay(order);
-                    let pickupReserveTag = (orderDay !== 'today') ? `📅 ${orderDay} 수령` : '🍊 당일수령';
-
-                    let totalDepositAmount = getGroupTotalDepositAmount(order);
-                    let groupDepositBadge = (totalDepositAmount > Number(order.total_price || 0)) 
-                        ? `<p class="text-xs font-black text-blue-700 bg-blue-50 p-2 rounded-xl border border-blue-200 mt-1">💳 손님 실제 최종 입금액: <span class="text-red-600 text-sm font-black">${totalDepositAmount.toLocaleString()}원</span> (묶음 주문 합산)</p>` 
-                        : '';
-
-                    waitList.innerHTML += `
-                        <div class="bg-white p-5 rounded-3xl border border-gray-100 shadow-2xs relative flex flex-col justify-between h-full min-h-[180px]">
-                            <div class="space-y-2">
-                                <div class="flex justify-between items-start pr-20">
-                                    <h4 class="text-lg font-black flex items-center gap-1.5">
-                                        ${order.name} 
-                                        <span onclick="copyToClipboard('${order.kakao_nickname}', '카톡 닉네임이 복사되었습니다!')" class="text-xs font-extrabold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-lg border border-orange-200 cursor-pointer hover:bg-orange-100 active:scale-95 transition" title="클릭하여 복사">
-                                            💬 ${order.kakao_nickname || '닉네임없음'}
-                                        </span>
-                                    </h4>
-                                </div>
-                                <span class="absolute right-5 top-5 text-xs font-black px-2 py-1 rounded-md ${badgeStyle.classes}">${badgeStyle.text}</span>
-                                <p class="text-orange-600 font-bold text-sm">📦 과일: ${order.fruit} (<span class="text-blue-600 font-extrabold">${pickupReserveTag}</span>) | 결제: ${order.method}</p>
-                                <p class="text-sm font-black text-gray-800">💰 이 수령일 금액: ${Number(order.total_price || 0).toLocaleString()}원</p>
-                                ${groupDepositBadge}
-                                <p class="text-xs text-gray-400">🕒 접수일시: ${order.time_str || ''} [상태: ${order.status || '접수대기'}]</p>
-                            </div>
-                            <div class="flex gap-2 pt-3 border-t border-gray-100 mt-3">
-                                ${actionBtn}
-                                <button onclick="cancelAdminOrder(${order.id}, this)" class="bg-gray-100 text-gray-500 px-3 py-2.5 rounded-xl text-xs font-bold active:scale-95 transition">취소</button>
-                            </div>
-                        </div>`;
-                });
-                document.getElementById('orderCount').innerText = filteredPickupOrders.length;
-
-                const deliveryList = document.getElementById('deliveryOrderList'); deliveryList.innerHTML = '';
-                filteredDeliveryOrders.forEach(order => {
-                    const historyCount = getStrictCustomerOrderCount(order.kakao_nickname);
-                    const badgeStyle = getBadgeStyleByCount(historyCount);
-                    let deliveryActionBtn = order.status === '입금대기'
-                        ? `<button onclick="triggerUpdateStatus(${order.id}, '접수완료', this)" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl text-xs font-black active:scale-95 transition">💵 입금확인</button>`
-                        : `<button onclick="triggerCompleteOrder(${order.id}, this)" class="flex-1 bg-purple-700 hover:bg-purple-800 text-white py-2.5 rounded-xl text-xs font-black active:scale-95 transition">🚚 배달 완료 처리</button>`;
-
-                    let orderDay = extractOrderAvailableDay(order);
-                    let reserveTag = (orderDay !== 'today') ? `📅 ${orderDay} 배달` : '🍊 당일배달';
-
-                    let rawPrice = Number(order.total_price || 0);
-                    let baseFruitPrice = calculateOrderFruitBasePrice(order.fruit || order.fruit_name || "");
-                    
-                    let cardPrice = rawPrice;
-                    if (order.order_type === '배달' && baseFruitPrice > 0 && rawPrice === baseFruitPrice) {
-                        cardPrice = rawPrice + 2500;
-                    }
-
-                    let totalDepositAmount = getGroupTotalDepositAmount(order);
-                    let groupDepositBadge = (totalDepositAmount > cardPrice) 
-                        ? `<div class="bg-blue-50 border border-blue-200 p-2.5 rounded-xl mt-1">
-                             <p class="text-xs font-extrabold text-blue-900">💵 고객 실제 최종 입금액: <span class="text-red-600 text-sm font-black">${totalDepositAmount.toLocaleString()}원</span></p>
-                             <p class="text-[10px] text-blue-600 font-bold mt-0.5">💡 수령일이 다른 묶음 주문건 전체의 총 결제 합계입니다.</p>
-                           </div>` 
-                        : `<p class="text-xs font-extrabold text-blue-900 mt-1">💵 고객 최종 입금액: <span class="text-red-600 text-sm font-black">${cardPrice.toLocaleString()}원</span> (배달비 포함)</p>`;
-
-                    deliveryList.innerHTML += `
-                        <div class="bg-white p-5 rounded-3xl border border-blue-200 shadow-sm relative flex flex-col justify-between h-full min-h-[200px]">
-                            <div class="space-y-2">
-                                <div class="flex justify-between items-center pr-20">
-                                    <span class="bg-blue-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md">🚚 배달 [${order.status || '접수대기'}] (${reserveTag})</span>
-                                </div>
-                                <span class="absolute right-5 top-5 text-xs font-black px-2 py-1 rounded-md ${badgeStyle.classes}">${badgeStyle.text}</span>
-                                <div>
-                                    <h4 class="text-lg font-black text-gray-900 flex items-center gap-1.5">
-                                        ${order.name} 
-                                        <span onclick="copyToClipboard('${order.kakao_nickname}', '카톡 닉네임이 복사되었습니다!')" class="text-xs font-extrabold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-200 cursor-pointer hover:bg-blue-100 active:scale-95 transition" title="클릭하여 복사">
-                                            💬 ${order.kakao_nickname || '닉네임없음'}
-                                        </span>
-                                    </h4>
-                                    <p class="text-xs font-extrabold text-blue-700 mt-1">🏠 주소: ${order.address}</p>
-                                    <p class="text-xs font-black text-red-600 mt-0.5">🔑 공동현관 비번: ${order.door_password || '없음/자유출입'}</p>
-                                </div>
-                                <p class="text-orange-600 font-bold text-sm">📦 ${order.fruit}</p>
-                                ${groupDepositBadge}
-                                <p class="text-[11px] text-gray-400 font-bold">🕒 주문 접수일시: ${order.time_str || ''}</p>
-                            </div>
-                            <div class="flex gap-2 pt-3 border-t border-gray-100 mt-3">
-                                ${deliveryActionBtn}
-                                <button onclick="cancelAdminOrder(${order.id}, this)" class="bg-gray-100 text-gray-500 px-3 py-2.5 rounded-xl text-xs font-bold active:scale-95 transition">취소</button>
-                            </div>
-                        </div>`;
-                });
-                document.getElementById('deliveryOrderCount').innerText = filteredDeliveryOrders.length;
-
-                const groupList = document.getElementById('groupOrderList'); 
-                document.getElementById('groupOrderCount').innerText = groupOrders.length;
-
-                if (groupOrders.length > 0) {
-                    groupList.innerHTML = '';
-                    groupOrders.forEach(order => {
-                        const historyCount = getStrictCustomerOrderCount(order.kakao_nickname);
-                        const badgeStyle = getBadgeStyleByCount(historyCount);
-                        let groupActionBtn = order.status === '입금대기'
-                            ? `<button onclick="triggerUpdateStatus(${order.id}, '접수완료', this)" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-xl text-xs font-black active:scale-95 transition">💵 입금확인</button>`
-                            : `<button onclick="triggerCompleteOrder(${order.id}, this)" class="flex-1 bg-pink-600 hover:bg-pink-700 text-white py-2.5 rounded-xl text-xs font-black active:scale-95 transition">🤝 수령 완료 처리</button>`;
-
-                        groupList.innerHTML += `
-                            <div class="bg-white p-5 rounded-3xl border border-purple-200 shadow-sm relative flex flex-col justify-between h-full min-h-[180px]">
-                                <div class="space-y-2">
-                                    <div class="flex justify-between items-center pr-20">
-                                        <span class="bg-purple-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md">🤝 공구 [${order.status || '접수대기'}]</span>
-                                    </div>
-                                    <span class="absolute right-5 top-5 text-xs font-black px-2 py-1 rounded-md ${badgeStyle.classes}">${badgeStyle.text}</span>
-                                    <div>
-                                        <h4 class="text-lg font-black text-gray-900 flex items-center gap-1.5">
-                                            ${order.name} 
-                                            <span onclick="copyToClipboard('${order.kakao_nickname}', '카톡 닉네임이 복사되었습니다!')" class="text-xs font-extrabold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-lg border border-purple-200 cursor-pointer hover:bg-purple-100 active:scale-95 transition" title="클릭하여 복사">
-                                                💬 ${order.kakao_nickname || '닉네임없음'}
-                                            </span>
-                                        </h4>
-                                        <p class="text-xs font-extrabold text-purple-800 mt-1">📍 지정 장소: ${order.address || '미지정'}</p>
-                                    </div>
-                                    <p class="text-orange-600 font-bold text-sm">📦 ${order.fruit}</p>
-                                    <p class="text-sm font-black text-red-600">💰 결제금액: ${Number(order.total_price || 0).toLocaleString()}원</p>
-                                    <p class="text-[11px] text-gray-400 font-bold">🕒 주문 접수일시: ${order.time_str || ''}</p>
-                                </div>
-                                <div class="flex gap-2 pt-3 border-t border-gray-100 mt-3">
-                                    ${groupActionBtn}
-                                    <button onclick="cancelAdminOrder(${order.id}, this)" class="bg-gray-100 text-gray-500 px-3 py-2.5 rounded-xl text-xs font-bold active:scale-95 transition">취소</button>
-                                </div>
-                            </div>`;
-                    });
-                } else {
-                    groupList.innerHTML = `<p class="text-center text-gray-400 py-6 font-bold col-span-full">아직 접수된 공구 수령 주문이 없습니다. 🤝</p>`;
-                }
-
-                filterAndRenderCompletedOrders();
-            } catch(e) { console.error("장부 조회 에러", e); }
-        }
-
-        function printAllDeliveryLabels() {
-            let deliveryOrders = [...currentAdminDeliveryOrders];
-            if (deliveryOrders.length === 0) deliveryOrders = (globalOrders || []).filter(o => o.order_type === '배달' && o.status !== '판매완료');
-            if (deliveryOrders.length === 0) { alert("🚚 현재 인쇄할 배달 주문건이 없습니다!"); return; }
-
-            const printArea = document.getElementById('labelPrintArea');
-            printArea.style.display = 'block'; 
-            printArea.innerHTML = '';
-
-            const chunkSize = 10;
-            for (let i = 0; i < deliveryOrders.length; i += chunkSize) {
-                const chunk = deliveryOrders.slice(i, i + chunkSize);
-                let pageHtml = `<div class="label-page">`;
-                chunk.forEach(order => {
-                    let rawFruitStr = order.fruit_name || order.fruit || "";
-                    let fruitItemsList = rawFruitStr.split(',').map(s => s.trim()).filter(s => s);
-                    let checklistHtml = "";
-
-                    if (fruitItemsList.length > 0) {
-                        checklistHtml = fruitItemsList.map(item => {
-                            let pureName = item.replace(/\s*x\d+개/g, "").replace(/\s*\([\d,]+원\)/g, "").replace(/\[[^\]]+\]/g, "").trim();
-                            let qtyMatch = item.match(/x(\d+)개/);
-                            let itemQty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
-                            
-                            let itemPrice = 0;
-                            let foundFruitObj = fruitItems.find(f => f.name.replace(/\s+/g, '') === pureName.replace(/\s+/g, ''));
-                            if (foundFruitObj) {
-                                itemPrice = (foundFruitObj.is_event ? foundFruitObj.event_price : foundFruitObj.price) * itemQty;
-                            }
-                            let priceText = itemPrice > 0 ? ` (${itemPrice.toLocaleString()}원)` : '';
-
-                            return `<div style="display:flex; align-items:center; justify-content:space-between; margin-top:1px;"><span style="color:#d97706; font-weight:bold; font-size:10px;">▪ ${pureName} x${itemQty}개${priceText}</span> <span style="border:1.5px solid #000; width:10px; height:10px; display:inline-block; border-radius:2px;"></span></div>`;
-                        }).join('');
-                    } else {
-                        checklistHtml = `<div style="display:flex; align-items:center; justify-content:space-between; margin-top:1px;"><span style="color:#d97706; font-weight:bold; font-size:10px;">▪ ${rawFruitStr}</span> <span style="border:1.5px solid #000; width:10px; height:10px; display:inline-block; border-radius:2px;"></span></div>`;
-                    }
-
-                    let rawPrice = Number(order.total_price || 0);
-                    let baseFruitPrice = calculateOrderFruitBasePrice(rawFruitStr);
-                    let finalPrintPrice = rawPrice;
-                    if (order.order_type === '배달' && baseFruitPrice > 0 && rawPrice === baseFruitPrice) {
-                        finalPrintPrice = rawPrice + 2500;
-                    }
-
-                    pageHtml += `
-                        <div class="label-card">
-                            <div style="border-bottom: 1.5px solid #1d4ed8; padding-bottom: 2px; text-align: center; margin-bottom: 2px;"><strong style="font-size: 11px; font-weight: 900; color: #1d4ed8;">🚚 하루마켓 흑석점 배달전표</strong></div>
-                            <div style="font-size: 10px; line-height: 1.2;">
-                                <p style="margin: 1px 0;"><strong>💬 닉네임:</strong> <span style="font-size: 11px; font-weight: bold; color: #000;">${order.kakao_nickname || ''}</span> / <strong>성함:</strong> <span style="font-size: 11px; font-weight: bold; color: #000;">${order.name || ''}</span></p>
-                                <div style="background: #eff6ff; border: 1px solid #bfdbfe; padding: 2px 4px; border-radius: 4px; margin: 2px 0;">
-                                    <strong>🏠 배달 주소:</strong><br><span style="font-size: 11px; font-weight: 900; color: #1e40af; display: block; margin-top: 1px;">${order.address || ''}</span>
-                                </div>
-                                <p style="color: #dc2626; margin: 1px 0;"><strong>🔑 공동현관 비번:</strong> <span style="font-size: 10px; font-weight: bold;">${order.door_password || '없음'}</span></p>
-                                
-                                <div style="background: #fffbe2; border: 1px solid #fef08a; padding: 3px; border-radius: 4px; margin: 2px 0;">
-                                    <strong style="font-size:9px; color:#854d0e; display:block; border-bottom:1px dashed #fde047; padding-bottom:1px; margin-bottom:1px;">📦 포장 체크리스트</strong>
-                                    ${checklistHtml}
-                                </div>
-
-                                <p style="margin: 1px 0;"><strong>💰 결제금액:</strong> <span style="color: #dc2626; font-weight: bold; font-size: 10px;">${finalPrintPrice.toLocaleString()}원</span> (${order.method || ''})</p>
-                            </div>
-                            <p style="font-size: 7.5px; color: #64748b; text-align: right; margin-top: 1px; border-top: 1px solid #f1f5f9; padding-top: 1px;">접수: ${order.time_str || ''}</p>
-                        </div>`;
-                });
-                pageHtml += `</div>`;
-                printArea.innerHTML += pageHtml;
-            }
-
-            setTimeout(() => { window.print(); printArea.style.display = 'none'; }, 300);
-        }
-
-        async function triggerUpdateStatus(id, status, btnEl) {
-            if(btnEl) btnEl.disabled = true;
-            try {
-                const targetOrder = globalOrders.find(o => o.id === id);
-                let groupOrders = [id];
-                if (targetOrder && targetOrder.time_str && targetOrder.name && targetOrder.kakao_nickname) {
-                    groupOrders = globalOrders
-                        .filter(o => o.time_str === targetOrder.time_str && 
-                                     o.name === targetOrder.name && 
-                                     o.kakao_nickname === targetOrder.kakao_nickname &&
-                                     o.status === '입금대기')
-                        .map(o => o.id);
-                }
-
-                if (groupOrders.length === 0) groupOrders = [id];
-
-                const updatePromises = groupOrders.map(orderId => 
-                    fetch(`${API_URL}/api/admin/orders/${orderId}?status=${status}&password=${PASS}`, { method: 'PUT' })
-                );
-
-                const results = await Promise.all(updatePromises);
-                const allSuccess = results.every(res => res.ok);
-
-                if(allSuccess) { 
-                    alert(groupOrders.length > 1 ? `💵 동일 주문 ${groupOrders.length}건이 한 번에 입금 확인 처리되었습니다!` : '💵 입금 확인 처리되었습니다!'); 
-                    await loadStoreData();
-                    await renderAdminOrders(); 
-                } else {
-                    alert('일부 주문 처리 중 오류가 발생했습니다.');
-                }
-            } catch(e) { alert('처리 실패!'); }
-            finally { if(btnEl) btnEl.disabled = false; }
-        }
-
-        async function triggerCompleteOrder(id, btnEl) {
-            if(btnEl) btnEl.disabled = true;
-            try {
-                const res = await fetch(`${API_URL}/api/admin/orders/${id}?status=판매완료&password=${PASS}`, { method: 'PUT' });
-                if(res.ok) { 
-                    alert('🎉 완료 처리되었습니다!'); 
-                    await loadStoreData();
-                    await renderAdminOrders(); 
-                }
-            } catch(e) { alert('처리 실패!'); }
-            finally { if(btnEl) btnEl.disabled = false; }
-        }
-
-        async function cancelAdminOrder(id, btnEl) {
-            if(confirm('이 주문을 취소하시겠습니까? (재고가 즉시 원상 복구됩니다)')) {
-                if(btnEl) btnEl.disabled = true;
-                try {
-                    const res = await fetch(`${API_URL}/api/admin/orders/${id}?password=${PASS}`, { method: 'DELETE' });
-                    if(res.ok) { 
-                        alert('주문 취소 완료 및 재고 복구 완료!'); 
-                        await loadStoreData();
-                        await renderAdminOrders(); 
-                    }
-                } catch(e) { alert('취소 실패!'); }
-                finally { if(btnEl) btnEl.disabled = false; }
-            }
-        }
-
-        function parseCustomTimeString(timeStr) {
-            if (!timeStr) return 0;
-            try {
-                const regex = /(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(오전|오후)\s*(\d{1,2}):(\d{1,2})/;
-                const match = timeStr.match(regex);
-                if (match) {
-                    let year = parseInt(match[1]);
-                    let month = parseInt(match[2]) - 1;
-                    let day = parseInt(match[3]);
-                    let ampm = match[4];
-                    let hour = parseInt(match[5]);
-                    let minute = parseInt(match[6]);
-
-                    if (ampm === '오후' && hour < 12) hour += 12;
-                    if (ampm === '오전' && hour === 12) hour = 0;
-
-                    return new Date(year, month, day, hour, minute).getTime();
-                }
-                
-                const parsed = Date.parse(timeStr);
-                return isNaN(parsed) ? 0 : parsed;
-            } catch(e) {
-                return 0;
-            }
-        }
-
-        function filterAndRenderCompletedOrders() {
-            const keyword = document.getElementById('searchKeyword').value.trim().toLowerCase();
-            const selectedDate = document.getElementById('searchDate').value; 
-            const completedSortEl = document.getElementById('completedSortOrder');
-            const completedSortOrder = completedSortEl ? completedSortEl.value : 'desc';
-
-            const doneList = document.getElementById('completedOrderList'); doneList.innerHTML = '';
-
-            let filtered = rawCompletedOrders.filter(o => {
-                const matchesKeyword = (o.name && o.name.toLowerCase().includes(keyword)) ||
-                                       (o.kakao_nickname && o.kakao_nickname.toLowerCase().includes(keyword)) ||
-                                       (o.fruit && o.fruit.toLowerCase().includes(keyword));
-                let matchesDate = true;
-                if(selectedDate) {
-                    const targetFormattedDate = selectedDate.replace(/-/g, '. '); 
-                    const orderTimeStr = o.status_changed_time || o.time_str || '';
-                    matchesDate = orderTimeStr.includes(targetFormattedDate) || orderTimeStr.startsWith(selectedDate);
-                }
-                return matchesKeyword && matchesDate;
-            });
-
-            filtered.sort((a, b) => {
-                const timeA = parseCustomTimeString(a.status_changed_time || a.time_str);
-                const timeB = parseCustomTimeString(b.status_changed_time || b.time_str);
-                
-                if (completedSortOrder === 'asc') {
-                    return timeA - timeB;
-                } else {
-                    return timeB - timeA;
-                }
-            });
-
-            document.getElementById('completedCount').innerText = filtered.length;
-            if(filtered.length === 0) { doneList.innerHTML = `<p class="text-center text-gray-400 py-10 font-bold col-span-full">일치하는 판매 장부 내역이 없습니다. 📭</p>`; return; }
-
-            filtered.forEach(order => {
-                const historyCount = getStrictCustomerOrderCount(order.kakao_nickname);
-                const badgeStyle = getBadgeStyleByCount(historyCount);
-
-                let rawPrice = Number(order.total_price || 0);
-                let baseFruitPrice = calculateOrderFruitBasePrice(order.fruit || order.fruit_name || "");
-                let displayCompletedPrice = rawPrice;
-                if (order.order_type === '배달' && baseFruitPrice > 0 && rawPrice === baseFruitPrice) {
-                    displayCompletedPrice = rawPrice + 2500;
-                }
-
-                let typeBadgeClass = "bg-orange-500 text-white";
-                let typeText = "🏢 픽업 완료";
-                if (order.order_type === '배달') {
-                    typeBadgeClass = "bg-blue-600 text-white";
-                    typeText = "🚚 배달 완료";
-                } else if (order.order_type === '공구') {
-                    typeBadgeClass = "bg-purple-600 text-white";
-                    typeText = "🤝 스팟픽업 완료";
-                }
-
-                doneList.innerHTML += `
-                    <div class="bg-white p-5 rounded-3xl border border-gray-100 flex flex-col justify-between h-full min-h-[160px] relative">
-                        <span class="absolute right-5 top-5 text-xs font-black px-2 py-1 rounded-md ${badgeStyle.classes}">${badgeStyle.text}</span>
-                        <div class="space-y-1">
-                            <span class="text-xs font-bold px-2 py-0.5 rounded-md ${typeBadgeClass}">${typeText}</span>
-                            <h4 class="text-lg font-black mt-1 flex items-center gap-1.5">
-                                ${order.name} 
-                                <span onclick="copyToClipboard('${order.kakao_nickname}', '카톡 닉네임이 복사되었습니다!')" class="text-xs font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded cursor-pointer hover:bg-gray-200 active:scale-95 transition" title="클릭하여 복사">
-                                    💬 ${order.kakao_nickname || ''}
-                                </span>
-                            </h4>
-                            <p class="text-orange-600 font-bold text-sm">📦 ${order.fruit} | ${Number(displayCompletedPrice).toLocaleString()}원</p>
-                            ${order.address ? `<p class="text-xs text-gray-500 font-bold mt-1">🏠 ${order.address}</p>` : ''}
-                            <p class="text-[11px] text-gray-400 mt-1">🕒 접수: ${order.time_str || ''} / 완료: ${order.status_changed_time || ''}</p>
-                        </div>
-                        <div class="flex items-center justify-between pt-2 border-t border-gray-100 mt-2">
-                            <button onclick="cancelAdminOrder(${order.id}, this)" class="bg-red-50 text-red-600 font-extrabold text-[11px] px-2.5 py-1.5 rounded-xl hover:bg-red-100 active:scale-95 transition ml-auto">🗑️ 영구 삭제</button>
-                        </div>
-                    </div>`;
-            });
-        }
-
-        function resetDateFilter() { document.getElementById('searchDate').value = ''; filterAndRenderCompletedOrders(); }
-
-        // 🌟 [완벽 복원] 엑셀 가격 무조건 복원 로직
-        function downloadExcel(mode = 'all') {
-            let targetOrders = [...rawCompletedOrders];
-            if (mode === 'month') {
-                const selectedMonth = document.getElementById('excelMonthPicker').value; 
-                if (!selectedMonth) { alert("📅 선택할 연월(Month)을 지정해 주세요!"); return; }
-                const formattedMonth = selectedMonth.replace('-', '. '); 
-                targetOrders = targetOrders.filter(o => {
-                    const timeStr = o.status_changed_time || o.time_str || '';
-                    return timeStr.includes(formattedMonth) || timeStr.startsWith(selectedMonth);
-                });
-                if (targetOrders.length === 0) { alert(`📅 ${selectedMonth}월에는 판매 완료된 내역이 없습니다.`); return; }
-            }
-            if (targetOrders.length === 0) { alert("판매 완료된 내역이 없습니다!"); return; }
-
-            const soldFruitMap = {}; 
-
-            // 1단계: 하단 개별 행 렌더링용 미리 계산
-            const rowsData = [];
-            let rowSeq = 1;
-
-            targetOrders.forEach(order => {
-                const orderUserCount = getStrictCustomerOrderCount(order.kakao_nickname);
-                let rawFruitStr = order.fruit_name || order.fruit || "";
-                let fruitItemsList = rawFruitStr.split(',').map(s => s.trim()).filter(s => s);
-                let orderDay = extractOrderAvailableDay(order);
-                let deliveryFeeVal = (order.order_type === '배달') ? 2500 : 0;
-
-                if (fruitItemsList.length > 0) {
-                    fruitItemsList.forEach((itemStr, itemIdx) => {
-                        let pureName = itemStr.replace(/\s*x\d+개/g, "").replace(/\s*\([\d,]+원\)/g, "").replace(/\[[^\]]+\]/g, "").trim();
-                        let qtyMatch = itemStr.match(/x(\d+)개/);
-                        let itemQty = qtyMatch ? parseInt(qtyMatch[1]) : (order.qty || 1);
-                        
-                        let itemPrice = 0;
-                        
-                        // A: 등록 과일 이름 정규화 매칭
-                        let foundFruitObj = fruitItems.find(f => f.name.replace(/\s+/g, '') === pureName.replace(/\s+/g, ''));
-                        if (foundFruitObj) {
-                            itemPrice = foundFruitObj.is_event ? foundFruitObj.event_price : foundFruitObj.price;
-                        } 
-                        
-                        // B: 주문 텍스트에 포함된 단가 추출 (예: (15,000원))
-                        if (itemPrice === 0) {
-                            let priceMatch = itemStr.match(/\(([\d,]+)원\)/);
-                            if (priceMatch) {
-                                itemPrice = parseInt(priceMatch[1].replace(/,/g, ''));
-                            }
-                        }
-                        
-                        // C: order 객체 단가 적용
-                        if (itemPrice === 0 && order.price && order.price > 0) {
-                            itemPrice = order.price;
-                        }
-
-                        // D: 최종 보구 - total_price 기반 자동 역산
-                        if (itemPrice === 0 && order.total_price && order.total_price > 0) {
-                            itemPrice = Math.floor(order.total_price / itemQty);
-                        }
-
-                        // 상단 요약용 데이터 축적
-                        if (!soldFruitMap[pureName]) {
-                            soldFruitMap[pureName] = { price: itemPrice, qty: 0, total: 0 };
-                        }
-                        soldFruitMap[pureName].qty += itemQty;
-                        if (itemPrice > 0) {
-                            soldFruitMap[pureName].price = itemPrice;
-                        }
-
-                        rowsData.push({
-                            rowSeq: itemIdx === 0 ? rowSeq : '',
-                            orderType: itemIdx === 0 ? (order.order_type || "픽업") : '',
-                            orderDay: itemIdx === 0 ? orderDay : '',
-                            kakao: itemIdx === 0 ? (order.kakao_nickname || "") : '',
-                            name: itemIdx === 0 ? (order.name || "") : '',
-                            userCount: itemIdx === 0 ? (orderUserCount + '회차') : '',
-                            address: itemIdx === 0 ? (order.address || "-") : '',
-                            pureName: pureName,
-                            itemPrice: itemPrice,
-                            itemQty: itemQty,
-                            deliveryFee: itemIdx === 0 ? deliveryFeeVal : 0,
-                            method: itemIdx === 0 ? (order.method || "계좌이체") : '',
-                            doorPassword: itemIdx === 0 ? (order.door_password || "-") : '',
-                            timeStr: itemIdx === 0 ? (order.time_str || "") : '',
-                            changedTime: itemIdx === 0 ? (order.status_changed_time || "") : '',
-                            isFirst: itemIdx === 0
-                        });
-                    });
-                    rowSeq++;
-                }
-            });
-
-            const uniqueSoldFruitNames = Object.keys(soldFruitMap);
-            if (uniqueSoldFruitNames.length === 0) uniqueSoldFruitNames.push("기타 품목");
-
-            const calcEndRow = 3 + uniqueSoldFruitNames.length;
-
-            let html = `
-            <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-            <head><meta charset="utf-8">
-            <style>
-                th, td { border: 0.5pt solid #d1d5db; padding: 7px 10px; font-family: '맑은 고딕', sans-serif; font-size: 10pt; }
-                .title { background-color: #fff7ed; color: #c2410c; font-size: 14pt; font-weight: bold; text-align: left; }
-                .calc-header { background-color: #ffedd5; color: #9a3412; font-weight: bold; text-align: center; }
-                .sum-header { background-color: #dbeafe; color: #1e40af; font-weight: bold; text-align: center; }
-                .data-header { background-color: #1e3a8a; color: #ffffff; font-weight: bold; text-align: center; }
-                .num { text-align: right; mso-number-format:"\#\,\#\#0"; }
-                .rate { text-align: right; mso-number-format:"0\.00%"; }
-                .center { text-align: center; }
-                .text-cell { mso-number-format:"\\@"; }
-            </style>
-            </head>
-            <body>
-            <table>
-                <tr><td colspan="13" class="title">💡 하루마켓 흑석점 - 품목별 원가/마진 정산 분석기</td></tr>
-                <tr><td colspan="13" style="color: #6b7280; font-size: 9pt;">📌 '품목별 원가(C열)'에 원가를 입력하시면 총 원가, 순이익, 마진율이 자동 산출됩니다.</td></tr>
-                <tr>
-                    <th class="calc-header">품목명</th> <th class="calc-header">품목별 판매가(원)</th> <th class="calc-header">품목별 원가(입력)</th>
-                    <th class="calc-header">총 판매 수량</th> <th class="calc-header">총 매출액(원)</th> <th class="calc-header">총 원가(원)</th>
-                    <th class="calc-header">총 순이익(원)</th> <th class="calc-header">마진율(%)</th> <th></th>
-                    <th class="sum-header" colspan="3">🏆 전체 매출 종합 대시보드 요약</th>
-                </tr>`;
-
-            uniqueSoldFruitNames.forEach((fName, idx) => {
-                const r = 4 + idx;
-                const itemData = soldFruitMap[fName] || { price: 0, qty: 0 };
-                let sumColHtml = "";
-                
-                if (idx === 0) sumColHtml = `<th></th><th class="sum-header">전체 총 매출액</th><th class="sum-header">전체 총 순이익</th><th class="sum-header">평균 마진율</th>`;
-                else if (idx === 1) sumColHtml = `<td></td><td class="num" style="font-weight:bold; color:#1e40af;">=SUM(E4:E${calcEndRow})</td><td class="num" style="font-weight:bold; color:#166534;">=SUM(G4:G${calcEndRow})</td><td class="rate" style="font-weight:bold; color:#c2410c;">=IF(SUM(E4:E${calcEndRow})>0, SUM(G4:G${calcEndRow})/SUM(E4:E${calcEndRow}), 0)</td>`;
-                else sumColHtml = `<td></td><td></td><td></td><td></td>`;
-
-                html += `
-                <tr>
-                    <td class="text-cell">${fName}</td>
-                    <td class="num">${itemData.price}</td>
-                    <td class="num">0</td>
-                    <td class="num">${itemData.qty}</td>
-                    <td class="num">=D${r}*B${r}</td>
-                    <td class="num">=D${r}*C${r}</td>
-                    <td class="num">=E${r}-F${r}</td>
-                    <td class="rate">=IF(E${r}>0, G${r}/E${r}, 0)</td>
-                    ${sumColHtml}
-                </tr>`;
-            });
-
-            html += `<tr><td colspan="17"></td></tr>
-                <tr>
-                    <th class="data-header">연번</th><th class="data-header">구분(수령방식)</th><th class="data-header">지정 수령일자</th><th class="data-header">카톡 닉네임</th>
-                    <th class="data-header">고객 성함</th><th class="data-header">고객 누적회차</th><th class="data-header">배달 주소</th>
-                    <th class="data-header">판매 품목명</th><th class="data-header">단가(원)</th><th class="data-header">주문 수량(개)</th>
-                    <th class="data-header">품목 합계금액(원)</th><th class="data-header">배달비(원)</th><th class="data-header">총 결제금액(원)</th>
-                    <th class="data-header">결제 방식</th><th class="data-header">공동현관 비번</th><th class="data-header">주문 접수시간</th>
-                    <th class="data-header">수령 완료시간</th>
-                </tr>`;
-
-            let currentRowIndex = calcEndRow + 3;
-
-            rowsData.forEach(row => {
-                let formulaTotalPrice = row.isFirst ? `=K${currentRowIndex}+L${currentRowIndex}` : `=K${currentRowIndex}`;
-
-                html += `
-                <tr>
-                    <td class="center">${row.rowSeq}</td><td class="center">${row.orderType}</td>
-                    <td class="center">${row.orderDay}</td>
-                    <td>${row.kakao}</td><td>${row.name}</td>
-                    <td class="center">${row.userCount}</td><td>${row.address}</td>
-                    <td class="text-cell">${row.pureName}</td><td class="num">${row.itemPrice}</td><td class="num">${row.itemQty}</td>
-                    <td class="num">=I${currentRowIndex}*J${currentRowIndex}</td>
-                    <td class="num">${row.deliveryFee}</td>
-                    <td class="num" style="${row.isFirst ? 'font-weight:bold; color:#dc2626;' : ''}">${formulaTotalPrice}</td>
-                    <td class="center">${row.method}</td><td class="center">${row.doorPassword}</td>
-                    <td class="center">${row.timeStr}</td><td class="center">${row.changedTime}</td>
-                </tr>`;
-                currentRowIndex++;
-            });
-
-            html += `</table></body></html>`;
-
-            const blob = new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel;choice=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            const fileNameMode = mode === 'month' ? document.getElementById('excelMonthPicker').value : '전체기간';
-            a.href = url; a.download = `하루마켓_흑석점_매출장부_${fileNameMode}_${new Date().toISOString().slice(0,10)}.xls`;
-            document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        }
-    </script>
-</body>
-</html>
+        try:
+            res = supabase.table("fruit_items").update(update_dict).eq("id", fruit_id).execute()
+        except Exception:
+            update_dict.pop("available_day", None)
+            res = supabase.table("fruit_items").update(update_dict).eq("id", fruit_id).execute()
+
+        return {"message": "품목 수정 완료", "data": res.data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/admin/fruits/{fruit_id}")
+def delete_fruit_item(fruit_id: int, password: str = Query(...)):
+    if password != ADMIN_PASSWORD:
+        raise HTTPException(status_code=401, detail="비밀번호 오류")
+    try:
+        supabase.table("fruit_items").delete().eq("id", fruit_id).execute()
+        return {"message": "품목 삭제 완료"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/api/admin/settings")
+def update_store_settings(meta: StoreMetaUpdate, password: str = Query(...)):
+    if password != ADMIN_PASSWORD:
+        raise HTTPException(status_code=401, detail="비밀번호 오류")
+    try:
+        update_dict = {k: v for k, v in meta.dict().items() if v is not None}
+        res = supabase.table("store_meta").update(update_dict).eq("id", 1).execute()
+        return {"message": "설정 저장 완료", "data": res.data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
