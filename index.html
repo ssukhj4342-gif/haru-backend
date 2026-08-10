@@ -605,25 +605,35 @@
         const CLOUD_NAME = "w9ilodii"; 
         const UPLOAD_PRESET = "haru_preset"; 
 
-        // 🌟 [수정] 백엔드 숨김 속성 완전성 검증 헬퍼
+        // 백엔드에서 boolean / 숫자 / 문자열로 내려오는 경우를 모두 처리
         function checkIsHidden(item) {
             if (!item) return false;
             if (item.is_hidden === true || item.is_hidden === 1) return true;
-            let str = String(item.is_hidden).toLowerCase().trim();
-            return str === 'true' || str === '1';
+            const value = String(item.is_hidden).toLowerCase().trim();
+            return value === 'true' || value === '1';
         }
 
         async function uploadToCloudinary(file) {
+            if (!file) throw new Error('업로드할 이미지가 없습니다.');
+            if (!file.type || !file.type.startsWith('image/')) {
+                throw new Error('이미지 파일만 업로드할 수 있습니다.');
+            }
+
             const formData = new FormData();
             formData.append('file', file);
             formData.append('upload_preset', UPLOAD_PRESET);
 
             const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
-                method: 'POST', body: formData
+                method: 'POST',
+                body: formData
             });
 
-            if (!res.ok) throw new Error("이미지 업로드 실패");
-            const data = await res.json();
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.secure_url) {
+                console.error('Cloudinary 업로드 오류:', data);
+                throw new Error(data.error?.message || '이미지 업로드 실패');
+            }
+
             return data.secure_url;
         }
 
@@ -830,7 +840,6 @@
             if (pickupFilterSelect) pickupFilterSelect.innerHTML = filterHtml;
         }
 
-        // 🌟 [수정 완료] 수정 모달 파일 선택 시 실시간 Cloudinary 업로드 보장
         function setupFileListeners() {
             document.getElementById('fileNoticeImg').addEventListener('change', async function(e) {
                 const file = e.target.files[0];
@@ -853,18 +862,6 @@
                         document.getElementById('newFruitImg').value = imgUrl;
                         showToast("메인 썸네일 업로드 완료!");
                     } catch(err) { alert("이미지 업로드에 실패했습니다."); }
-                }
-            });
-
-            document.getElementById('editFileFruitImg').addEventListener('change', async function(e) {
-                const file = e.target.files[0];
-                if (file) {
-                    try {
-                        showToast("새 썸네일 업로드 중...");
-                        const imgUrl = await uploadToCloudinary(file);
-                        document.getElementById('editFruitImgUrl').value = imgUrl;
-                        showToast("새 썸네일 업로드 완료!");
-                    } catch(err) { alert("이미지 업로드 실패!"); }
                 }
             });
 
@@ -936,7 +933,7 @@
                 return;
             }
 
-            // 🌟 [손님 화면] 숨김 상품 제거
+            // 손님 화면에서는 숨김 상품을 제외한다.
             let targetFruitItems = fruitItems.filter(item => {
                 if (checkIsHidden(item)) return false;
                 let availDay = item.available_day || 'today';
@@ -1081,43 +1078,29 @@
             updateStickyCheckoutBar();
         }
 
-        // 🌟 [수정 완료!] 백엔드가 요구하는 전체 객체 페이로드 보장
         async function toggleItemVisibility(fruitId, newHiddenState, btnEl) {
-            const item = fruitItems.find(f => f.id === fruitId);
-            if (!item) return;
+            if (btnEl) btnEl.disabled = true;
 
-            if(btnEl) btnEl.disabled = true;
             try {
-                const updatePayload = {
-                    name: item.name,
-                    price: item.price,
-                    event_price: item.event_price || 0,
-                    is_event: Boolean(item.is_event),
-                    stock: item.stock < 0 ? 0 : item.stock,
-                    available_day: item.available_day || 'today',
-                    description: item.description || '',
-                    img: item.img || '',
-                    detail_imgs: item.detail_imgs || [],
-                    hide_stock: Boolean(item.hide_stock),
-                    is_hidden: newHiddenState
-                };
-
+                // 다른 상품 정보까지 덮어쓰지 않고 숨김 상태만 변경한다.
                 const res = await fetch(`${API_URL}/api/admin/fruits/${fruitId}?password=${PASS}`, {
-                    method: 'PUT', 
+                    method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(updatePayload)
+                    body: JSON.stringify({ is_hidden: Boolean(newHiddenState) })
                 });
 
-                if(res.ok) { 
-                    alert(newHiddenState ? '🙈 상품을 목록에서 숨깁니다.' : '👁️ 상품을 손님 화면에 노출합니다.'); 
-                    await loadStoreData(); 
-                } else {
-                    alert('숨김 설정 변경 실패!');
+                if (!res.ok) {
+                    const errorData = await res.json().catch(() => ({}));
+                    throw new Error(errorData.detail || '숨김 설정 변경 실패');
                 }
-            } catch(e) { 
-                alert('통신 실패!'); 
-            } finally { 
-                if(btnEl) btnEl.disabled = false; 
+
+                alert(newHiddenState ? '🙈 상품을 손님 화면에서 숨겼습니다.' : '👁️ 상품을 손님 화면에 다시 노출했습니다.');
+                await loadStoreData();
+            } catch (e) {
+                console.error('상품 숨김 설정 오류:', e);
+                alert(e.message || '상품 숨김 설정 변경에 실패했습니다.');
+            } finally {
+                if (btnEl) btnEl.disabled = false;
             }
         }
 
@@ -1140,53 +1123,69 @@
 
         function closeEditFruitModal() {
             document.getElementById('editFruitModal').classList.add('hidden');
+            const fileInput = document.getElementById('editFileFruitImg');
+            if (fileInput) fileInput.value = '';
         }
 
-        // 🌟 [수정 완료!] 수정 모달에서 이미지 업로드 반영 문제 완벽 해결
         async function saveFruitEdit() {
             const btn = document.getElementById('btnSaveFruitEdit');
-            const fruitId = parseInt(document.getElementById('editFruitId').value);
-            const item = fruitItems.find(f => f.id === fruitId);
-
-            const name = document.getElementById('editFruitName').value;
-            const price = parseInt(document.getElementById('editFruitPrice').value);
-            const eventPrice = parseInt(document.getElementById('editFruitEventPrice').value) || 0;
-            const stock = parseInt(document.getElementById('editFruitStock').value);
+            const fruitId = document.getElementById('editFruitId').value;
+            const name = document.getElementById('editFruitName').value.trim();
+            const price = parseInt(document.getElementById('editFruitPrice').value, 10);
+            const eventPrice = parseInt(document.getElementById('editFruitEventPrice').value, 10) || 0;
+            const stock = parseInt(document.getElementById('editFruitStock').value, 10);
             const availableDay = document.getElementById('editFruitAvailableDay').value;
             const desc = document.getElementById('editFruitDesc').value;
-            const img = document.getElementById('editFruitImgUrl').value;
+            const fileInput = document.getElementById('editFileFruitImg');
+            let img = document.getElementById('editFruitImgUrl').value || '';
 
-            if(!name || isNaN(price) || isNaN(stock)) { alert('정보를 정확히 입력해주세요!'); return; }
-            btn.disabled = true; btn.innerText = "저장 중...";
+            if (!fruitId || !name || Number.isNaN(price) || Number.isNaN(stock)) {
+                alert('정보를 정확히 입력해주세요!');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = '저장 중...';
 
             try {
-                const updatePayload = {
-                    name: name,
-                    price: price,
-                    event_price: eventPrice,
-                    is_event: item ? Boolean(item.is_event) : false,
-                    stock: stock < 0 ? 0 : stock,
-                    available_day: availableDay,
-                    description: desc,
-                    img: img,
-                    detail_imgs: item ? (item.detail_imgs || []) : [],
-                    hide_stock: item ? Boolean(item.hide_stock) : false,
-                    is_hidden: item ? checkIsHidden(item) : false
-                };
+                // 파일 선택 후 바로 업로드하지 않고, 최종 저장 시 업로드한다.
+                // 업로드 URL이 hidden input에 들어가지 않는 경우에도 정상 처리된다.
+                const selectedFile = fileInput?.files?.[0];
+                if (selectedFile) {
+                    showToast('새 썸네일 업로드 중...');
+                    img = await uploadToCloudinary(selectedFile);
+                    document.getElementById('editFruitImgUrl').value = img;
+                }
 
                 const res = await fetch(`${API_URL}/api/admin/fruits/${fruitId}?password=${PASS}`, {
-                    method: 'PUT', 
+                    method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(updatePayload)
+                    body: JSON.stringify({
+                        name,
+                        price,
+                        event_price: eventPrice,
+                        stock: stock < 0 ? 0 : stock,
+                        available_day: availableDay,
+                        description: desc,
+                        img
+                    })
                 });
 
-                if (res.ok) {
-                    alert('과일 품목 정보가 성공적으로 수정되었습니다! 🎉');
-                    closeEditFruitModal();
-                    await loadStoreData();
-                } else { alert('수정 저장 실패!'); }
-            } catch(e) { alert('서버 통신 오류!'); }
-            finally { btn.disabled = false; btn.innerText = "수정 완료 저장"; }
+                if (!res.ok) {
+                    const errorData = await res.json().catch(() => ({}));
+                    throw new Error(errorData.detail || '수정 저장 실패');
+                }
+
+                alert('과일 품목 정보가 성공적으로 수정되었습니다! 🎉');
+                closeEditFruitModal();
+                await loadStoreData();
+            } catch (e) {
+                console.error('과일 수정 오류:', e);
+                alert(e.message || '서버 통신 오류가 발생했습니다.');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = '수정 완료 저장';
+            }
         }
 
         async function handleEventToggle(fruitId, enableEvent, normalPrice, btnEl) {
@@ -1201,31 +1200,12 @@
                 }
             }
 
-            const item = fruitItems.find(f => f.id === fruitId);
-            if(!item) return;
-
             if(btnEl) btnEl.disabled = true;
             try {
-                const updatePayload = {
-                    name: item.name,
-                    price: item.price,
-                    event_price: eventPrice,
-                    is_event: enableEvent,
-                    stock: item.stock < 0 ? 0 : item.stock,
-                    available_day: item.available_day || 'today',
-                    description: item.description || '',
-                    img: item.img || '',
-                    detail_imgs: item.detail_imgs || [],
-                    hide_stock: Boolean(item.hide_stock),
-                    is_hidden: checkIsHidden(item)
-                };
-
                 const res = await fetch(`${API_URL}/api/admin/fruits/${fruitId}?password=${PASS}`, {
-                    method: 'PUT', 
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(updatePayload)
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ is_event: enableEvent, event_price: eventPrice })
                 });
-
                 if(res.ok) { alert(enableEvent ? '🎉 특가 이벤트가 시작되었습니다!' : '🏷️ 이벤트가 해제되었습니다.'); await loadStoreData(); }
             } catch(e) { alert('서버 통신 실패!'); }
             finally { if(btnEl) btnEl.disabled = false; }
