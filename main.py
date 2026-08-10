@@ -41,6 +41,7 @@ class FruitItem(BaseModel):
     detail_imgs: Optional[Any] = []
     description: Optional[str] = ""
     hide_stock: Optional[bool] = False
+    is_hidden: Optional[bool] = False
 
 class FruitUpdate(BaseModel):
     name: Optional[str] = None
@@ -54,6 +55,7 @@ class FruitUpdate(BaseModel):
     detail_imgs: Optional[Any] = None
     description: Optional[str] = None
     hide_stock: Optional[bool] = None
+    is_hidden: Optional[bool] = None
 
 class OrderItemInput(BaseModel):
     fruit_id: int
@@ -281,7 +283,8 @@ def create_fruit_item(item: FruitItem, password: str = Query(...)):
             "img": item.img,
             "detail_imgs": item.detail_imgs,
             "description": item.description,
-            "hide_stock": item.hide_stock or False
+            "hide_stock": item.hide_stock or False,
+            "is_hidden": item.is_hidden or False
         }
         try:
             res = supabase.table("fruit_items").insert(new_item).execute()
