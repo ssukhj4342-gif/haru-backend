@@ -249,7 +249,6 @@
                         <label class="block text-xs font-bold text-gray-400 mb-1">⏰ 영업 시간 수정</label>
                         <input type="text" id="inputHours" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3 border border-gray-200 rounded-xl text-sm sm:text-base font-bold focus:outline-none focus:border-orange-500 transition">
                     </div>
-                    <!-- 🌟 [수정] 괄호 없이 깔끔하게 30분 단위 배달 마감 시간 설정 -->
                     <div>
                         <label class="block text-xs font-bold text-blue-900 mb-1">🚚 오늘 당일 배달 마감 시간 설정</label>
                         <select id="inputDeliveryCutoff" class="w-full p-3 border-2 border-blue-300 bg-blue-50/50 rounded-xl text-sm font-extrabold text-blue-950 focus:outline-none focus:border-blue-500 transition">
@@ -606,7 +605,7 @@
         const CLOUD_NAME = "w9ilodii"; 
         const UPLOAD_PRESET = "haru_preset"; 
 
-        // 🌟 숨김 여부 판별 헬퍼 함수
+        // 🌟 [보정] 상품 숨김 철저 검증 함수
         function checkIsHidden(item) {
             if (!item) return false;
             if (item.is_hidden === true || item.is_hidden === 1) return true;
@@ -690,6 +689,7 @@
                 osc2.type = 'sine';
                 osc2.frequency.setValueAtTime(880, now + 0.15);
                 gain2.gain.setValueAtTime(0.3, now + 0.15);
+                gain2.gain.exponentialRampToValueAtTime(0.3, now + 0.15);
                 gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
                 osc2.connect(gain2);
                 gain2.connect(ctx.destination);
@@ -936,7 +936,7 @@
                 return;
             }
 
-            // 🌟 [수정] 숨김 처리 엄격 검증 적용
+            // 🌟 [손님 화면] 숨김 상품 제거
             let targetFruitItems = fruitItems.filter(item => {
                 if (checkIsHidden(item)) return false;
                 let availDay = item.available_day || 'today';
@@ -1081,19 +1081,27 @@
             updateStickyCheckoutBar();
         }
 
+        // 🌟 [수정 완료] 이벤트 토글과 완벽하게 동일한 보정 구조의 상품 숨김 함수
         async function toggleItemVisibility(fruitId, newHiddenState, btnEl) {
             if(btnEl) btnEl.disabled = true;
             try {
                 const res = await fetch(`${API_URL}/api/admin/fruits/${fruitId}?password=${PASS}`, {
-                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                    method: 'PUT', 
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ is_hidden: newHiddenState })
                 });
                 if(res.ok) { 
                     alert(newHiddenState ? '🙈 상품을 목록에서 숨깁니다.' : '👁️ 상품을 손님 화면에 노출합니다.'); 
-                    loadStoreData(); 
+                    // 이벤트 토글처럼 최신 전체 스토어 데이터를 다시 불러와서 UI 전체 재동기화
+                    await loadStoreData(); 
+                } else {
+                    alert('숨김 설정 변경에 실패했습니다.');
                 }
-            } catch(e) { alert('상품 숨김 설정 변경 실패!'); }
-            finally { if(btnEl) btnEl.disabled = false; }
+            } catch(e) { 
+                alert('상품 숨김 설정 통신 실패!'); 
+            } finally { 
+                if(btnEl) btnEl.disabled = false; 
+            }
         }
 
         function openEditFruitModal(fruitId) {
@@ -2357,7 +2365,7 @@
 
         function resetDateFilter() { document.getElementById('searchDate').value = ''; filterAndRenderCompletedOrders(); }
 
-        // 🌟 [완벽 보정] 엑셀 다운로드 시 유연한 품목명 매칭 및 가격 자동 복원 로직
+        // 🌟 [완벽 복원] 엑셀 가격 무조건 복원 로직
         function downloadExcel(mode = 'all') {
             let targetOrders = [...rawCompletedOrders];
             if (mode === 'month') {
@@ -2374,45 +2382,78 @@
 
             const soldFruitMap = {}; 
 
+            // 1단계: 하단 개별 행 렌더링용 미리 계산
+            const rowsData = [];
+            let rowSeq = 1;
+
             targetOrders.forEach(order => {
+                const orderUserCount = getStrictCustomerOrderCount(order.kakao_nickname);
                 let rawFruitStr = order.fruit_name || order.fruit || "";
                 let fruitItemsList = rawFruitStr.split(',').map(s => s.trim()).filter(s => s);
+                let orderDay = extractOrderAvailableDay(order);
+                let deliveryFeeVal = (order.order_type === '배달') ? 2500 : 0;
 
                 if (fruitItemsList.length > 0) {
-                    fruitItemsList.forEach(itemStr => {
+                    fruitItemsList.forEach((itemStr, itemIdx) => {
                         let pureName = itemStr.replace(/\s*x\d+개/g, "").replace(/\s*\([\d,]+원\)/g, "").replace(/\[[^\]]+\]/g, "").trim();
                         let qtyMatch = itemStr.match(/x(\d+)개/);
-                        let itemQty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
+                        let itemQty = qtyMatch ? parseInt(qtyMatch[1]) : (order.qty || 1);
                         
                         let itemPrice = 0;
                         
-                        // 1차: 유연한 이름 매칭 (공백 제거 후 비교)
+                        // A: 등록 과일 이름 정규화 매칭
                         let foundFruitObj = fruitItems.find(f => f.name.replace(/\s+/g, '') === pureName.replace(/\s+/g, ''));
-                        
                         if (foundFruitObj) {
                             itemPrice = foundFruitObj.is_event ? foundFruitObj.event_price : foundFruitObj.price;
-                        } else {
-                            // 2차: 문자열 내 (15,000원) 형태 파싱
+                        } 
+                        
+                        // B: 주문 텍스트에 포함된 단가 추출 (예: (15,000원))
+                        if (itemPrice === 0) {
                             let priceMatch = itemStr.match(/\(([\d,]+)원\)/);
                             if (priceMatch) {
                                 itemPrice = parseInt(priceMatch[1].replace(/,/g, ''));
-                            } else if (order.price && order.price > 0) {
-                                itemPrice = order.price;
-                            } else if (order.total_price && fruitItemsList.length === 1) {
-                                // 3차: 단일 품목인 경우 주문 총금액 활용
-                                itemPrice = Math.floor(order.total_price / itemQty);
                             }
                         }
+                        
+                        // C: order 객체 단가 적용
+                        if (itemPrice === 0 && order.price && order.price > 0) {
+                            itemPrice = order.price;
+                        }
 
+                        // D: 최종 보구 - total_price 기반 자동 역산
+                        if (itemPrice === 0 && order.total_price && order.total_price > 0) {
+                            itemPrice = Math.floor(order.total_price / itemQty);
+                        }
+
+                        // 상단 요약용 데이터 축적
                         if (!soldFruitMap[pureName]) {
                             soldFruitMap[pureName] = { price: itemPrice, qty: 0, total: 0 };
-                        } else if (soldFruitMap[pureName].price === 0 && itemPrice > 0) {
+                        }
+                        soldFruitMap[pureName].qty += itemQty;
+                        if (itemPrice > 0) {
                             soldFruitMap[pureName].price = itemPrice;
                         }
-                        
-                        soldFruitMap[pureName].qty += itemQty;
-                        soldFruitMap[pureName].total += (itemPrice * itemQty);
+
+                        rowsData.push({
+                            rowSeq: itemIdx === 0 ? rowSeq : '',
+                            orderType: itemIdx === 0 ? (order.order_type || "픽업") : '',
+                            orderDay: itemIdx === 0 ? orderDay : '',
+                            kakao: itemIdx === 0 ? (order.kakao_nickname || "") : '',
+                            name: itemIdx === 0 ? (order.name || "") : '',
+                            userCount: itemIdx === 0 ? (orderUserCount + '회차') : '',
+                            address: itemIdx === 0 ? (order.address || "-") : '',
+                            pureName: pureName,
+                            itemPrice: itemPrice,
+                            itemQty: itemQty,
+                            deliveryFee: itemIdx === 0 ? deliveryFeeVal : 0,
+                            method: itemIdx === 0 ? (order.method || "계좌이체") : '',
+                            doorPassword: itemIdx === 0 ? (order.door_password || "-") : '',
+                            timeStr: itemIdx === 0 ? (order.time_str || "") : '',
+                            changedTime: itemIdx === 0 ? (order.status_changed_time || "") : '',
+                            isFirst: itemIdx === 0
+                        });
                     });
+                    rowSeq++;
                 }
             });
 
@@ -2449,7 +2490,7 @@
 
             uniqueSoldFruitNames.forEach((fName, idx) => {
                 const r = 4 + idx;
-                const itemData = soldFruitMap[fName] || { price: 0, qty: 0, total: 0 };
+                const itemData = soldFruitMap[fName] || { price: 0, qty: 0 };
                 let sumColHtml = "";
                 
                 if (idx === 0) sumColHtml = `<th></th><th class="sum-header">전체 총 매출액</th><th class="sum-header">전체 총 순이익</th><th class="sum-header">평균 마진율</th>`;
@@ -2480,72 +2521,25 @@
                     <th class="data-header">수령 완료시간</th>
                 </tr>`;
 
-            let rowSeq = 1;
             let currentRowIndex = calcEndRow + 3;
 
-            targetOrders.forEach(order => {
-                const orderUserCount = getStrictCustomerOrderCount(order.kakao_nickname);
-                let rawFruitStr = order.fruit_name || order.fruit || "";
-                let fruitItemsList = rawFruitStr.split(',').map(s => s.trim()).filter(s => s);
-                let orderDay = extractOrderAvailableDay(order);
-                let deliveryFeeVal = (order.order_type === '배달') ? 2500 : 0;
+            rowsData.forEach(row => {
+                let formulaTotalPrice = row.isFirst ? `=K${currentRowIndex}+L${currentRowIndex}` : `=K${currentRowIndex}`;
 
-                if (fruitItemsList.length > 0) {
-                    fruitItemsList.forEach((itemStr, itemIdx) => {
-                        let pureName = itemStr.replace(/\s*x\d+개/g, "").replace(/\s*\([\d,]+원\)/g, "").replace(/\[[^\]]+\]/g, "").trim();
-                        let qtyMatch = itemStr.match(/x(\d+)개/);
-                        let itemQty = qtyMatch ? parseInt(qtyMatch[1]) : (order.qty || 1);
-                        
-                        let itemPrice = 0;
-                        let foundFruitObj = fruitItems.find(f => f.name.replace(/\s+/g, '') === pureName.replace(/\s+/g, ''));
-                        if (foundFruitObj) {
-                            itemPrice = foundFruitObj.is_event ? foundFruitObj.event_price : foundFruitObj.price;
-                        } else {
-                            let priceMatch = itemStr.match(/\(([\d,]+)원\)/);
-                            if (priceMatch) {
-                                itemPrice = parseInt(priceMatch[1].replace(/,/g, ''));
-                            } else if (order.price && order.price > 0) {
-                                itemPrice = order.price;
-                            } else if (order.total_price && fruitItemsList.length === 1) {
-                                itemPrice = Math.floor(order.total_price / itemQty);
-                            }
-                        }
-
-                        let isFirst = itemIdx === 0;
-                        let formulaTotalPrice = isFirst ? `=K${currentRowIndex}+L${currentRowIndex}` : `=K${currentRowIndex}`;
-
-                        html += `
-                        <tr>
-                            <td class="center">${isFirst ? rowSeq++ : ''}</td><td class="center">${isFirst ? (order.order_type || "픽업") : ''}</td>
-                            <td class="center">${isFirst ? orderDay : ''}</td>
-                            <td>${isFirst ? (order.kakao_nickname || "") : ''}</td><td>${isFirst ? (order.name || "") : ''}</td>
-                            <td class="center">${isFirst ? (orderUserCount + '회차') : ''}</td><td>${isFirst ? (order.address || "-") : ''}</td>
-                            <td class="text-cell">${pureName}</td><td class="num">${itemPrice}</td><td class="num">${itemQty}</td>
-                            <td class="num">=I${currentRowIndex}*J${currentRowIndex}</td>
-                            <td class="num">${isFirst ? deliveryFeeVal : 0}</td>
-                            <td class="num" style="${isFirst ? 'font-weight:bold; color:#dc2626;' : ''}">${formulaTotalPrice}</td>
-                            <td class="center">${isFirst ? (order.method || "계좌이체") : ''}</td><td class="center">${isFirst ? (order.door_password || "-") : ''}</td>
-                            <td class="center">${isFirst ? (order.time_str || "") : ''}</td><td class="center">${isFirst ? (order.status_changed_time || "") : ''}</td>
-                        </tr>`;
-                        currentRowIndex++;
-                    });
-                } else {
-                    html += `
-                    <tr>
-                        <td class="center">${rowSeq++}</td><td class="center">${order.order_type || "픽업"}</td>
-                        <td class="center">${orderDay}</td>
-                        <td>${order.kakao_nickname || ""}</td><td>${order.name || ""}</td>
-                        <td class="center">${orderUserCount}회차</td><td>${order.address || "-"}</td>
-                        <td class="text-cell">${rawFruitStr}</td><td class="num">${order.price || 0}</td>
-                        <td class="num">${order.qty || 1}</td>
-                        <td class="num">=I${currentRowIndex}*J${currentRowIndex}</td>
-                        <td class="num">${deliveryFeeVal}</td>
-                        <td class="num" style="font-weight:bold; color:#dc2626;">=K${currentRowIndex}+L${currentRowIndex}</td>
-                        <td class="center">${order.method || "계좌이체"}</td><td class="center">${order.door_password || "-"}</td>
-                        <td class="center">${order.time_str || ""}</td><td class="center">${order.status_changed_time || ""}</td>
-                    </tr>`;
-                    currentRowIndex++;
-                }
+                html += `
+                <tr>
+                    <td class="center">${row.rowSeq}</td><td class="center">${row.orderType}</td>
+                    <td class="center">${row.orderDay}</td>
+                    <td>${row.kakao}</td><td>${row.name}</td>
+                    <td class="center">${row.userCount}</td><td>${row.address}</td>
+                    <td class="text-cell">${row.pureName}</td><td class="num">${row.itemPrice}</td><td class="num">${row.itemQty}</td>
+                    <td class="num">=I${currentRowIndex}*J${currentRowIndex}</td>
+                    <td class="num">${row.deliveryFee}</td>
+                    <td class="num" style="${row.isFirst ? 'font-weight:bold; color:#dc2626;' : ''}">${formulaTotalPrice}</td>
+                    <td class="center">${row.method}</td><td class="center">${row.doorPassword}</td>
+                    <td class="center">${row.timeStr}</td><td class="center">${row.changedTime}</td>
+                </tr>`;
+                currentRowIndex++;
             });
 
             html += `</table></body></html>`;
