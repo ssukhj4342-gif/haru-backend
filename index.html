@@ -477,9 +477,19 @@
                     <textarea id="editFruitDesc" rows="3" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3 border border-gray-300 rounded-xl font-medium focus:outline-none focus:border-orange-500"></textarea>
                 </div>
                 <div>
-                    <label class="block font-bold text-gray-500 mb-1">🖼️ 메인 썸네일 새로 변경 (선택)</label>
+                    <label class="block font-bold text-gray-500 mb-1">🖼️ 메인 썸네일 이미지</label>
                     <input type="file" id="editFileFruitImg" accept="image/*" class="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:bg-gray-200">
                     <input type="hidden" id="editFruitImgUrl">
+                    <div id="editFruitCurrentImgBox" class="mt-2 hidden rounded-xl border border-gray-200 bg-gray-50 p-2">
+                        <div class="flex items-center gap-3">
+                            <img id="editFruitCurrentImg" src="" alt="현재 상품 이미지" class="w-16 h-16 object-cover rounded-lg border border-gray-200 bg-white">
+                            <div class="flex-1 min-w-0">
+                                <p class="text-xs font-bold text-gray-500">현재 등록된 이미지</p>
+                                <p class="text-[10px] text-gray-400 truncate">저장된 이미지를 손님 화면에서 제거할 수 있어요.</p>
+                            </div>
+                            <button type="button" onclick="clearEditFruitImage()" class="shrink-0 bg-red-100 text-red-600 font-black px-3 py-2 rounded-lg text-xs hover:bg-red-200 active:scale-95 transition">🗑️ 이미지 삭제</button>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="flex gap-2 pt-2">
@@ -608,8 +618,9 @@
         // 백엔드에서 boolean / 숫자 / 문자열로 내려오는 경우를 모두 처리
         function checkIsHidden(item) {
             if (!item) return false;
-            const value = item.is_hidden;
-            return value === true || value === 1 || String(value).toLowerCase().trim() === 'true' || String(value).trim() === '1';
+            if (item.is_hidden === true || item.is_hidden === 1) return true;
+            const value = String(item.is_hidden).toLowerCase().trim();
+            return value === 'true' || value === '1';
         }
 
         async function uploadToCloudinary(file) {
@@ -880,9 +891,9 @@
             });
         }
 
-        async function loadStoreData(forceRefresh = false) {
+        async function loadStoreData() {
             try {
-                const res = await fetch(`${API_URL}/api/init-data${forceRefresh ? `?t=${Date.now()}` : ''}`, { cache: 'no-store' });
+                const res = await fetch(`${API_URL}/api/init-data`);
                 if(res.ok) {
                     const data = await res.json();
                     storeMeta = data.meta || {};
@@ -1079,26 +1090,22 @@
 
         async function toggleItemVisibility(fruitId, newHiddenState, btnEl) {
             if (btnEl) btnEl.disabled = true;
+
             try {
-                const res = await fetch(`${API_URL}/api/admin/fruits/${encodeURIComponent(fruitId)}?password=${encodeURIComponent(PASS)}`, {
+                // 다른 상품 정보까지 덮어쓰지 않고 숨김 상태만 변경한다.
+                const res = await fetch(`${API_URL}/api/admin/fruits/${fruitId}?password=${PASS}`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
-                    cache: 'no-store',
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ is_hidden: Boolean(newHiddenState) })
                 });
 
-                const data = await res.json().catch(() => ({}));
                 if (!res.ok) {
-                    throw new Error(data.detail || `숨김 설정 변경 실패 (${res.status})`);
-                }
-
-                const saved = data.data?.[0]?.is_hidden;
-                if (saved !== undefined && checkIsHidden({ is_hidden: saved }) !== Boolean(newHiddenState)) {
-                    throw new Error('서버에 숨김 상태가 저장되지 않았습니다. Supabase의 is_hidden 컬럼을 확인해주세요.');
+                    const errorData = await res.json().catch(() => ({}));
+                    throw new Error(errorData.detail || '숨김 설정 변경 실패');
                 }
 
                 alert(newHiddenState ? '🙈 상품을 손님 화면에서 숨겼습니다.' : '👁️ 상품을 손님 화면에 다시 노출했습니다.');
-                await loadStoreData(true);
+                await loadStoreData();
             } catch (e) {
                 console.error('상품 숨김 설정 오류:', e);
                 alert(e.message || '상품 숨김 설정 변경에 실패했습니다.');
@@ -1121,7 +1128,36 @@
             document.getElementById('editFruitImgUrl').value = item.img || '';
             document.getElementById('editFileFruitImg').value = '';
 
+            const currentImgBox = document.getElementById('editFruitCurrentImgBox');
+            const currentImg = document.getElementById('editFruitCurrentImg');
+            if (item.img) {
+                currentImg.src = item.img;
+                currentImgBox.classList.remove('hidden');
+            } else {
+                currentImg.removeAttribute('src');
+                currentImgBox.classList.add('hidden');
+            }
+
             document.getElementById('editFruitModal').classList.remove('hidden');
+        }
+
+        // 상품에서 현재 등록된 썸네일 이미지만 제거한다.
+        // Cloudinary 원본 파일 자체를 삭제하는 것이 아니라 DB의 이미지 주소를 비우는 방식이다.
+        function clearEditFruitImage() {
+            const imgUrlInput = document.getElementById('editFruitImgUrl');
+            const fileInput = document.getElementById('editFileFruitImg');
+            const currentImgBox = document.getElementById('editFruitCurrentImgBox');
+            const currentImg = document.getElementById('editFruitCurrentImg');
+
+            if (!imgUrlInput) return;
+
+            if (!confirm('현재 등록된 상품 이미지를 삭제할까요?\n\n저장 버튼을 눌러야 실제 상품에서 삭제됩니다.')) return;
+
+            imgUrlInput.value = '';
+            if (fileInput) fileInput.value = '';
+            if (currentImg) currentImg.removeAttribute('src');
+            if (currentImgBox) currentImgBox.classList.add('hidden');
+            showToast('이미지 삭제가 선택되었습니다. [수정 완료 저장]을 눌러주세요.');
         }
 
         function closeEditFruitModal() {
@@ -1151,41 +1187,37 @@
             btn.innerText = '저장 중...';
 
             try {
+                // 파일 선택 후 바로 업로드하지 않고, 최종 저장 시 업로드한다.
+                // 업로드 URL이 hidden input에 들어가지 않는 경우에도 정상 처리된다.
                 const selectedFile = fileInput?.files?.[0];
                 if (selectedFile) {
-                    showToast('이미지 업로드 중...');
+                    showToast('새 썸네일 업로드 중...');
                     img = await uploadToCloudinary(selectedFile);
-                    if (!img) throw new Error('Cloudinary에서 이미지 URL을 받지 못했습니다.');
+                    document.getElementById('editFruitImgUrl').value = img;
                 }
 
-                const payload = {
-                    name,
-                    price,
-                    event_price: eventPrice,
-                    stock: stock < 0 ? 0 : stock,
-                    available_day: availableDay,
-                    description: desc,
-                    img
-                };
-
-                const res = await fetch(`${API_URL}/api/admin/fruits/${encodeURIComponent(fruitId)}?password=${encodeURIComponent(PASS)}`, {
+                const res = await fetch(`${API_URL}/api/admin/fruits/${fruitId}?password=${PASS}`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
-                    cache: 'no-store',
-                    body: JSON.stringify(payload)
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name,
+                        price,
+                        event_price: eventPrice,
+                        stock: stock < 0 ? 0 : stock,
+                        available_day: availableDay,
+                        description: desc,
+                        img
+                    })
                 });
 
-                const data = await res.json().catch(() => ({}));
-                if (!res.ok) throw new Error(data.detail || `상품 수정 저장 실패 (${res.status})`);
-
-                const savedImg = data.data?.[0]?.img;
-                if (selectedFile && savedImg !== img) {
-                    throw new Error('이미지는 업로드됐지만 상품 DB에 이미지 URL이 저장되지 않았습니다.');
+                if (!res.ok) {
+                    const errorData = await res.json().catch(() => ({}));
+                    throw new Error(errorData.detail || '수정 저장 실패');
                 }
 
                 alert('과일 품목 정보가 성공적으로 수정되었습니다! 🎉');
                 closeEditFruitModal();
-                await loadStoreData(true);
+                await loadStoreData();
             } catch (e) {
                 console.error('과일 수정 오류:', e);
                 alert(e.message || '서버 통신 오류가 발생했습니다.');
@@ -1193,6 +1225,29 @@
                 btn.disabled = false;
                 btn.innerText = '수정 완료 저장';
             }
+        }
+
+        async function handleEventToggle(fruitId, enableEvent, normalPrice, btnEl) {
+            let eventPrice = 0;
+            if (enableEvent) {
+                let input = prompt(`🎉 [${fruitItems.find(f=>f.id===fruitId)?.name}] 이벤트 특가를 입력하세요.\n(현재 정상가: ${Number(normalPrice).toLocaleString()}원)`, normalPrice);
+                if (input === null) return;
+                eventPrice = parseInt(input);
+                if (isNaN(eventPrice) || eventPrice <= 0) {
+                    alert("⚠️ 올바른 숫자를 입력해 주세요!");
+                    return;
+                }
+            }
+
+            if(btnEl) btnEl.disabled = true;
+            try {
+                const res = await fetch(`${API_URL}/api/admin/fruits/${fruitId}?password=${PASS}`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ is_event: enableEvent, event_price: eventPrice })
+                });
+                if(res.ok) { alert(enableEvent ? '🎉 특가 이벤트가 시작되었습니다!' : '🏷️ 이벤트가 해제되었습니다.'); await loadStoreData(); }
+            } catch(e) { alert('서버 통신 실패!'); }
+            finally { if(btnEl) btnEl.disabled = false; }
         }
 
         function adjustOrderFormQty(fruitId, fruitName, price, availableDay, change) {
