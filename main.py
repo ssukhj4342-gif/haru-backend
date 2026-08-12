@@ -79,6 +79,7 @@ class StoreMetaUpdate(BaseModel):
     owner: Optional[str] = None
     hours: Optional[str] = None
     notice_img: Optional[str] = None
+    delivery_cutoff: Optional[str] = None
 
 def restore_order_stock(order_id: int):
     try:
