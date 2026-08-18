@@ -177,20 +177,20 @@
                 <div class="space-y-3">
                     <div>
                         <label class="block text-xs font-bold text-gray-400 mb-1">💬 카톡 닉네임 (아파트+휴대폰뒷자리)</label>
-                        <input type="text" id="buyerKakao" placeholder="예: 래미안1234" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3.5 border-2 border-gray-200 rounded-2xl text-base font-bold focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition">
+                        <input type="text" id="buyerKakao" placeholder="예: 래미안1234" autocomplete="off" class="w-full p-3.5 border-2 border-gray-200 rounded-2xl text-base font-bold focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition" lang="ko" inputmode="text">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-gray-400 mb-1">👤 주문자 성함</label>
-                        <input type="text" id="buyerName" placeholder="예: 박명숙" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3.5 border-2 border-gray-200 rounded-2xl text-base font-bold focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition">
+                        <input type="text" id="buyerName" placeholder="예: 박명숙" autocomplete="off" class="w-full p-3.5 border-2 border-gray-200 rounded-2xl text-base font-bold focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition" lang="ko" inputmode="text">
                     </div>
                     <div id="addressInputBox" class="hidden space-y-3 border-t border-orange-200 pt-3">
                         <div>
                             <label class="block text-xs font-bold text-orange-900 mb-1">🏠 배달 상세 주소</label>
-                            <input type="text" id="buyerAddress" placeholder="예: 흑석동 센트레빌 101동 1202호" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3.5 border-2 border-orange-300 bg-orange-50/50 rounded-2xl text-base font-bold focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition">
+                            <input type="text" id="buyerAddress" placeholder="예: 흑석동 센트레빌 101동 1202호" autocomplete="off" class="w-full p-3.5 border-2 border-orange-300 bg-orange-50/50 rounded-2xl text-base font-bold focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition" lang="ko" inputmode="text">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-orange-900 mb-1">🔑 공동현관 비밀번호</label>
-                            <input type="text" id="buyerDoorPassword" placeholder="예: #1234* 또는 자유출입" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3.5 border-2 border-orange-300 bg-orange-50/50 rounded-2xl text-base font-bold focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition">
+                            <input type="text" id="buyerDoorPassword" placeholder="예: #1234* 또는 자유출입" autocomplete="off" class="w-full p-3.5 border-2 border-orange-300 bg-orange-50/50 rounded-2xl text-base font-bold focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition" lang="ko" inputmode="text">
                         </div>
                     </div>
                 </div>
@@ -207,8 +207,8 @@
                     <span class="text-[11px] text-gray-400 font-bold whitespace-nowrap shrink-0">1초 빠른 조회</span>
                 </div>
                 <div class="space-y-2">
-                    <input type="text" id="dashSearchKakao" placeholder="카톡 닉네임 (예: 래미안1234 또는 뒷자리 1234)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3 bg-gray-800/90 border border-gray-600 rounded-xl text-xs sm:text-sm font-bold text-white placeholder-gray-400 focus:outline-none focus:border-orange-500 transition box-border">
-                    <input type="text" id="dashSearchName" placeholder="주문자 성함 (예: 박명숙)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3 bg-gray-800/90 border border-gray-600 rounded-xl text-xs sm:text-sm font-bold text-white placeholder-gray-400 focus:outline-none focus:border-orange-500 transition box-border">
+                    <input type="text" id="dashSearchKakao" placeholder="카톡 닉네임 (예: 래미안1234 또는 뒷자리 1234)" autocomplete="off" class="w-full p-3 bg-gray-800/90 border border-gray-600 rounded-xl text-xs sm:text-sm font-bold text-white placeholder-gray-400 focus:outline-none focus:border-orange-500 transition box-border" lang="ko" inputmode="text">
+                    <input type="text" id="dashSearchName" placeholder="주문자 성함 (예: 박명숙)" autocomplete="off" class="w-full p-3 bg-gray-800/90 border border-gray-600 rounded-xl text-xs sm:text-sm font-bold text-white placeholder-gray-400 focus:outline-none focus:border-orange-500 transition box-border" lang="ko" inputmode="text">
                 </div>
                 <button id="btnDashFetchOrders" onclick="fetchMyOrdersFromDash()" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-3 rounded-xl text-sm shadow-md transition active:scale-95">
                     내 주문 확인하기 🍊
@@ -230,7 +230,7 @@
                 <div class="space-y-3">
                     <div>
                         <label class="block text-xs font-bold text-gray-400 mb-1">📋 데일리 공지 수정</label>
-                        <textarea id="inputDailyNotice" rows="3" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3 border border-gray-200 rounded-xl text-sm sm:text-base font-medium focus:outline-none focus:border-orange-500 transition"></textarea>
+                        <textarea id="inputDailyNotice" rows="3" autocomplete="off" class="w-full p-3 border border-gray-200 rounded-xl text-sm sm:text-base font-medium focus:outline-none focus:border-orange-500 transition" lang="ko" inputmode="text"></textarea>
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-gray-400 mb-1">🖼️ 공지사항 이미지 업로드</label>
@@ -239,15 +239,15 @@
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-gray-400 mb-1">💰 계좌 번호 수정</label>
-                        <input type="text" id="inputAccount" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3 border border-gray-200 rounded-xl text-sm sm:text-base font-bold focus:outline-none focus:border-orange-500 transition">
+                        <input type="text" id="inputAccount" autocomplete="off" class="w-full p-3 border border-gray-200 rounded-xl text-sm sm:text-base font-bold focus:outline-none focus:border-orange-500 transition" lang="ko" inputmode="text">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-gray-400 mb-1">👤 예금주 명 수정</label>
-                        <input type="text" id="inputAccountOwner" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3 border border-gray-200 rounded-xl text-sm sm:text-base font-bold focus:outline-none focus:border-orange-500 transition">
+                        <input type="text" id="inputAccountOwner" autocomplete="off" class="w-full p-3 border border-gray-200 rounded-xl text-sm sm:text-base font-bold focus:outline-none focus:border-orange-500 transition" lang="ko" inputmode="text">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-gray-400 mb-1">⏰ 영업 시간 수정</label>
-                        <input type="text" id="inputHours" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3 border border-gray-200 rounded-xl text-sm sm:text-base font-bold focus:outline-none focus:border-orange-500 transition">
+                        <input type="text" id="inputHours" autocomplete="off" class="w-full p-3 border border-gray-200 rounded-xl text-sm sm:text-base font-bold focus:outline-none focus:border-orange-500 transition" lang="ko" inputmode="text">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-blue-900 mb-1">🚚 오늘 당일 배달 마감 시간 설정</label>
@@ -312,12 +312,12 @@
                     </div>
                     <div id="itemAddForm" class="hidden bg-gray-50 p-4 rounded-2xl border border-gray-200 space-y-3">
                         <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
-                            <input type="text" id="newFruitName" placeholder="과일 품목명" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition">
+                            <input type="text" id="newFruitName" placeholder="과일 품목명" autocomplete="off" class="p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition" lang="ko" inputmode="text">
                             <input type="number" id="newFruitPrice" placeholder="판매 가격 (숫자만)" class="p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition">
                             <input type="number" id="newFruitStock" placeholder="초기 재고량" class="p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition">
                             <select id="newFruitAvailableDay" class="p-3 border border-gray-300 rounded-xl text-sm bg-white font-bold focus:outline-none focus:border-orange-500 transition"></select>
                         </div>
-                        <textarea id="newFruitDesc" rows="2" placeholder="상품 상세 설명을 입력하세요 (선택)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition"></textarea>
+                        <textarea id="newFruitDesc" rows="2" placeholder="상품 상세 설명을 입력하세요 (선택)" autocomplete="off" class="w-full p-3 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 transition" lang="ko" inputmode="text"></textarea>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
                             <div>
                                 <label class="block text-xs font-bold text-gray-400 mb-1">🖼️ 메인 썸네일 1장</label>
@@ -351,7 +351,7 @@
                                 <option value="today" selected>🍊 당일 수령건</option>
                             </select>
                             <div class="relative w-full sm:w-52">
-                                <input type="text" id="pickupSearchKeyword" oninput="renderAdminOrders()" placeholder="🔍 성함 / 닉네임 검색..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-2.5 text-xs font-bold bg-gray-50 border border-gray-300 rounded-xl focus:outline-none focus:border-orange-500 transition">
+                                <input type="text" id="pickupSearchKeyword" oninput="renderAdminOrders()" placeholder="🔍 성함 / 닉네임 검색..." autocomplete="off" class="w-full p-2.5 text-xs font-bold bg-gray-50 border border-gray-300 rounded-xl focus:outline-none focus:border-orange-500 transition" lang="ko" inputmode="text">
                             </div>
                         </div>
                     </div>
@@ -421,7 +421,7 @@
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-5 gap-3 bg-gray-50 p-3 rounded-2xl border border-gray-200">
                         <div class="sm:col-span-2 relative">
-                            <input type="text" id="searchKeyword" oninput="filterAndRenderCompletedOrders()" placeholder="🔍 이름, 닉네임, 품목명 검색..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-2.5 pr-8 bg-white border border-gray-300 rounded-xl text-sm font-bold focus:outline-none focus:border-orange-500 transition">
+                            <input type="text" id="searchKeyword" oninput="filterAndRenderCompletedOrders()" placeholder="🔍 이름, 닉네임, 품목명 검색..." autocomplete="off" class="w-full p-2.5 pr-8 bg-white border border-gray-300 rounded-xl text-sm font-bold focus:outline-none focus:border-orange-500 transition" lang="ko" inputmode="text">
                             <button onclick="clearSearchInput('searchKeyword')" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-bold bg-gray-100 hover:bg-gray-200 rounded-full w-5 h-5 flex items-center justify-center">✕</button>
                         </div>
                         <div><input type="date" id="searchDate" onchange="filterAndRenderCompletedOrders()" class="w-full p-2.5 bg-white border border-gray-300 rounded-xl text-sm font-bold text-gray-700 focus:outline-none focus:border-orange-500 transition"></div>
@@ -450,7 +450,7 @@
             <div class="space-y-3 text-xs sm:text-sm">
                 <div>
                     <label class="block font-bold text-gray-500 mb-1">과일 품목명</label>
-                    <input type="text" id="editFruitName" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3 border border-gray-300 rounded-xl font-bold focus:outline-none focus:border-orange-500">
+                    <input type="text" id="editFruitName" autocomplete="off" class="w-full p-3 border border-gray-300 rounded-xl font-bold focus:outline-none focus:border-orange-500" lang="ko" inputmode="text">
                 </div>
                 <div class="grid grid-cols-2 gap-2">
                     <div>
@@ -474,7 +474,7 @@
                 </div>
                 <div>
                     <label class="block font-bold text-gray-500 mb-1">상품 상세 설명</label>
-                    <textarea id="editFruitDesc" rows="3" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3 border border-gray-300 rounded-xl font-medium focus:outline-none focus:border-orange-500"></textarea>
+                    <textarea id="editFruitDesc" rows="3" autocomplete="off" class="w-full p-3 border border-gray-300 rounded-xl font-medium focus:outline-none focus:border-orange-500" lang="ko" inputmode="text"></textarea>
                 </div>
                 <div>
                     <label class="block font-bold text-gray-500 mb-1">🖼️ 메인 썸네일 이미지</label>
@@ -783,6 +783,31 @@
             if (input) { input.value = ''; filterAndRenderCompletedOrders(); }
         }
 
+        // ===== 한글(IME) 입력 안정화 =====
+        // 브라우저가 한글 조합 중인 입력창을 다시 그리거나 값을 덮어쓰지 않도록 보호한다.
+        const composingInputs = new WeakSet();
+
+        document.addEventListener('compositionstart', (e) => {
+            if (e.target && (e.target.matches('input[type="text"], textarea') || e.target.isContentEditable)) {
+                composingInputs.add(e.target);
+            }
+        });
+
+        document.addEventListener('compositionend', (e) => {
+            if (e.target) composingInputs.delete(e.target);
+        });
+
+        function isComposingInput(el) {
+            return !!el && composingInputs.has(el);
+        }
+
+        // 한글 조합 중 Enter가 주문/관리자 동작으로 잘못 처리되는 것을 방지한다.
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && isComposingInput(e.target)) {
+                e.stopPropagation();
+            }
+        }, true);
+
         window.onload = function() {
             generateTenDays();
             setupTenDaysToggleList();
@@ -918,13 +943,21 @@
             document.getElementById('displayAccountOwner').innerText = storeMeta.owner ? `(예금주: ${storeMeta.owner})` : '';
             document.getElementById('displayHours').innerText = storeMeta.hours || '영업시간 정보가 없습니다.';
 
-            document.getElementById('inputDailyNotice').value = storeMeta.notice || '';
-            document.getElementById('inputNoticeImgUrl').value = storeMeta.notice_img || '';
-            document.getElementById('inputAccount').value = storeMeta.account || '';
-            document.getElementById('inputAccountOwner').value = storeMeta.owner || '';
-            document.getElementById('inputHours').value = storeMeta.hours || '';
+            // 현재 사용자가 입력 중인 텍스트 필드는 서버 새로고침 때문에 덮어쓰지 않는다.
+            const safeSetValue = (id, value) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                if (el === document.activeElement || isComposingInput(el)) return;
+                el.value = value ?? '';
+            };
+            safeSetValue('inputDailyNotice', storeMeta.notice || '');
+            safeSetValue('inputNoticeImgUrl', storeMeta.notice_img || '');
+            safeSetValue('inputAccount', storeMeta.account || '');
+            safeSetValue('inputAccountOwner', storeMeta.owner || '');
+            safeSetValue('inputHours', storeMeta.hours || '');
             if (storeMeta.delivery_cutoff) {
-                document.getElementById('inputDeliveryCutoff').value = storeMeta.delivery_cutoff;
+                const cutoffEl = document.getElementById('inputDeliveryCutoff');
+                if (cutoffEl && cutoffEl !== document.activeElement) cutoffEl.value = storeMeta.delivery_cutoff;
             }
 
             document.getElementById('modalAccount').innerText = "계좌: " + (storeMeta.account || '') + " (복사)";
